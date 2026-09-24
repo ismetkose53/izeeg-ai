@@ -38,7 +38,11 @@ import {
   ChevronDown,
   FileText,
   Clock,
-  ChevronRight
+  ChevronRight,
+  Code,
+  Terminal,
+  Cpu,
+  Workflow
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { IzeegLogo } from './IzeegLogo';
@@ -229,7 +233,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
             </div>
 
             {/* Orta Menü (Desktop Linkler) */}
-            <nav className="hidden lg:flex items-center gap-6 text-xs font-bold text-slate-300">
+            <nav className="hidden lg:flex items-center gap-5 text-xs font-bold text-slate-300">
               <button 
                 onClick={() => scrollToSection('features')}
                 className="hover:text-white transition-colors cursor-pointer"
@@ -265,6 +269,12 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                 className="hover:text-purple-400 transition-colors cursor-pointer"
               >
                 Fiyatlandırma
+              </button>
+              <button 
+                onClick={() => scrollToSection('about')}
+                className="hover:text-amber-300 transition-colors cursor-pointer font-black text-amber-400/90"
+              >
+                Hakkında & Mimari
               </button>
               <button 
                 onClick={() => scrollToSection('faq')}
@@ -334,6 +344,9 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
               </button>
               <button onClick={() => scrollToSection('pricing')} className="text-left py-2 px-3 rounded-lg hover:bg-slate-800 text-purple-300">
                 💎 Şeffaf Fiyatlandırma
+              </button>
+              <button onClick={() => scrollToSection('about')} className="text-left py-2 px-3 rounded-lg hover:bg-slate-800 text-amber-300 font-black">
+                👑 Hakkında & Yapımcı (İsmet Köse)
               </button>
               <button onClick={() => scrollToSection('faq')} className="text-left py-2 px-3 rounded-lg hover:bg-slate-800 text-slate-400">
                 ❓ Sıkça Sorulan Sorular
@@ -1315,7 +1328,146 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
         </section>
 
         {/* ========================================================================= */}
-        {/* 9. SIKÇA SORULAN SORULAR (S.S.S.) BÖLÜMÜ (#faq) */}
+        {/* 9. HAKKIMIZDA & KURUCU MİMAR (İSMET KÖSE) & ÖZEL YAZILIM ÇÖZÜMLERİ (#about) */}
+        {/* ========================================================================= */}
+        <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-slate-800/80 scroll-mt-20">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+            
+            {/* Sol: Kurucu Kimliği & Vizyon Metni */}
+            <div className="lg:col-span-6 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-black text-amber-300">
+                <Award className="w-4 h-4 text-amber-400" />
+                <span>YAPIMCI & BAŞ YAZILIM MİMARI</span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white leading-tight">
+                Geleceğin E-Ticaret ve Yapay Zeka Sistemlerini İnşa Ediyoruz.
+              </h2>
+
+              <div className="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                <p>
+                  <strong>izeeg AI</strong>; Türkiye’de ve küresel pazarda binlerce e-ticaret satıcısının yaşadığı gizli kâr kayıplarını, hatalı kargo desi kesintilerini ve çok kanallı operasyonel karmaşayı ortadan kaldırmak üzere <strong className="text-white">İsmet Köse</strong> liderliğinde geliştirilmiş yeni nesil bir otonom ekosistemdir.
+                </p>
+                <p>
+                  Yapay zeka uzmanı, SaaS sistem mimarı ve kıdemli yazılım mühendisi <strong>İsmet Köse</strong>; modern makine öğrenmesi modelleri, otonom AI ajanları (Autonomous Agents) ve yüksek hacimli finansal veri işleme algoritmalarını harmanlayarak Türk e-ticaret satıcılarının kasalarını 7/24 koruyan bu yerli ve milli işletim sistemini sıfırdan tasarlamıştır.
+                </p>
+              </div>
+
+              {/* Kurucu Rozet Kartı */}
+              <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-pink-600 text-white font-black text-xl flex items-center justify-center shadow-lg shadow-orange-500/20 flex-shrink-0">
+                  İK
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-white flex items-center gap-1.5">
+                    <span>İsmet Köse</span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-400 font-bold px-2 py-0.5 rounded border border-amber-500/30">
+                      Founder & Lead Architect
+                    </span>
+                  </h4>
+                  <span className="text-xs text-slate-400 block mt-0.5">
+                    Yapay Zeka & SaaS Çözümleri Baş Mimarı
+                  </span>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1 font-mono">
+                    <span>📍 İstanbul / TR</span>
+                    <span>•</span>
+                    <a href="mailto:ismetnote2@gmail.com" className="text-orange-400 hover:underline">ismetnote2@gmail.com</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sağ: Özel Yazılım & SaaS Geliştirme Hizmetleri Vitrini */}
+            <div className="lg:col-span-6">
+              <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-[#111726] to-[#0b101c] border border-slate-700/90 shadow-2xl relative overflow-hidden space-y-6">
+                
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-black text-[#f27a1a] uppercase tracking-wider">
+                    <Code className="w-4 h-4" />
+                    <span>ÖZEL YAZILIM & KURUMSAL ÇÖZÜMLER</span>
+                  </div>
+                  <h3 className="text-xl font-black text-white">
+                    İşletmenize Özel Yapay Zeka & SaaS Projesi Mi Lazım?
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Şirketinizin ihtiyaçlarına tam uyumlu özel yazılım sistemlerini, yapay zeka entegrasyonlarını ve büyük ölçekli SaaS platformlarını uçtan uca geliştiriyoruz.
+                  </p>
+                </div>
+
+                {/* 4 Özel Hizmet Maddesi */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  
+                  <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <Cpu className="w-4 h-4 text-purple-400" />
+                      <span>Özel AI Ajanları & LLM</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 block leading-tight">
+                      GPT-4o, Claude ve lokal LLM destekli otonom şirket asistanları ve müşteri botları.
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <Terminal className="w-4 h-4 text-blue-400" />
+                      <span>Kurumsal SaaS & Web</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 block leading-tight">
+                      Modern React, Next.js, Node.js ve cloud tabanlı yüksek performanslı web uygulamaları.
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <Workflow className="w-4 h-4 text-emerald-400" />
+                      <span>Özel ERP & Entegrasyon</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 block leading-tight">
+                      Muhasebe, depo, kargo ve pazar yerleri arasında sıfır gecikmeli iki yönlü API köprüleri.
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <TrendingUp className="w-4 h-4 text-amber-400" />
+                      <span>Algoritmik Finans & Bot</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 block leading-tight">
+                      Otomatik fiyatlandırma botları, anomali tespiti ve kestirimci veri modelleme.
+                    </span>
+                  </div>
+
+                </div>
+
+                {/* Doğrudan İletişim & Teklif Butonları */}
+                <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-center gap-3">
+                  <a
+                    href="https://wa.me/905436970755?text=Merhaba%20%C4%B0smet%20Bey%2C%20%C3%B6zel%20yaz%C4%B1l%C4%B1m%20%2F%20yapay%20zeka%20projemiz%20i%C3%A7in%20g%C3%B6r%C3%BC%C5%9Fmek%20istiyoruz."
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer text-center"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>WhatsApp ile Görüşün</span>
+                  </a>
+
+                  <a
+                    href="mailto:ismetnote2@gmail.com?subject=%C3%96zel%20Yaz%C4%B1l%C4%B1m%20ve%20Yapay%20Zeka%20Proje%20Talebi"
+                    className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer text-center"
+                  >
+                    <Mail className="w-4 h-4 text-orange-400" />
+                    <span>E-Posta ile Teklif Alın</span>
+                  </a>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 10. SIKÇA SORULAN SORULAR (S.S.S.) BÖLÜMÜ (#faq) */}
         {/* ========================================================================= */}
         <section id="faq" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-slate-800/80 scroll-mt-20">
           <div className="text-center space-y-3 mb-12">
@@ -1355,7 +1507,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
         </section>
 
         {/* ========================================================================= */}
-        {/* 10. ALT ÇAĞRI (CTA) & FOOTER */}
+        {/* 11. ALT ÇAĞRI (CTA) */}
         {/* ========================================================================= */}
         <section className="border-t border-slate-800/90 bg-gradient-to-b from-[#090d18] to-[#04060b] py-16 px-4 text-center">
           <div className="max-w-3xl mx-auto space-y-6">
@@ -1377,34 +1529,76 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
           </div>
         </section>
 
-        <footer className="border-t border-slate-800/90 bg-[#05080f] py-8 px-4 text-xs text-slate-500">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <IzeegLogo size="xs" variant="icon" />
-              <span className="text-slate-300 font-bold">izeeg AI Platform</span>
-              <span>• © 2026 Tüm Hakları Saklıdır.</span>
+        {/* ========================================================================= */}
+        {/* 12. KURUMSAL FOOTER (İSMET KÖSE İMZASI VE TELİF HAKLARI) */}
+        {/* ========================================================================= */}
+        <footer className="border-t border-slate-800/90 bg-[#04060b] py-10 px-4 text-xs text-slate-500">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+            
+            {/* Sol: Marka Logosu & Telif & İsmet Köse İmzası */}
+            <div className="space-y-1.5 text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-2">
+                <IzeegLogo size="xs" variant="icon" />
+                <span className="text-slate-200 font-black text-sm">izeeg AI</span>
+                <span className="text-slate-400">• © 2026 Tüm Hakları Saklıdır.</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Türkiye'nin Kâr & Kayıp Korumalı Otonom E-Ticaret İşletim Sistemi.
+              </p>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-amber-300 font-medium">
+                <span>👑 Yapımcı & Baş Yazılım Mimarı:</span>
+                <strong className="text-white font-bold">İsmet Köse</strong>
+              </div>
             </div>
 
-            <div className="flex items-center gap-4 text-slate-400">
+            {/* Orta: Hızlı Menü Bağlantıları */}
+            <div className="flex flex-wrap justify-center items-center gap-4 text-slate-400 font-medium">
+              <button 
+                onClick={() => scrollToSection('features')}
+                className="hover:text-white transition-colors"
+              >
+                Özellikler
+              </button>
+              <button 
+                onClick={() => scrollToSection('profit-engine')}
+                className="hover:text-emerald-400 transition-colors"
+              >
+                Net Kâr
+              </button>
+              <button 
+                onClick={() => scrollToSection('pricing')}
+                className="hover:text-purple-400 transition-colors"
+              >
+                Fiyatlandırma
+              </button>
+              <button 
+                onClick={() => scrollToSection('about')}
+                className="hover:text-amber-300 text-amber-400/90 font-bold transition-colors"
+              >
+                Hakkında & İletişim
+              </button>
               <button 
                 onClick={() => {
                   setActiveAuthTab('LOGIN');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="hover:text-white"
+                className="hover:text-white transition-colors"
               >
                 Giriş Yap
               </button>
-              <button onClick={onExploreDemo} className="hover:text-white">
-                Canlı Demo
-              </button>
-              <button onClick={() => scrollToSection('pricing')} className="hover:text-white">
-                Fiyatlandırma
-              </button>
-              <button onClick={() => scrollToSection('faq')} className="hover:text-white">
-                S.S.S.
-              </button>
             </div>
+
+            {/* Sağ: İletişim & Özel Geliştirme Notu */}
+            <div className="text-center md:text-right space-y-1">
+              <span className="text-[11px] text-slate-400 block">Özel Yazılım & AI Çözümleri İçin:</span>
+              <a 
+                href="mailto:ismetnote2@gmail.com" 
+                className="text-xs font-bold text-orange-400 hover:text-orange-300 transition-colors font-mono"
+              >
+                ismetnote2@gmail.com
+              </a>
+            </div>
+
           </div>
         </footer>
 
