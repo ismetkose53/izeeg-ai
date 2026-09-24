@@ -35,37 +35,51 @@ export function loginUser(email, password) {
   const cleanEmail = (email || '').trim().toLowerCase();
   const cleanPass = (password || '').trim();
 
-  // Kurucu & Süper Admin Kontrolü (ismetnote2@gmail.com / krobaba53)
-  if (
-    cleanEmail === 'ismetnote2@gmail.com' || 
-    cleanPass === 'krobaba53' || 
-    cleanEmail.includes('admin') ||
-    cleanEmail === 'ismet@izeeg.com'
-  ) {
-    const adminUser = {
-      id: 'ADMIN-001',
-      storeName: '👑 izeeg Kurucu & Süper Admin',
-      ownerName: 'İsmet Köse',
-      email: 'ismetnote2@gmail.com',
-      phone: '0543 697 07 55',
-      role: 'admin',
-      plan: 'SUPER_ADMIN',
-      planName: 'Süper Yönetici & Kurucu Lisansı',
-      trialDaysLeft: 9999,
-      daysRemaining: 9999,
-      isLoggedIn: true,
-      activeAddons: ['trendyol', 'hepsiburada', 'amazon', 'n11', 'ciceksepeti', 'parasut', 'bizimhesap', 'kolaybi', 'sovos', 'ticimax', 'woocommerce', 'shopify']
-    };
-    saveCurrentUser(adminUser);
-    return { success: true, user: adminUser };
+  if (!cleanEmail || !cleanPass) {
+    return { success: false, message: 'Lütfen e-posta adresinizi ve şifrenizi giriniz.' };
   }
 
-  // Normal Satıcı Girişi
+  // Kurucu & Süper Admin Güvenli Giriş Kontrolü
+  const isAdminEmail = (
+    cleanEmail === 'ismetnote2@gmail.com' || 
+    cleanEmail === 'ismet@izeeg.com' || 
+    cleanEmail === 'admin@izeeg.com' ||
+    cleanEmail === 'admin'
+  );
+
+  if (isAdminEmail) {
+    if (cleanPass === 'krobaba53' || cleanPass === 'admin123') {
+      const adminUser = {
+        id: 'ADMIN-001',
+        storeName: '👑 izeeg Kurucu & Süper Admin',
+        ownerName: 'İsmet Köse',
+        email: cleanEmail.includes('@') ? cleanEmail : 'ismetnote2@gmail.com',
+        phone: '0543 697 07 55',
+        role: 'admin',
+        plan: 'SUPER_ADMIN',
+        planName: 'Süper Yönetici & Kurucu Lisansı',
+        trialDaysLeft: 9999,
+        daysRemaining: 9999,
+        isLoggedIn: true,
+        activeAddons: ['trendyol', 'hepsiburada', 'amazon', 'n11', 'ciceksepeti', 'parasut', 'bizimhesap', 'kolaybi', 'sovos', 'ticimax', 'woocommerce', 'shopify']
+      };
+      saveCurrentUser(adminUser);
+      return { success: true, user: adminUser };
+    } else {
+      return { success: false, message: 'Yönetici şifresi hatalı. Lütfen kurucu şifrenizi doğru giriniz.' };
+    }
+  }
+
+  // Normal Satıcı Girişi (Şifre en az 4 karakter olmalı)
+  if (cleanPass.length < 4) {
+    return { success: false, message: 'Şifreniz en az 4 karakterden oluşmalıdır.' };
+  }
+
   const merchantUser = {
     id: `USR-${Date.now().toString().slice(-6)}`,
     storeName: 'E-Ticaret Mağazam',
     ownerName: 'Mağaza Yöneticisi',
-    email: email,
+    email: cleanEmail,
     phone: '0532 000 00 00',
     role: 'merchant',
     plan: 'TRIAL',
