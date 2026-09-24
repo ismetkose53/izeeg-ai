@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>izeeg AI — E-Ticaret Net Kâr & Otomasyon Sistemi Satış Kataloğu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #f27a1a;
+      --primary-dark: #d96206;
+      --secondary: #10b981;
+      --dark-bg: #0f172a;
+      --card-bg: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #090d16;
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* Üst Aksiyon Barı (Yazdır / İndir) */
+    .top-action-bar {
+      position: sticky;
+      top: 16px;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+      font-size: 20px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-badge {
+      background: var(--primary);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
+
+    .btn-action {
+      background: linear-gradient(135deg, #f27a1a, #ea580c);
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 15px rgba(242, 122, 26, 0.3);
+    }
+
+    .btn-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(242, 122, 26, 0.5);
+    }
+
+    .btn-secondary {
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid #475569;
+    }
+
+    .btn-secondary:hover {
+      background: #334155;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      padding: 50px 20px 40px;
+      background: radial-gradient(circle at center, rgba(242, 122, 26, 0.15) 0%, transparent 70%);
+      border-radius: 32px;
+      border: 1px solid rgba(242, 122, 26, 0.2);
+      margin-bottom: 40px;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(242, 122, 26, 0.15);
+      border: 1px solid rgba(242, 122, 26, 0.4);
+      color: #fb923c;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 6px 16px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      letter-spacing: 1px;
+    }
+
+    .hero h1 {
+      font-size: 42px;
+      font-weight: 900;
+      line-height: 1.15;
+      margin-bottom: 16px;
+      letter-spacing: -1px;
+      background: linear-gradient(180deg, #ffffff 40%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, #f27a1a, #fb923c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 760px;
+      margin: 0 auto 24px;
+    }
+
+    /* Kartlar & Izgaralar */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: #131d2e;
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 28px;
+      transition: all 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(242, 122, 26, 0.4);
+      transform: translateY(-3px);
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+
+    .card h3 {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Karşılaştırma Tablosu */
+    .section-title {
+      font-size: 26px;
+      font-weight: 900;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .section-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .table-container {
+      background: #131d2e;
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      overflow: hidden;
+      margin-bottom: 40px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    th {
+      background: #1e293b;
+      padding: 16px 20px;
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 16px 20px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .tag-pro {
+      color: #34d399;
+      font-weight: 800;
+      background: rgba(16, 185, 129, 0.1);
+      padding: 4px 10px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .tag-con {
+      color: #f87171;
+      font-weight: 700;
+    }
+
+    /* ROI Bölümü */
+    .roi-box {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 78, 59, 0.2));
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 24px;
+      padding: 32px;
+      margin-bottom: 40px;
+    }
+
+    .roi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .roi-item strong {
+      font-size: 22px;
+      color: #34d399;
+      display: block;
+      font-weight: 900;
+    }
+
+    .roi-item span {
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    /* Fiyatlandırma Kartları */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .price-card {
+      background: #131d2e;
+      border: 2px solid var(--border-color);
+      border-radius: 28px;
+      padding: 36px;
+      position: relative;
+    }
+
+    .price-card.featured {
+      border-color: var(--primary);
+      background: linear-gradient(180deg, #1e293b 0%, #131d2e 100%);
+      box-shadow: 0 20px 40px rgba(242, 122, 26, 0.2);
+    }
+
+    .price-badge {
+      position: absolute;
+      top: -12px;
+      right: 24px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 4px 12px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+
+    .price-val {
+      font-size: 40px;
+      font-weight: 900;
+      color: #fff;
+      margin: 12px 0;
+      font-family: monospace;
+    }
+
+    .price-val span {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .feature-list {
+      list-style: none;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .feature-list li {
+      font-size: 13px;
+      color: #cbd5e1;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-list li::before {
+      content: '✓';
+      color: var(--primary);
+      font-weight: 900;
+    }
+
+    /* Footer & İletişim */
+    .contact-box {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 36px;
+      text-align: center;
+    }
+
+    .contact-phone {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--primary);
+      margin: 12px 0;
+      letter-spacing: 1px;
+    }
+
+    @media print {
+      body {
+        background: #fff !important;
+        color: #000 !important;
+      }
+      .top-action-bar, .no-print {
+        display: none !important;
+      }
+      .hero {
+        background: none !important;
+        border: 1px solid #ccc !important;
+        padding: 20px !important;
+      }
+      .hero h1, .hero h1 span {
+        color: #000 !important;
+        -webkit-text-fill-color: #000 !important;
+      }
+      .card, .table-container, .roi-box, .price-card, .contact-box {
+        background: #fff !important;
+        border: 1px solid #ddd !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+      }
+      th {
+        background: #f1f5f9 !important;
+        color: #000 !important;
+      }
+      td, .card h3, .roi-item strong, .price-val {
+        color: #000 !important;
+      }
+      .roi-item span, .card p, .section-subtitle, .hero p {
+        color: #444 !important;
+      }
+      .tag-pro {
+        color: #047857 !important;
+        background: none !important;
+        border: 1px solid #047857 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- Üst Kontrol & PDF Yazdır Barı -->
+    <div class="top-action-bar no-print">
+      <div class="brand">
+        <span>⚡ izeeg AI</span>
+        <span class="brand-badge">RESMİ KATALOG</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button onclick="window.print()" class="btn-action">
+          <span>📄 PDF Olarak Kaydet / Yazdır</span>
+        </button>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('whatsapp-script').innerText); alert('WhatsApp satış metni kopyalandı!');" class="btn-action btn-secondary">
+          <span>📱 WhatsApp Metnini Kopyala</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Hero Başlık -->
+    <div class="hero">
+      <div class="hero-badge">Türkiye'nin İlk Kâr ve Kayıp Korumalı SaaS Sistemi</div>
+      <h1>E-Ticarette Ciroya Değil, <br><span>Cebinize Kalan Net Kâra</span> Odaklanın</h1>
+      <p>
+        Trendyol, Hepsiburada, Amazon ve Shopify mağazalarınızın tüm komisyon, gizli kargo desi cezası, reklam maliyeti ve stopajını canlı hesaplayan, Buybox kutusunu kazandıran ve müşteri sorularını yapay zeka ile yöneten hepsi-bir-arada işletim sistemi.
+      </p>
+    </div>
+
+    <!-- 3 Ana Değer Önerisi -->
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-icon" style="background: rgba(242, 122, 26, 0.15); color: #f27a1a;">💵</div>
+        <h3>Kuruşu Kuruşuna Net Kâr</h3>
+        <p>Tahmini değil, pazaryerlerinin canlı API verisiyle alış maliyeti, komisyon ve kargo düşüldükten sonra net cebinize giren kârı gösterir.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">⚖️</div>
+        <h3>Kargo Desi Kaçak Avcısı</h3>
+        <p>1 desi yerine faturaya 4 desi kesilen siparişleri otomatik tespit eder, 1 tıkla resmî kargo itiraz dilekçesi ve Excel listesi hazırlar.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon" style="background: rgba(168, 85, 247, 0.15); color: #a855f7;">🤖</div>
+        <h3>7/24 Akıllı AI Çalışanı</h3>
+        <p>Zarar korumalı Repricer ile Buybox kazanır, stok bitişini tahmin edip WhatsApp sipariş fişi hazırlar ve müşteri sorularını 1 tıkla yanıtlar.</p>
+      </div>
+    </div>
+
+    <!-- Rakiplerle Karşılaştırma -->
+    <h2 class="section-title">Neden Klasik Entegratörler Değil de izeeg AI?</h2>
+    <p class="section-subtitle">Sadece stok aktaran eski programlara binlerce lira ödemeye son verin.</p>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Özellik / Karşılaştırma</th>
+            <th>Eski Nesil Entegratörler</th>
+            <th>izeeg AI Akıllı Sistemi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Gerçek Net Kâr Bilanço Analizi</strong></td>
+            <td><span class="tag-con">❌ Yok</span> (Yalnızca ciro gösterir)</td>
+            <td><span class="tag-pro">✓ Kuruşu Kuruşuna Canlı Net Kâr</span></td>
+          </tr>
+          <tr>
+            <td><strong>Kargo Desi Kaçağı & İtiraz Dilekçesi</strong></td>
+            <td><span class="tag-con">❌ Yok</span> (Faturadaki hatayı görmez)</td>
+            <td><span class="tag-pro">✓ 1 Tıkla Resmi Dilekçe ve Excel Listesi</span></td>
+          </tr>
+          <tr>
+            <td><strong>Otomatik Buybox & Fiyat Savaşçısı</strong></td>
+            <td><span class="tag-con">❌ Ekstra 2.000 TL+</span> aylık istenir</td>
+            <td><span class="tag-pro">✓ Zarar Korumalı Dahili Repricer Motoru</span></td>
+          </tr>
+          <tr>
+            <td><strong>Müşteri Soruları & Yorumlar AI</strong></td>
+            <td><span class="tag-con">❌ Yok</span> (Elle tek tek yazılır)</td>
+            <td><span class="tag-pro">✓ GPT-4o ile Satış Odaklı Türkçe Yanıt</span></td>
+          </tr>
+          <tr>
+            <td><strong>Stok Bitiş Tahmini & WhatsApp PO</strong></td>
+            <td><span class="tag-con">❌ Yalnızca stok sayar</span></td>
+            <td><span class="tag-pro">✓ Satış hızına göre erken uyarı + Toptancı Fişi</span></td>
+          </tr>
+          <tr>
+            <td><strong>E-Fatura Entegrasyonları</strong></td>
+            <td><span class="tag-con">❌ Ayrı modül olarak satılır</span></td>
+            <td><span class="tag-pro">✓ Paraşüt, BizimHesap, Logo Ücretsiz Dahil</span></td>
+          </tr>
+          <tr>
+            <td><strong>Fiyat Politikası</strong></td>
+            <td><span class="tag-con">❌ Yıllık ağır taahhütler</span></td>
+            <td><span class="tag-pro">✓ 979 ₺ / Ay • Taahhütsüz & Adil</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ROI & Matematiksel Kanıt -->
+    <div class="roi-box">
+      <h2 style="font-size: 22px; font-weight: 900; color: #34d399; margin-bottom: 8px;">
+        💰 Yatırımınız İlk Haftadan Katbekat Geri Döner (ROI Kanıtı)
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1;">
+        Aylık ortalama 300 sipariş alan standart bir e-ticaret satıcısında izeeg AI'ın sağladığı doğrudan nakit kazanım:
+      </p>
+
+      <div class="roi-grid">
+        <div class="roi-item">
+          <strong>+1.420 ₺</strong>
+          <span>Kargo Desi İtirazlarından Kurtarılan Tutar</span>
+        </div>
+        <div class="roi-item">
+          <strong>+4.800 ₺</strong>
+          <span>Buybox Repricer ile Kazanılan Ek Net Kâr</span>
+        </div>
+        <div class="roi-item">
+          <strong>+950 ₺</strong>
+          <span>Zararlı Reklamı Kapatarak Sağlanan Tasarruf</span>
+        </div>
+        <div class="roi-item">
+          <strong>+7.170 ₺ / Ay</strong>
+          <span>Toplam Sağlanan Aylık Net Finansal Fayda</span>
+        </div>
+      </div>
+
+      <p style="margin-top: 16px; font-size: 12px; color: #a7f3d0; font-weight: 700;">
+        🏆 izeeg AI aylık 979 ₺ lisans bedeliyle, sağladığı faydanın yanında KENDİ MALİYETİNİN 7.3 KATINI doğrudan kasanıza geri koyar!
+      </p>
+    </div>
+
+    <!-- Şeffaf Paket Fiyatları -->
+    <h2 class="section-title">Şeffaf ve Adil Fiyatlandırma</h2>
+    <p class="section-subtitle">Gizli kurulum ücreti veya cirodan kesinti komisyonu ASLA yoktur.</p>
+
+    <div class="pricing-grid">
+      <div class="price-card">
+        <h3 style="font-size: 18px; font-weight: 900;">Standart Aylık Lisans</h3>
+        <p style="font-size: 12px; color: var(--text-muted);">Esnek ve taahhütsüz başlangıç paketi</p>
+        <div class="price-val">979 ₺ <span>/ Ay</span></div>
+        <ul class="feature-list">
+          <li>Trendyol + Hepsiburada + Ticimax Dahil</li>
+          <li>Canlı Gerçek Net Kâr & Bilanço Analizi</li>
+          <li>Kargo Desi Kaçak Avcısı & Resmi İtiraz Dilekçesi</li>
+          <li>Otomatik Buybox & Fiyat Savaşçısı (Repricer)</li>
+          <li>Stok Bitiş Tahmini & WhatsApp PO Fişi</li>
+          <li>Paraşüt, BizimHesap, Logo E-Fatura Bağlantıları</li>
+          <li>Müşteri Soruları & Yorumlar AI Yanıtlayıcı</li>
+          <li>Taahhütsüz • İstediğiniz ay iptal edilebilir</li>
+        </ul>
+      </div>
+
+      <div class="price-card featured">
+        <div class="price-badge">En Popüler • %15 İndirim</div>
+        <h3 style="font-size: 18px; font-weight: 900; color: #fb923c;">Standart Yıllık Lisans</h3>
+        <p style="font-size: 12px; color: #cbd5e1;">Yıllık alımda 2 ay ücretsiz kullanım hediyesi</p>
+        <div class="price-val">9.950 ₺ <span>/ Yıl (Ayda 829 ₺)</span></div>
+        <ul class="feature-list">
+          <li>Standart Paketin Tüm Özellikleri Dahil</li>
+          <li>2 Ay Ücretsiz Kullanım Avantajı</li>
+          <li>7/24 Öncelikli WhatsApp VIP Destek</li>
+          <li>Ücretsiz Birebir Canlı Kurulum ve Eğitim</li>
+          <li>Havale / FAST ile Ekstra %15 İndirim Fırsatı</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Gizli WhatsApp Kopyalama Alanı -->
+    <div id="whatsapp-script" style="display: none;">
+🚀 izeeg AI - Çok Kanallı E-Ticaret Net Kâr & Otomasyon Sistemi
+
+Merhabalar! 👋 E-Ticaret operasyonunuzu bir üst seviyeye taşıyacak ve pazar yeri kârınızı garantiye alacak sistemimiz hakkında kısa bir özet paylaşmak isterim:
+
+🎯 izeeg AI Nedir ve Size Ne Kazandırır?
+1️⃣ Gerçek Net Kâr Hesabı: Ciroya değil; komisyon + kargo + reklam + stopaj çıktıktan sonra cebinize net kalan kâra odaklanır.
+2️⃣ Kargo Desi Kaçak Avcısı: Faturada fazla kesilen desileri tek tek yakalar, resmi itiraz dilekçesini tek tıkla hazırlar. (Ortalama ayda 1.000 - 3.000 TL geri kazandırır!)
+3️⃣ Otomatik Buybox & Repricer: Zarar etmeden rakibin 1 TL altına inip Buybox kutusunu satıcınızda tutar.
+4️⃣ Stok Bitiş Tahmini & WhatsApp PO: Stok tükenmeden tedarikçinize WhatsApp üzerinden tek tıkla toptan sipariş fişi iletir.
+5️⃣ Müşteri Soruları AI: Gelen soru ve yorumlara saniyeler içinde satış odaklı profesyonel Türkçe yanıt üretir.
+6️⃣ Ücretsiz E-Fatura Entegrasyonu: Paraşüt, BizimHesap, Sovos, Logo ile tam uyumludur.
+
+💳 Fiyatlandırma:
+• Standart Aylık: 979 ₺ / Ay (Taahhütsüz)
+• Avantajlı Yıllık: 9.950 ₺ / Yıl (Ayda 829 ₺ - 2 Ay Hediye!)
+
+🎁 7 Gün Ücretsiz Deneyin: Kredi kartı gerekmeden anında test edebilirsiniz.
+Detaylı bilgi ve canlı demo için bize buradan yazabilirsiniz! 🌟
+    </div>
+
+    <!-- İletişim Kutusu -->
+    <div class="contact-box">
+      <h3 style="font-size: 20px; font-weight: 900; margin-bottom: 6px;">Canlı Demo & Kurulum Talebi</h3>
+      <p style="font-size: 13px; color: var(--text-muted);">
+        Mağazanız için 7 günlük ücretsiz deneme başlatmak ve kurulum desteği almak için bize hemen ulaşın:
+      </p>
+      <div class="contact-phone">0543 697 07 55</div>
+      <p style="font-size: 12px; color: var(--text-muted);">
+        Kurucu & Yönetim: <strong>İsmet Köse</strong> • Web: <strong>https://app.izeeg.com</strong>
+      </p>
+    </div>
+
+  </div>
+
+</body>
+</html>
