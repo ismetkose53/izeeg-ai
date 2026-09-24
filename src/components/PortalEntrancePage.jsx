@@ -33,7 +33,12 @@ import {
   Send,
   MessageSquare,
   Menu,
-  X
+  X,
+  Award,
+  ChevronDown,
+  FileText,
+  Clock,
+  ChevronRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { IzeegLogo } from './IzeegLogo';
@@ -61,7 +66,10 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
 
-  // İnteraktif Kâr Simülatörü State'leri (Landing Sayfası İçin Canlı Hesaplayıcı)
+  // S.S.S. Açık Olan Soru State'i
+  const [openFaqIndex, setOpenFaqIndex] = useState(0);
+
+  // İnteraktif Kâr Simülatörü State'leri
   const [simSalePrice, setSimSalePrice] = useState(1200);
   const [simCostPrice, setSimCostPrice] = useState(450);
   const [simCommissionRate, setSimCommissionRate] = useState(18); // %
@@ -165,6 +173,34 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
     }, 700);
   };
 
+  // SSS Verileri
+  const faqs = [
+    {
+      q: "7 Günlük Deneme için kredi kartı girmem gerekiyor mu?",
+      a: "Hayır, kesinlikle kredi kartı veya ödeme bilgisi istemiyoruz. Adınızı ve mağaza bilgilerinizi girerek saniyeler içinde 7 günlük tam yetkili deneme hesabınızı başlatabilirsiniz."
+    },
+    {
+      q: "0 TL Varsayılmaz Gerçek Net Kâr Motoru nasıl çalışır?",
+      a: "Diğer entegrasyonlar alış maliyeti girilmediğinde 0 TL kâr uydurur veya kargo kesintilerini hesaba katmaz. izeeg AI, pazar yeri komisyonlarını, kargo desi maliyetlerini ve ürün alış faturanızı kuruşu kuruşuna düşerek kasanıza kalan saf nakdi gösterir."
+    },
+    {
+      q: "Kargo Desi Kaçaklarını ve haksız kesintileri nasıl geri alırım?",
+      a: "izeeg AI, kargo firmalarının faturada yazdığı desi ile ürünlerinizin gerçek ölçülerini karşılaştırır. Fazla kesilen her kuruşu tespit eder ve kargo firmasına iletmeniz için resmi itiraz dilekçesini tek tıkla hazırlar."
+    },
+    {
+      q: "AI Çalışanı kafasına göre fiyat veya stok değiştirir mi?",
+      a: "Asla! Sistemimizde 'Action Approval Gate' güvenlik protokolü çalışır. Yapay zeka fırsatı yakalar, analizini yapar ve size sunar. Siz onay butonuna basmadan pazar yerlerine hiçbir müdahale yapılmaz."
+    },
+    {
+      q: "Hangi pazar yerlerini ve e-ticaret altyapılarını destekliyorsunuz?",
+      a: "Trendyol, Hepsiburada, Amazon TR, N11, Çiçeksepeti, Shopify, WooCommerce, Ticimax, Paraşüt, BizimHesap ve Sovos e-Fatura ile tam iki yönlü API entegrasyonuna sahibiz."
+    },
+    {
+      q: "İstediğim zaman aboneliğimi iptal edebilir miyim?",
+      a: "Evet, hiçbir taahhüt ve zorunlu sözleşme bulunmamaktadır. Dilediğiniz zaman tek tıkla aboneliğinizi sonlandırabilirsiniz."
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-[#070b14] text-slate-100 font-sans selection:bg-[#f27a1a] selection:text-white relative overflow-x-hidden">
       
@@ -192,8 +228,8 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
               <IzeegLogo size="md" variant="full" theme="dark" showBadge={true} badgeText="AI" />
             </div>
 
-            {/* Orta Menü (Desktop Linkler - Tıklanınca İlgili Alana Kayar) */}
-            <nav className="hidden md:flex items-center gap-6 text-xs font-bold text-slate-300">
+            {/* Orta Menü (Desktop Linkler) */}
+            <nav className="hidden lg:flex items-center gap-6 text-xs font-bold text-slate-300">
               <button 
                 onClick={() => scrollToSection('features')}
                 className="hover:text-white transition-colors cursor-pointer"
@@ -213,10 +249,28 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                 AI Çalışanı
               </button>
               <button 
+                onClick={() => scrollToSection('cargo-repricer')}
+                className="hover:text-amber-400 transition-colors cursor-pointer"
+              >
+                Kargo & Repricer
+              </button>
+              <button 
+                onClick={() => scrollToSection('how-it-works')}
+                className="hover:text-cyan-400 transition-colors cursor-pointer"
+              >
+                Nasıl Çalışır?
+              </button>
+              <button 
                 onClick={() => scrollToSection('pricing')}
                 className="hover:text-purple-400 transition-colors cursor-pointer"
               >
                 Fiyatlandırma
+              </button>
+              <button 
+                onClick={() => scrollToSection('faq')}
+                className="hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                S.S.S.
               </button>
             </nav>
 
@@ -252,7 +306,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
               {/* Mobil Menü Butonu */}
               <button
                 onClick={() => setMobileNavOpen(!mobileNavOpen)}
-                className="md:hidden p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white"
+                className="lg:hidden p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white"
               >
                 {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -262,7 +316,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
 
           {/* Mobil Açılır Gezinti Çubuğu */}
           {mobileNavOpen && (
-            <div className="md:hidden mt-3 pt-3 border-t border-slate-800 flex flex-col gap-2 text-xs font-bold pb-2 animate-fadeIn">
+            <div className="lg:hidden mt-3 pt-3 border-t border-slate-800 flex flex-col gap-2 text-xs font-bold pb-2 animate-fadeIn">
               <button onClick={() => scrollToSection('features')} className="text-left py-2 px-3 rounded-lg hover:bg-slate-800 text-slate-200">
                 ⚡ Özellikler & Ekosistem
               </button>
@@ -270,10 +324,19 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                 📊 0 TL Varsayılmaz Net Kâr Motoru
               </button>
               <button onClick={() => scrollToSection('ai-worker')} className="text-left py-2 px-3 rounded-lg hover:bg-slate-800 text-orange-300">
-                🧠 7/24 Otonom AI Çalışanı
+                🧠 7/24 Otonom AI Asistanı
+              </button>
+              <button onClick={() => scrollToSection('cargo-repricer')} className="text-left py-2 px-3 rounded-lg hover:bg-slate-800 text-amber-300">
+                ⚖️ Kargo Avcısı & Smart Repricer
+              </button>
+              <button onClick={() => scrollToSection('how-it-works')} className="text-left py-2 px-3 rounded-lg hover:bg-slate-800 text-cyan-300">
+                🚀 3 Adımda Nasıl Çalışır?
               </button>
               <button onClick={() => scrollToSection('pricing')} className="text-left py-2 px-3 rounded-lg hover:bg-slate-800 text-purple-300">
                 💎 Şeffaf Fiyatlandırma
+              </button>
+              <button onClick={() => scrollToSection('faq')} className="text-left py-2 px-3 rounded-lg hover:bg-slate-800 text-slate-400">
+                ❓ Sıkça Sorulan Sorular
               </button>
             </div>
           )}
@@ -326,9 +389,9 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
 
                 <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md">
                   <div className="text-purple-400 font-black text-sm flex items-center gap-1.5">
-                    <Brain className="w-4 h-4" /> 7/24 AI Çalışanı
+                    <Brain className="w-4 h-4" /> 7/24 AI Asistanı
                   </div>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">Onayınızla kâr kaçaklarını durdurur</span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5">Onayınızla kârı korur</span>
                 </div>
               </div>
 
@@ -353,7 +416,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
               <div className="relative rounded-3xl p-[1.5px] bg-gradient-to-b from-[#f27a1a]/50 via-purple-500/30 to-blue-500/20 shadow-2xl shadow-orange-500/10 backdrop-blur-2xl">
                 <div className="bg-[#0e1422]/95 rounded-[22px] p-6 sm:p-8 space-y-6">
                   
-                  {/* Sekme Değiştirici (2 Temiz Sekme: Ücretsiz Kayıt & Giriş Yap) */}
+                  {/* Sekme Değiştirici */}
                   <div className="grid grid-cols-2 gap-1 p-1 bg-slate-900/90 border border-slate-800 rounded-2xl text-xs font-bold">
                     <button
                       onClick={() => {
@@ -394,9 +457,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                     </div>
                   )}
 
-                  {/* ======================================================== */}
                   {/* SEKME 1: ÜCRETSİZ KAYIT FORMU */}
-                  {/* ======================================================== */}
                   {activeAuthTab === 'REGISTER' && (
                     <form onSubmit={handleRegisterSubmit} className="space-y-4 text-xs">
                       <div>
@@ -541,9 +602,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                     </form>
                   )}
 
-                  {/* ======================================================== */}
-                  {/* SEKME 2: GÜVENLİ GİRİŞ YAP FORMU (ŞİFRELİ & DEŞİFRESİZ) */}
-                  {/* ======================================================== */}
+                  {/* SEKME 2: GÜVENLİ GİRİŞ YAP FORMU */}
                   {activeAuthTab === 'LOGIN' && (
                     <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
                       <div>
@@ -663,7 +722,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
               <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-[#f27a1a] flex items-center justify-center font-black text-xl group-hover:scale-110 transition-transform">
                 <Brain className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-black text-white">7/24 Otonom AI Çalışanı v2.1</h3>
+              <h3 className="text-base font-black text-white">7/24 Otonom AI Asistanı v2.1</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
                 4 temel soruyla işletmenizi saniye saniye tarar: Ne oldu? Neden oldu? Finansal etkisi ne? Güvenlik onayınızla kâr kaçaklarını durdurur.
               </p>
@@ -931,7 +990,138 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
         </section>
 
         {/* ========================================================================= */}
-        {/* 6. ŞEFFAF FİYATLANDIRMA BÖLÜMÜ (#pricing) */}
+        {/* 6. KARGO DESİ AVCISI & BUYBOX REPRICER DETAY SUNUMU (#cargo-repricer) */}
+        {/* ========================================================================= */}
+        <section id="cargo-repricer" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-slate-800/80 scroll-mt-20">
+          <div className="text-center space-y-3 mb-14">
+            <span className="text-xs font-black text-amber-400 uppercase tracking-wider bg-amber-500/10 px-3.5 py-1.5 rounded-full border border-amber-500/20">
+              ⚖️ Kargo Kaçağı & Akıllı Repricer Motoru
+            </span>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white">
+              Kargo Cezalarına ve Buybox Kayıplarına Kesin Çözüm
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl mx-auto leading-relaxed">
+              Her ay binlerce liranız kargo faturalarındaki hatalı desiler yüzünden buharlaşmasın.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* Sol: Kargo Desi Avcısı & Resmi Dilekçe */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/70 border border-amber-500/30 space-y-5 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center font-black">
+                  <Scale className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                  Otomatik İtiraz Dilekçesi
+                </span>
+              </div>
+
+              <h3 className="text-xl font-black text-white">Kargo Desi Şişirmelerine Son</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Kargo firmaları 1 desi olan tişört paketini faturada 3 desi olarak yazıp fazla para keser. izeeg AI bu uyuşmazlığı milisaniyeler içinde yakalar, kaç TL fazla kesildiğini hesaplar ve kargo firmasına iletmeniz için resmi iade dilekçesini PDF formatında hazırlar.
+              </p>
+
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-300">
+                  <span>Örnek Yakalanan Desi Hatası:</span>
+                  <span className="text-rose-400 font-bold">1 Desi yerine 3.5 Desi</span>
+                </div>
+                <div className="flex justify-between text-slate-300 border-t border-slate-800 pt-1.5">
+                  <span>Haksız Kesilen Tutar:</span>
+                  <span className="text-emerald-400 font-black">+1.420,00 ₺ Geri Kazanıldı</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Sağ: Otomatik Buybox Repricer */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/70 border border-cyan-500/30 space-y-5 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center font-black">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20">
+                  Zarar Korumalı Fiyat Savaşçısı
+                </span>
+              </div>
+
+              <h3 className="text-xl font-black text-white">7/24 Otomatik Buybox Kazanımı</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Trendyol ve Amazon'da rakipleriniz fiyat düşürdüğünde satışlarınız durmasın. Belirlediğiniz minimum kâr marjının altına inmeden 1 TL alt kırparak Buybox'ı garantiler. Zararına satış yapmanızı kesinlikle engeller.
+              </p>
+
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-300">
+                  <span>Minimum Kâr Marjı Kilidi:</span>
+                  <span className="text-emerald-400 font-bold">%15 Kâr Koruması Aktif</span>
+                </div>
+                <div className="flex justify-between text-slate-300 border-t border-slate-800 pt-1.5">
+                  <span>Buybox Tepki Süresi:</span>
+                  <span className="text-cyan-400 font-black">Anlık 60 Saniye Tarama</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 7. 3 KOLAY ADIMDA NASIL ÇALIŞIR? (#how-it-works) */}
+        {/* ========================================================================= */}
+        <section id="how-it-works" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-slate-800/80 scroll-mt-20">
+          <div className="text-center space-y-3 mb-14">
+            <span className="text-xs font-black text-cyan-400 uppercase tracking-wider bg-cyan-500/10 px-3.5 py-1.5 rounded-full border border-cyan-500/20">
+              🚀 Basit, Hızlı ve Güvenli Kurulum
+            </span>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white">
+              3 Dakikada E-Ticaretinizi Otopilota Alın
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl mx-auto leading-relaxed">
+              Uzun eğitimler, karmaşık kurulumlar yok. Hesabınızı oluşturun ve hemen kazanmaya başlayın.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+            
+            {/* Adım 1 */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4 relative">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#f27a1a] to-pink-600 text-white font-black text-lg flex items-center justify-center shadow-lg shadow-orange-500/20">
+                1
+              </div>
+              <h3 className="text-lg font-black text-white">Ücretsiz Hesabınızı Başlatın</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Kredi kartı girmeden 7 günlük deneme hesabı açın. Trendyol, Hepsiburada veya web sitenizin API bilgilerini 2 dakikada bağlayın.
+              </p>
+            </div>
+
+            {/* Adım 2 */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4 relative">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+                2
+              </div>
+              <h3 className="text-lg font-black text-white">Otonom Kâr Taraması</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Yapay zeka tüm siparişlerinizi, kargo kesintilerinizi ve pazar yeri komisyonlarını saniyeler içinde tarar ve cebinize kalan net nakdi listeler.
+              </p>
+            </div>
+
+            {/* Adım 3 */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/60 border border-emerald-500/40 bg-emerald-950/10 space-y-4 relative">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white font-black text-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                3
+              </div>
+              <h3 className="text-lg font-black text-white">Kârınızı Artırın & Büyüyün</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Kargo cezalarınızı geri alın, Buybox kazanın ve her sabah saat 09:00'da dünkü net kâr raporunuzu WhatsApp'tan keyifle okuyun.
+              </p>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 8. GÜNCEL ŞEFFAF FİYATLANDIRMA BÖLÜMÜ (#pricing) */}
         {/* ========================================================================= */}
         <section id="pricing" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-slate-800/80 scroll-mt-20">
           <div className="text-center space-y-3 mb-12">
@@ -946,7 +1136,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
             </p>
 
             {/* Aylık / Yıllık Seçici */}
-            <div className="inline-flex items-center gap-2 p-1 rounded-2xl bg-slate-900 border border-slate-800 mt-4 text-xs font-bold">
+            <div className="inline-flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900 border border-slate-800 mt-4 text-xs font-bold">
               <button
                 onClick={() => setPricingCycle('monthly')}
                 className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
@@ -961,8 +1151,8 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                   pricingCycle === 'yearly' ? 'bg-[#f27a1a] text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <span>Yıllık (2 Ay Hediye)</span>
-                <span className="text-[10px] bg-emerald-500 text-slate-950 font-black px-1.5 py-0.2 rounded-full">%20 İndirim</span>
+                <span>Yıllık Peşin (2 Ay Hediye)</span>
+                <span className="text-[10px] bg-emerald-500 text-slate-950 font-black px-1.5 py-0.2 rounded-full">%15 İndirim</span>
               </button>
             </div>
           </div>
@@ -997,7 +1187,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    <span>7/24 AI Çalışanı ve Asistan</span>
+                    <span>7/24 AI Asistanı ve Danışman</span>
                   </div>
                 </div>
               </div>
@@ -1013,7 +1203,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
               </button>
             </div>
 
-            {/* Paket 2: Pro Satıcı Paketi (Öne Çıkan) */}
+            {/* Paket 2: Standart Pro Satıcı Paketi (979 TL / Ay - EN POPÜLER) */}
             <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-slate-900 via-[#121927] to-[#0d1422] border-2 border-[#f27a1a] flex flex-col justify-between space-y-6 relative shadow-2xl shadow-orange-500/10">
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-[#f27a1a] to-pink-600 text-white text-[10px] font-black uppercase tracking-wider shadow">
                 🔥 En Çok Tercih Edilen
@@ -1021,12 +1211,14 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
 
               <div className="space-y-4">
                 <span className="text-xs font-black text-emerald-400 uppercase tracking-wider">Büyüyen Mağazalar İçin</span>
-                <h3 className="text-xl font-black text-white">Pro Satıcı Paketi</h3>
+                <h3 className="text-xl font-black text-white">Standart Pro Paket</h3>
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl font-black text-white font-mono">
-                    {pricingCycle === 'monthly' ? '499 ₺' : '399 ₺'}
+                    {pricingCycle === 'monthly' ? '979 ₺' : '829 ₺'}
                   </span>
-                  <span className="text-xs text-slate-400">/ ay</span>
+                  <span className="text-xs text-slate-400">
+                    {pricingCycle === 'monthly' ? '/ ay' : '/ ay (Yıllık 9.950 ₺)'}
+                  </span>
                 </div>
                 <p className="text-xs text-slate-400">
                   Otomasyon, kargo itirazları ve Buybox kazanımı ile satışlarınızı katlayın.
@@ -1047,11 +1239,15 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-[#f27a1a] flex-shrink-0" />
-                    <span>WhatsApp 09:00 Sabah Bülteni</span>
+                    <span>WhatsApp 09:00 Sabah Yönetici Bülteni</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-[#f27a1a] flex-shrink-0" />
-                    <span>E-Fatura & Toplu Barkod Yazdırma</span>
+                    <span>E-Fatura & Toplu Kargo Barkodu Yazdırma</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <span>FAST / Havale İle Ekstra %15 İndirim</span>
                   </div>
                 </div>
               </div>
@@ -1067,16 +1263,18 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
               </button>
             </div>
 
-            {/* Paket 3: Enterprise & Kurumsal */}
+            {/* Paket 3: Enterprise & VIP Kurumsal (2.450 TL / Ay) */}
             <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
                 <span className="text-xs font-black text-purple-400 uppercase tracking-wider">Büyük Operasyonlar İçin</span>
                 <h3 className="text-xl font-black text-white">Enterprise VIP</h3>
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl font-black text-white font-mono">
-                    {pricingCycle === 'monthly' ? '1.299 ₺' : '999 ₺'}
+                    {pricingCycle === 'monthly' ? '2.450 ₺' : '1.990 ₺'}
                   </span>
-                  <span className="text-xs text-slate-400">/ ay</span>
+                  <span className="text-xs text-slate-400">
+                    {pricingCycle === 'monthly' ? '/ ay' : '/ ay (Yıllık 23.880 ₺)'}
+                  </span>
                 </div>
                 <p className="text-xs text-slate-400">
                   Çoklu şirket, sınırsız pazar yeri ve özel muhasebe ERP entegrasyonu.
@@ -1097,7 +1295,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-purple-400 flex-shrink-0" />
-                    <span>7/24 Özel WhatsApp & Telefon Destek Hattı</span>
+                    <span>7/24 Öncelikli VIP Telefon & WhatsApp Desteği</span>
                   </div>
                 </div>
               </div>
@@ -1109,7 +1307,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                 }}
                 className="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all cursor-pointer"
               >
-                İletişime Geç & Başla
+                7 Gün Ücretsiz Başla
               </button>
             </div>
 
@@ -1117,9 +1315,69 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
         </section>
 
         {/* ========================================================================= */}
-        {/* 7. FOOTER */}
+        {/* 9. SIKÇA SORULAN SORULAR (S.S.S.) BÖLÜMÜ (#faq) */}
         {/* ========================================================================= */}
-        <footer className="mt-auto border-t border-slate-800/90 bg-[#05080f] py-8 px-4 text-xs text-slate-500">
+        <section id="faq" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-slate-800/80 scroll-mt-20">
+          <div className="text-center space-y-3 mb-12">
+            <span className="text-xs font-black text-slate-400 uppercase tracking-wider bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-700">
+              ❓ Aklınıza Takılanlar
+            </span>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white">
+              Sıkça Sorulan Sorular
+            </h2>
+          </div>
+
+          <div className="space-y-3">
+            {faqs.map((faq, idx) => {
+              const isOpen = openFaqIndex === idx;
+              return (
+                <div 
+                  key={idx} 
+                  className="rounded-2xl bg-slate-900/70 border border-slate-800/80 overflow-hidden transition-all"
+                >
+                  <button
+                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                    className="w-full p-4 sm:p-5 flex items-center justify-between text-left gap-4 cursor-pointer hover:bg-slate-800/40 transition-colors"
+                  >
+                    <span className="text-xs sm:text-sm font-bold text-white">{faq.q}</span>
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180 text-orange-400' : ''}`} />
+                  </button>
+
+                  {isOpen && (
+                    <div className="px-4 sm:px-5 pb-4 sm:pb-5 text-xs text-slate-300 leading-relaxed border-t border-slate-800/50 pt-3 animate-fadeIn">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 10. ALT ÇAĞRI (CTA) & FOOTER */}
+        {/* ========================================================================= */}
+        <section className="border-t border-slate-800/90 bg-gradient-to-b from-[#090d18] to-[#04060b] py-16 px-4 text-center">
+          <div className="max-w-3xl mx-auto space-y-6">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white">
+              E-Ticarette Kâr Kaçaklarına Bugün Dur Deyin.
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
+              7 günlük ücretsiz denemenizi başlatın, kargo faturalarınızdaki hataları ve gerçek kârınızı dakikalar içinde görün.
+            </p>
+            <button
+              onClick={() => {
+                setActiveAuthTab('REGISTER');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="px-8 py-4 rounded-2xl bg-gradient-to-r from-[#f27a1a] via-orange-500 to-pink-600 text-white font-black text-sm shadow-xl shadow-orange-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            >
+              7 Gün Ücretsiz Başla (Kredi Kartı Gerekmez) ➔
+            </button>
+          </div>
+        </section>
+
+        <footer className="border-t border-slate-800/90 bg-[#05080f] py-8 px-4 text-xs text-slate-500">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <IzeegLogo size="xs" variant="icon" />
@@ -1142,6 +1400,9 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
               </button>
               <button onClick={() => scrollToSection('pricing')} className="hover:text-white">
                 Fiyatlandırma
+              </button>
+              <button onClick={() => scrollToSection('faq')} className="hover:text-white">
+                S.S.S.
               </button>
             </div>
           </div>
