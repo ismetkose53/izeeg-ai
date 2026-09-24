@@ -29,7 +29,8 @@ import { ProductPitchDeckModal } from './components/ProductPitchDeckModal';
 import { PitchDeckPage } from './components/PitchDeckPage';
 import { PageHelpGuideModal } from './components/PageHelpGuideModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { getCurrentUser } from './services/authService';
+import { PortalEntrancePage } from './components/PortalEntrancePage';
+import { getCurrentUser, logoutUser, saveCurrentUser } from './services/authService';
 import { Analytics } from '@vercel/analytics/react';
 
 import { 
@@ -45,6 +46,11 @@ import { calculateStoreMetrics } from './services/marketplaceEngine';
 import confetti from 'canvas-confetti';
 
 export function App() {
+  // Kullanıcı Oturumu & Rol Yönetimi
+  const [currentUser, setCurrentUser] = useState(getCurrentUser());
+  // Canlı Giriş / CPANEL Açılış Ekranı (Oturum açık değilse veya çıkış yapılmışsa gösterilir)
+  const [isPortalOpen, setIsPortalOpen] = useState(!currentUser || !currentUser.isLoggedIn);
+
   // Aktif Sekme: 'orders' (Kargo Aşamasındaki Siparişler - Trendyol Paneli)
   const [activeTab, setActiveTab] = useState('orders');
   const [selectedMarketplace, setSelectedMarketplace] = useState('ALL');
@@ -56,8 +62,6 @@ export function App() {
   const [autoInvoiceEnabled, setAutoInvoiceEnabled] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(true);
 
-  // Kullanıcı Oturumu & Rol Yönetimi
-  const [currentUser, setCurrentUser] = useState(getCurrentUser());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [selectedAddonForCheckout, setSelectedAddonForCheckout] = useState(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -87,14 +91,30 @@ export function App() {
     setIsSubModalOpen(true);
   };
 
-  const handleLoginSuccess = (user) => {
+  const handleLoginSuccess = (user, customMessage) => {
+    saveCurrentUser(user);
     setCurrentUser(user);
+    setIsPortalOpen(false);
     if (user.role === 'admin') {
       setActiveTab('admin-panel');
-      showToast("👑 Hoş geldiniz İsmet Bey! Süper Admin Yönetici Modu aktif.");
+      showToast(customMessage || "👑 Hoş geldiniz İsmet Bey! Süper Admin Yönetici Modu aktif.");
     } else {
-      showToast(`Hoş geldiniz ${user.ownerName}!`);
+      showToast(customMessage || `Hoş geldiniz ${user.ownerName || user.storeName}!`);
     }
+  };
+
+  const handleExploreDemo = () => {
+    setIsDemoMode(true);
+    setIsPortalOpen(false);
+    showToast("🚀 Canlı Demo Modu: Tüm özellikleri sınırsız deneyebilirsiniz.");
+  };
+
+  const handleLogout = () => {
+    logoutUser();
+    const guestUser = getCurrentUser();
+    setCurrentUser(guestUser);
+    setIsPortalOpen(true);
+    showToast("👋 Başarıyla çıkış yapıldı. Giriş paneline yönlendirildiniz.");
   };
 
   // Güvenlik Kapısı & Aksiyon Onay Modalı
@@ -142,6 +162,23 @@ export function App() {
     });
   };
 
+  if (isPortalOpen) {
+    return (
+      <div className="min-h-screen bg-[#070b14] text-slate-100 font-sans selection:bg-[#f27a1a] selection:text-white">
+        {toastMessage && (
+          <div className="fixed top-6 right-6 z-50 p-4 rounded-2xl bg-emerald-600 text-white font-bold text-xs shadow-2xl shadow-emerald-500/30 border border-emerald-400 animate-fadeIn flex items-center gap-2">
+            <span>✨</span> {toastMessage}
+          </div>
+        )}
+        <PortalEntrancePage
+          onLoginSuccess={handleLoginSuccess}
+          onExploreDemo={handleExploreDemo}
+        />
+        <Analytics />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#edf2f7] text-slate-900 flex flex-col font-sans selection:bg-[#f27a1a] selection:text-white w-full max-w-full overflow-x-hidden">
       
@@ -166,6 +203,8 @@ export function App() {
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onOpenPitchDeck={() => setIsPitchDeckOpen(true)}
+        onLogout={handleLogout}
+        onOpenPortal={() => setIsPortalOpen(true)}
         currentUser={currentUser}
         trialDaysLeft={currentUser.trialDaysLeft || 5}
         liveOrdersCount={orders.length}
@@ -479,6 +518,8 @@ export function App() {
         currentUser={currentUser}
         onOpenContactModal={() => setIsContactModalOpen(true)}
         onOpenSubModal={() => setIsSubModalOpen(true)}
+        onLogout={handleLogout}
+        onOpenPortal={() => setIsPortalOpen(true)}
       />
 
       {/* Vercel Ücretsiz Canlı Web Analitik İzleyicisi */}

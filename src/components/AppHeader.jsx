@@ -28,7 +28,8 @@ import {
   MessageSquare,
   Boxes,
   Zap,
-  Globe
+  Globe,
+  LogOut
 } from 'lucide-react';
 import { IzeegLogo } from './IzeegLogo';
 
@@ -42,6 +43,8 @@ export function AppHeader({
   onOpenAuthModal,
   onOpenNotifications,
   onOpenPitchDeck,
+  onLogout,
+  onOpenPortal,
   currentUser = { role: 'merchant', storeName: 'yumey', ownerName: 'İsmet Bey', trialDaysLeft: 5 },
   trialDaysLeft = 5,
   liveOrdersCount = 6,
@@ -482,17 +485,41 @@ export function AppHeader({
                   </span>
                 </button>
 
-                {/* Giriş / Çıkış / Hesap Ayarları */}
-                <button
-                  onClick={() => {
-                    setOpenDropdown(null);
-                    onOpenAuthModal();
-                  }}
-                  className="w-full p-2 rounded-xl flex items-center gap-2 text-left text-slate-300 hover:bg-slate-800 hover:text-white border-t border-slate-700/80 pt-2 transition-all cursor-pointer"
-                >
-                  <User className="w-4 h-4 text-slate-400" />
-                  <span>Hesap & Mağaza Ayarları</span>
-                </button>
+                {/* Giriş Paneli, Ayarlar & Çıkış */}
+                <div className="pt-2 border-t border-slate-700/80 space-y-1">
+                  <button
+                    onClick={() => {
+                      setOpenDropdown(null);
+                      if (onOpenPortal) onOpenPortal();
+                    }}
+                    className="w-full p-2 rounded-xl flex items-center gap-2 text-left text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
+                  >
+                    <Globe className="w-4 h-4 text-cyan-400" />
+                    <span>Giriş Paneline Dön</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setOpenDropdown(null);
+                      onOpenAuthModal();
+                    }}
+                    className="w-full p-2 rounded-xl flex items-center gap-2 text-left text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
+                  >
+                    <User className="w-4 h-4 text-slate-400" />
+                    <span>Hesap & Mağaza Ayarları</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setOpenDropdown(null);
+                      if (onLogout) onLogout();
+                    }}
+                    className="w-full p-2 rounded-xl flex items-center gap-2 text-left text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4 text-rose-400" />
+                    <span>Çıkış Yap</span>
+                  </button>
+                </div>
 
               </div>
             )}
@@ -606,6 +633,30 @@ export function AppHeader({
             <button onClick={() => handleSelectTab('whatsapp')} className="w-full px-3 py-2 text-emerald-300 hover:bg-slate-800 rounded-lg flex items-center gap-2">
               <Smartphone className="w-4 h-4 text-emerald-400" /> 📱 WhatsApp Yönetici Bülteni
             </button>
+
+            <div className="pt-2 border-t border-slate-700/80 flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (onOpenPortal) onOpenPortal();
+                }}
+                className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-black flex items-center justify-center gap-1.5"
+              >
+                <Globe className="w-4 h-4 text-cyan-400" />
+                <span>Giriş Paneli</span>
+              </button>
+
+              <button 
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (onLogout) onLogout();
+                }}
+                className="flex-1 py-2 px-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs font-black flex items-center justify-center gap-1.5"
+              >
+                <LogOut className="w-4 h-4 text-rose-400" />
+                <span>Çıkış Yap</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

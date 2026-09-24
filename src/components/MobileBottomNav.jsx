@@ -21,7 +21,8 @@ import {
   Menu,
   ChevronRight,
   PhoneCall,
-  Lock
+  Lock,
+  LogOut
 } from 'lucide-react';
 
 export function MobileBottomNav({ 
@@ -30,7 +31,9 @@ export function MobileBottomNav({
   liveOrdersCount = 8,
   currentUser = { role: 'merchant', storeName: 'yumey' },
   onOpenContactModal,
-  onOpenSubModal
+  onOpenSubModal,
+  onLogout,
+  onOpenPortal
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -321,29 +324,55 @@ export function MobileBottomNav({
 
             </div>
 
-            {/* Çekmece Altı Destek & Çıkış */}
-            <div className="p-4 bg-[#16202c] border-t border-slate-800 flex items-center justify-between gap-3">
-              <button
-                onClick={() => {
-                  setDrawerOpen(false);
-                  if (onOpenContactModal) onOpenContactModal();
-                }}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center justify-center gap-1.5"
-              >
-                <PhoneCall className="w-3.5 h-3.5" />
-                <span>Canlı Destek</span>
-              </button>
+            {/* Çekmece Altı Destek, Giriş Paneli & Çıkış */}
+            <div className="p-4 bg-[#16202c] border-t border-slate-800 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    if (onOpenContactModal) onOpenContactModal();
+                  }}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center justify-center gap-1.5"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Canlı Destek</span>
+                </button>
 
-              <button
-                onClick={() => {
-                  setDrawerOpen(false);
-                  if (onOpenSubModal) onOpenSubModal();
-                }}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-[#f27a1a] hover:bg-orange-600 text-white text-xs font-black flex items-center justify-center gap-1.5"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>7 Gün Deneme</span>
-              </button>
+                <button
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    if (onOpenSubModal) onOpenSubModal();
+                  }}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-[#f27a1a] hover:bg-orange-600 text-white text-xs font-black flex items-center justify-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>7 Gün Deneme</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+                <button
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    if (onOpenPortal) onOpenPortal();
+                  }}
+                  className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-black flex items-center justify-center gap-1.5"
+                >
+                  <Globe className="w-4 h-4 text-cyan-400" />
+                  <span>Giriş Paneli</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    if (onLogout) onLogout();
+                  }}
+                  className="flex-1 py-2 px-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs font-black flex items-center justify-center gap-1.5"
+                >
+                  <LogOut className="w-4 h-4 text-rose-400" />
+                  <span>Çıkış Yap</span>
+                </button>
+              </div>
             </div>
 
           </div>

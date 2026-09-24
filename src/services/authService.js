@@ -3,17 +3,17 @@
 const AUTH_STORAGE_KEY = 'izeeg_current_auth_user';
 
 const DEFAULT_CURRENT_USER = {
-  id: 'USR-849203',
-  storeName: 'Mağaza Paneli',
-  ownerName: 'Mağaza Sahibi',
-  email: 'satici@izeeg.com',
-  phone: '0555 123 45 67',
-  role: 'merchant', // 'admin' | 'merchant'
+  id: null,
+  storeName: 'Misafir Mağazası',
+  ownerName: 'Ziyaretçi',
+  email: '',
+  phone: '',
+  role: 'merchant',
   plan: 'TRIAL',
-  planName: '7 Günlük Deneme Sürümü',
-  trialDaysLeft: 5,
-  daysRemaining: 5,
-  isLoggedIn: true,
+  planName: '7 Günlük Ücretsiz Deneme',
+  trialDaysLeft: 7,
+  daysRemaining: 7,
+  isLoggedIn: false,
   activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
 };
 
