@@ -30,6 +30,7 @@ import { PitchDeckPage } from './components/PitchDeckPage';
 import { PageHelpGuideModal } from './components/PageHelpGuideModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { getCurrentUser } from './services/authService';
+import { Analytics } from '@vercel/analytics/react';
 
 import { 
   INITIAL_PRODUCTS, 
@@ -479,6 +480,9 @@ export function App() {
         onOpenContactModal={() => setIsContactModalOpen(true)}
         onOpenSubModal={() => setIsSubModalOpen(true)}
       />
+
+      {/* Vercel Ücretsiz Canlı Web Analitik İzleyicisi */}
+      <Analytics />
 
     </div>
   );
