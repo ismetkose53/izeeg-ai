@@ -69,6 +69,9 @@ export function calculateOrderProfit(order, products = []) {
   let totalSelling = 0;
   let totalCost = 0;
   let totalCommission = 0;
+  let hasMissingCost = false;
+  const totalItemCount = items.reduce((sum, it) => sum + Number(it.quantity || 1), 0);
+
   const cargoSettings = typeof localStorage !== 'undefined' ? (() => {
     try {
       const saved = localStorage.getItem('izeeg_custom_cargo_settings');
