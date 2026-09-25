@@ -16,8 +16,19 @@ export async function testTrendyolApi({ sellerId, apiKey, apiSecret }) {
   const cleanSecret = apiSecret.trim();
 
   try {
-    const res = await fetch(`/api/trendyol?action=orders&sellerId=${encodeURIComponent(cleanSellerId)}&apiKey=${encodeURIComponent(cleanKey)}&apiSecret=${encodeURIComponent(cleanSecret)}&size=1`, {
-      method: 'GET'
+    const res = await fetch('/api/trendyol', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sellerId: cleanSellerId,
+        apiKey: cleanKey,
+        apiSecret: cleanSecret,
+        action: 'orders',
+        page: 0,
+        size: 1
+      })
     });
 
     if (res.ok) {
@@ -28,7 +39,6 @@ export async function testTrendyolApi({ sellerId, apiKey, apiSecret }) {
         raw: json
       };
     } else {
-      // HTTP hata durumunda dönen mesaj
       const errJson = await res.json().catch(() => ({}));
       if (res.status === 401 || res.status === 403) {
         return {
@@ -44,7 +54,6 @@ export async function testTrendyolApi({ sellerId, apiKey, apiSecret }) {
       };
     }
   } catch (netErr) {
-    // Tarayıcı ortamında veya localhost'ta proxy olmadan direkt çağrıldığında
     console.warn("Trendyol direct ping notice:", netErr);
     return {
       success: true,
@@ -62,8 +71,19 @@ export async function fetchTrendyolLiveOrders({ sellerId, apiKey, apiSecret }) {
   const cleanSecret = apiSecret.trim();
 
   try {
-    const res = await fetch(`/api/trendyol?action=orders&sellerId=${encodeURIComponent(cleanSellerId)}&apiKey=${encodeURIComponent(cleanKey)}&apiSecret=${encodeURIComponent(cleanSecret)}&size=50`, {
-      method: 'GET'
+    const res = await fetch('/api/trendyol', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sellerId: cleanSellerId,
+        apiKey: cleanKey,
+        apiSecret: cleanSecret,
+        action: 'orders',
+        page: 0,
+        size: 50
+      })
     });
 
     if (res.ok) {
@@ -82,7 +102,6 @@ export async function fetchTrendyolLiveOrders({ sellerId, apiKey, apiSecret }) {
     console.warn("Trendyol live fetch fallback:", e);
   }
 
-  // Canlı API proxy yanıt vermezse veya 0 aktif sipariş varsa
   return {
     success: true,
     orders: [],
@@ -106,8 +125,17 @@ export async function testHepsiburadaApi({ merchantId, secretKey }) {
   const cleanSecret = secretKey.trim();
 
   try {
-    const res = await fetch(`/api/hepsiburada?action=orders&merchantId=${encodeURIComponent(cleanMerchantId)}&secretKey=${encodeURIComponent(cleanSecret)}&limit=1`, {
-      method: 'GET'
+    const res = await fetch('/api/hepsiburada', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        merchantId: cleanMerchantId,
+        secretKey: cleanSecret,
+        action: 'orders',
+        limit: 1
+      })
     });
 
     if (res.ok) {
@@ -139,8 +167,17 @@ export async function fetchHepsiburadaLiveOrders({ merchantId, secretKey }) {
   const cleanSecret = secretKey.trim();
 
   try {
-    const res = await fetch(`/api/hepsiburada?action=orders&merchantId=${encodeURIComponent(cleanMerchantId)}&secretKey=${encodeURIComponent(cleanSecret)}&limit=50`, {
-      method: 'GET'
+    const res = await fetch('/api/hepsiburada', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        merchantId: cleanMerchantId,
+        secretKey: cleanSecret,
+        action: 'orders',
+        limit: 50
+      })
     });
 
     if (res.ok) {

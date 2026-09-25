@@ -30,6 +30,24 @@ export function saveCurrentUser(user) {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
 }
 
+function computeAuthHash(str) {
+  let hash1 = 0x811c9dc5;
+  let hash2 = 5381;
+  const salted = "izeeg_salt_9841_" + (str || '') + "_shield_2026";
+  for (let i = 0; i < salted.length; i++) {
+    const code = salted.charCodeAt(i);
+    hash1 ^= code;
+    hash1 = (hash1 * 0x01000193) >>> 0;
+    hash2 = (((hash2 << 5) + hash2) + code) >>> 0;
+  }
+  return hash1.toString(16) + hash2.toString(16);
+}
+
+const ADMIN_HASHES = new Set([
+  'b80720588337855b', // Hashed credentials
+  'dc1e2c0854b50520'
+]);
+
 // Giriş Yap
 export function loginUser(email, password) {
   const cleanEmail = (email || '').trim().toLowerCase();
@@ -48,7 +66,8 @@ export function loginUser(email, password) {
   );
 
   if (isAdminEmail) {
-    if (cleanPass === 'krobaba53' || cleanPass === 'admin123') {
+    const inputHash = computeAuthHash(cleanPass);
+    if (ADMIN_HASHES.has(inputHash)) {
       const adminUser = {
         id: 'ADMIN-001',
         storeName: '👑 izeeg Kurucu & Süper Admin',
@@ -93,11 +112,14 @@ export function loginUser(email, password) {
   return { success: true, user: merchantUser };
 }
 
-// Hızlı Rol Değiştirme (Admin <-> Satıcı)
+// Rol Değiştirme / Sıfırlama
 export function switchUserRole(targetRole) {
   const current = getCurrentUser();
   if (targetRole === 'admin') {
-    return loginUser('admin@izeeg.com', 'admin');
+    if (current.role === 'admin' && current.isLoggedIn) {
+      return { success: true, user: current };
+    }
+    return { success: false, message: 'Yönetici yetkisi için lütfen kurucu girişi yapınız.' };
   } else {
     const regular = {
       ...DEFAULT_CURRENT_USER,

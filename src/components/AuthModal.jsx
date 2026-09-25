@@ -111,12 +111,12 @@ export function AuthModal({
 
     if (authMode === 'admin') {
       const cleanKey = (adminKey || '').trim();
-      if (cleanKey === 'krobaba53' || cleanKey === 'admin123' || cleanKey === 'ismet2026') {
-        const res = switchUserRole('admin');
+      const res = loginUser('admin@izeeg.com', cleanKey);
+      if (res.success) {
         if (onLoginSuccess) onLoginSuccess(res.user);
         onClose();
       } else {
-        setErrorMessage('Geçersiz Kurucu / Admin Anahtarı!');
+        setErrorMessage(res.message || 'Geçersiz Kurucu / Admin Anahtarı!');
       }
       return;
     }
