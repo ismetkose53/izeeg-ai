@@ -312,7 +312,7 @@ export function RealNetProfitModule({
       marketplaces,
       returnsList: formattedReturnsList
     };
-  }, [orders, products, allStoredReturns, period]);
+  }, [orders, products, liveReturns, period]);
 
   return (
     <div className="space-y-6 animate-fadeIn font-sans">
