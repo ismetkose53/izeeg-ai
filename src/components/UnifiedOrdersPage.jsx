@@ -40,7 +40,7 @@ import {
 import { ShippingLabelModal } from './ShippingLabelModal';
 import { OrderDocsModal } from './OrderDocsModal';
 import { calculateOrderProfit } from '../services/marketplaceEngine';
-import { getStoredImageCache, resolveSmartProductImage, CATEGORY_FALLBACK_IMAGES, saveCustomProductImage } from '../services/marketplaceSyncService';
+import { getStoredImageCache, resolveSmartProductImage, saveCustomProductImage } from '../services/marketplaceSyncService';
 import confetti from 'canvas-confetti';
 
 export function UnifiedOrdersPage({ 
@@ -1026,15 +1026,22 @@ export function UnifiedOrdersPage({
                         {itemsList.map((item, itemIdx) => (
                           <div key={item.id || itemIdx} className="flex items-start gap-3">
                             {/* Ürün Resmi & Mavi Adet Rozeti */}
-                            <div className="relative flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100">
-                              <img 
-                                src={item.image || CATEGORY_FALLBACK_IMAGES.default} 
-                                alt={item.title || 'Ürün'} 
-                                onError={(e) => {
-                                  e.currentTarget.src = CATEGORY_FALLBACK_IMAGES.default;
-                                }}
-                                className="w-12 h-12 object-cover"
-                              />
+                            <div className="relative flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 flex items-center justify-center">
+                              {item.image ? (
+                                <img 
+                                  src={item.image} 
+                                  alt={item.title || 'Ürün'} 
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const fallback = e.currentTarget.parentElement?.querySelector('.no-img-badge');
+                                    if (fallback) fallback.style.display = 'flex';
+                                  }}
+                                  className="w-12 h-12 object-cover"
+                                />
+                              ) : null}
+                              <div className={`no-img-badge w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 font-black text-xs items-center justify-center ${item.image ? 'hidden' : 'flex'}`}>
+                                {(item.title || 'Ü').trim().charAt(0).toUpperCase()}
+                              </div>
                               <span className="absolute -top-1 -left-1 w-4 h-4 bg-blue-600 text-white font-black text-[10px] rounded-full flex items-center justify-center shadow-sm z-10">
                                 {item.quantity || 1}
                               </span>

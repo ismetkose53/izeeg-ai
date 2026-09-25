@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     if (cleanAction === 'products') {
       targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/products?page=${cleanPage}&size=${cleanSize}${cleanBarcode ? `&barcode=${encodeURIComponent(cleanBarcode)}` : ''}`;
     } else if (cleanAction === 'claims') {
-      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/claims?page=${cleanPage}&size=${cleanSize}&claimItemStatus=Created,WaitingInAction,Accepted,Rejected,Cancelled`;
+      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/claims?page=${cleanPage}&size=${cleanSize}`;
     } else {
       targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/orders?page=${cleanPage}&size=${cleanSize}&orderByDirection=DESC`;
     }

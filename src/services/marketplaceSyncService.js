@@ -132,38 +132,21 @@ export const CARGO_BAREMLERI = {
   }
 };
 
-// Yüksek Çözünürlüklü Otantik Kategori Görsel Havuzu (Asla boş turuncu kutu bırakmaz)
-export const CATEGORY_FALLBACK_IMAGES = {
-  jean: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=300&auto=format&fit=crop&q=80',
-  pantolon: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=300&auto=format&fit=crop&q=80',
-  tshirt: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
-  tişört: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
-  elbise: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&auto=format&fit=crop&q=80',
-  gömlek: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=300&auto=format&fit=crop&q=80',
-  bluz: 'https://images.unsplash.com/photo-1564257631407-4deb1f99d992?w=300&auto=format&fit=crop&q=80',
-  ayakkabı: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&auto=format&fit=crop&q=80',
-  bot: 'https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=300&auto=format&fit=crop&q=80',
-  çanta: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&auto=format&fit=crop&q=80',
-  mont: 'https://images.unsplash.com/photo-1544441893-675973e31985?w=300&auto=format&fit=crop&q=80',
-  ceket: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=300&auto=format&fit=crop&q=80',
-  sweatshirt: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=300&auto=format&fit=crop&q=80',
-  şort: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=300&auto=format&fit=crop&q=80',
-  aksesuar: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=300&auto=format&fit=crop&q=80',
-  takı: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=300&auto=format&fit=crop&q=80',
-  saat: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=300&auto=format&fit=crop&q=80',
-  kozmetik: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=300&auto=format&fit=crop&q=80',
-  parfüm: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=300&auto=format&fit=crop&q=80',
-  elektronik: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&auto=format&fit=crop&q=80',
-  default: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&auto=format&fit=crop&q=80'
-};
-
 /**
- * Kayıtlı ürün görsel önbelleğini localStorage'dan çeker
+ * Kayıtlı ürün görsel önbelleğini localStorage'dan çeker (sadece gerçek API resimlerini tutar)
  */
 export function getStoredImageCache() {
   try {
     const saved = localStorage.getItem(IMAGE_CACHE_KEY);
-    return saved ? JSON.parse(saved) : {};
+    if (!saved) return {};
+    const parsed = JSON.parse(saved);
+    const clean = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'string' && v.startsWith('http') && !v.includes('unsplash.com')) {
+        clean[k] = v;
+      }
+    }
+    return clean;
   } catch {
     return {};
   }
@@ -185,10 +168,11 @@ export function saveStoredImageCache(newEntries = {}) {
 
 /**
  * Akıllı Ürün Görseli Çözücü:
- * Doğrudan API görseli -> Önbellek -> Katalog -> Otantik Kategori Fotoğrafı
+ * YALNIZCA gerçek Trendyol (cdn.dsmcdn.com) veya Hepsiburada (productimages.hepsiburada.net) satıcı resmini döndürür.
+ * Asla yabancı/alakasız hazır stok fotoğrafları eklemez.
  */
 export function resolveSmartProductImage({ directImage = '', barcode = '', sku = '', title = '', category = '' } = {}) {
-  if (directImage && typeof directImage === 'string' && directImage.startsWith('http') && !directImage.includes('placeholder')) {
+  if (directImage && typeof directImage === 'string' && directImage.startsWith('http') && !directImage.includes('unsplash') && !directImage.includes('placeholder')) {
     return directImage;
   }
 
@@ -197,9 +181,15 @@ export function resolveSmartProductImage({ directImage = '', barcode = '', sku =
   const cleanSku = String(sku || '').trim();
   const cleanTitle = String(title || '').toLowerCase().trim();
 
-  if (cleanBarcode && imageCache[cleanBarcode]) return imageCache[cleanBarcode];
-  if (cleanSku && imageCache[cleanSku]) return imageCache[cleanSku];
-  if (cleanTitle && imageCache[cleanTitle]) return imageCache[cleanTitle];
+  if (cleanBarcode && imageCache[cleanBarcode] && !imageCache[cleanBarcode].includes('unsplash')) {
+    return imageCache[cleanBarcode];
+  }
+  if (cleanSku && imageCache[cleanSku] && !imageCache[cleanSku].includes('unsplash')) {
+    return imageCache[cleanSku];
+  }
+  if (cleanTitle && imageCache[cleanTitle] && !imageCache[cleanTitle].includes('unsplash')) {
+    return imageCache[cleanTitle];
+  }
 
   // Katalogdan ara
   const catalog = getCatalogProducts();
@@ -209,18 +199,15 @@ export function resolveSmartProductImage({ directImage = '', barcode = '', sku =
     (cleanTitle && p.name && p.name.toLowerCase().trim() === cleanTitle)
   );
 
-  if (matched?.image && matched.image.startsWith('http')) return matched.image;
-  if (matched?.imageUrl && matched.imageUrl.startsWith('http')) return matched.imageUrl;
-
-  // Kategori / Ürün Başlığı Akıllı Fotoğraf Eşleşmesi
-  const searchStr = `${title} ${category}`.toLowerCase();
-  for (const [key, imgUrl] of Object.entries(CATEGORY_FALLBACK_IMAGES)) {
-    if (key !== 'default' && searchStr.includes(key)) {
-      return imgUrl;
-    }
+  if (matched?.image && matched.image.startsWith('http') && !matched.image.includes('unsplash')) {
+    return matched.image;
+  }
+  if (matched?.imageUrl && matched.imageUrl.startsWith('http') && !matched.imageUrl.includes('unsplash')) {
+    return matched.imageUrl;
   }
 
-  return CATEGORY_FALLBACK_IMAGES.default;
+  // Gerçek resim henüz çekilmediyse boş döner (UI temiz şık ürün rozeti gösterir)
+  return '';
 }
 
 /**

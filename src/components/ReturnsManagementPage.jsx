@@ -19,9 +19,9 @@ import {
   Image as ImageIcon,
   Check,
   ChevronRight,
-  Plus
+  Plus,
+  Box
 } from 'lucide-react';
-import { RETURNS_MANAGEMENT_DATA, DEMO_PRODUCTS } from '../services/mockData';
 import { 
   getStoredReturns, 
   saveStoredReturns, 
@@ -30,7 +30,8 @@ import {
   getStoredImageCache,
   saveCustomProductImage,
   resolveSmartProductImage,
-  getCustomCargoSettings
+  getCustomCargoSettings,
+  runAutoSyncAll
 } from '../services/marketplaceSyncService';
 import { PageGuideButton } from './PageHelpGuideModal';
 
@@ -41,17 +42,11 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
   
-  // Veri Modu: Canlı API veya Demo Simülasyon
-  const [useLiveApi, setUseLiveApi] = useState(() => {
-    const creds = localStorage.getItem('izeeg_core_api_credentials');
-    return !!creds;
-  });
-
+  // Canlı İadeler State'i (Sanal/demo veri tamamen kaldırıldı; yalnızca gerçek veriler listelenir)
   const [liveReturns, setLiveReturns] = useState(() => {
     const stored = getStoredReturns();
     if (stored && stored.length > 0) return stored;
     
-    // Siparişlerden çıkar
     try {
       const ordersRaw = localStorage.getItem('izeeg_live_orders');
       if (ordersRaw) {
@@ -92,33 +87,35 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
     return () => window.removeEventListener('izeeg_images_updated', handleImagesUpdated);
   }, []);
 
-  // API'den Canlı İadeleri Çek Butonu
+  // API'den Canlı İadeleri & Siparişleri Çek Butonu
   const handleSyncReturns = async () => {
     setIsSyncing(true);
-    setSyncMessage('Pazaryeri API sunucuları taranıyor (Trendyol Claims & Hepsiburada Returns)...');
+    setSyncMessage('Trendyol Claims & Hepsiburada Returns API taranıyor...');
     try {
+      // 1. Önce genel pazaryeri senkronizasyonu (siparişler, ürün katalog resimleri ve durumlar)
+      await runAutoSyncAll({});
+
+      // 2. Ardından resmi claims/returns uç noktalarını senkronize et
       const res = await syncAllReturns();
       refreshLocalData();
+
       if (res.count > 0) {
-        setSyncMessage(`✅ ${res.count} adet güncel iade ve talep kaydı senkronize edildi.`);
+        setSyncMessage(`✅ ${res.count} adet güncel iade ve talep kaydı başarıyla çekildi.`);
       } else {
-        setSyncMessage('✅ İadeler güncel. Yeni açılmış iade talebi bulunamadı.');
+        setSyncMessage('✅ Pazaryeri bağlantısı güncel. Açık veya bekleyen yeni iade talebi bulunamadı.');
       }
     } catch (err) {
-      setSyncMessage('⚠️ Senkronizasyon tamamlandı (Sipariş havuzu kontrol edildi).');
+      setSyncMessage('⚠️ Senkronizasyon tamamlandı (Sipariş havuzu tarandı).');
     } finally {
       setIsSyncing(false);
-      setTimeout(() => setSyncMessage(''), 4000);
+      setTimeout(() => setSyncMessage(''), 5000);
     }
   };
 
-  // Aktif Veri Listesi: Canlı veya Demo
+  // Aktif Veri Listesi: SADECE GERÇEK VERİ
   const activeDataset = useMemo(() => {
-    if (useLiveApi && liveReturns.length > 0) {
-      return liveReturns;
-    }
-    return RETURNS_MANAGEMENT_DATA;
-  }, [useLiveApi, liveReturns]);
+    return liveReturns;
+  }, [liveReturns]);
 
   // Filtreleme
   const filteredReturns = useMemo(() => {
@@ -144,7 +141,6 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
   // Toplam Maliyet ve İade Metrikleri
   const totalReturnLoss = activeDataset.reduce((sum, item) => sum + (Number(item.totalLossFromReturn) || 0), 0);
   const totalDoubleCargoLoss = activeDataset.reduce((sum, item) => sum + ((Number(item.outboundCargoFee) || 0) + (Number(item.returnCargoFee) || 0)), 0);
-  const totalRepackagingLoss = activeDataset.reduce((sum, item) => sum + (Number(item.repackagingCost) || 0), 0);
 
   // Kategori Bazlı Neden Dağılımı
   const reasonStats = useMemo(() => {
@@ -175,10 +171,10 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
 
     const total = activeDataset.length || 1;
     return {
-      size: { ...counts.size, percent: Math.round((counts.size.count / total) * 100) },
-      remorse: { ...counts.remorse, percent: Math.round((counts.remorse.count / total) * 100) },
-      damage: { ...counts.damage, percent: Math.round((counts.damage.count / total) * 100) },
-      other: { ...counts.other, percent: Math.round((counts.other.count / total) * 100) }
+      size: { ...counts.size, percent: activeDataset.length > 0 ? Math.round((counts.size.count / total) * 100) : 0 },
+      remorse: { ...counts.remorse, percent: activeDataset.length > 0 ? Math.round((counts.remorse.count / total) * 100) : 0 },
+      damage: { ...counts.damage, percent: activeDataset.length > 0 ? Math.round((counts.damage.count / total) * 100) : 0 },
+      other: { ...counts.other, percent: activeDataset.length > 0 ? Math.round((counts.other.count / total) * 100) : 0 }
     };
   }, [activeDataset]);
 
@@ -195,7 +191,7 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
   return (
     <div className="space-y-6 animate-fadeIn pb-16 font-sans">
       
-      {/* 1. ÜST BAŞLIK, CANLI SENKRONİZASYON & VERİ MODU */}
+      {/* 1. ÜST BAŞLIK, CANLI SENKRONİZASYON & VERİ BİLGİSİ */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
         
         <div className="flex items-center gap-3.5">
@@ -214,18 +210,9 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
                 Çift Kargo & İade Kâr Motoru
               </span>
 
-              {/* Canlı API / Demo Modu Rozeti */}
-              <button
-                onClick={() => setUseLiveApi(!useLiveApi)}
-                className={`text-xs font-black px-3 py-0.5 rounded-full border transition-all cursor-pointer flex items-center gap-1.5 ${
-                  useLiveApi && liveReturns.length > 0
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                    : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
-                }`}
-                title="Canlı API ile Örnek Veri arasında geçiş yap"
-              >
-                <span>{useLiveApi && liveReturns.length > 0 ? '🟢 Canlı API İadeleri' : '📊 Demo / Örnek Veri'}</span>
-              </button>
+              <span className="text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 px-3 py-0.5 rounded-full">
+                🟢 Canlı Mağaza Havuzu
+              </span>
 
               {onOpenGuide && (
                 <PageGuideButton 
@@ -240,7 +227,7 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
               <RotateCcw className="w-6 h-6 text-rose-600" />
               İade & Değişim Yönetimi
               <span className="text-xs font-bold bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-full">
-                {activeDataset.length} Kayıt
+                {activeDataset.length} Gerçek İade
               </span>
             </h1>
           </div>
@@ -257,7 +244,7 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
             }`}
           >
             <RefreshCw className={`w-4 h-4 text-rose-400 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'İadeler Çekiliyor...' : 'Pazaryerinden İadeleri Çek'}</span>
+            <span>{isSyncing ? 'İadeler Taranıyor...' : 'Pazaryerinden İadeleri Çek'}</span>
           </button>
 
           {/* Toplam İade Kayıp Özeti Kartı */}
@@ -290,39 +277,39 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
           <div className="space-y-2 max-w-3xl">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                AI İade Önleme Analizi
+                AI Çift Kargo Hesaplayıcı
               </span>
               <span className="text-xs text-rose-400 font-bold">
-                ⚠️ İadelerin %{reasonStats.size.percent}'si Beden & Kalıp Uyumsuzluğundan Kaynaklanıyor
+                ⚠️ Her İade Size 174,00 ₺ Çift Kargo (87 ₺ Gidiş + 87 ₺ Dönüş) + Ambalaj Zararı Yüklüyor
               </span>
             </div>
 
             <h3 className="text-base lg:text-lg font-black text-white">
-              Her İade Size Ortalama 174,00 ₺ Çift Kargo (87 ₺ Gidiş + 87 ₺ Dönüş) + Ambalaj Zararı Yüklüyor
+              Pazaryeri İadelerini & Kargo Hasar İtirazlarını 1-Tıkla Yönetin
             </h3>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              İade edilen ürünlerde komisyon tutarı pazaryeri tarafından iptal edilse dahi <strong>kargo bedeli çift taraflı olarak satıcıdan tahsil edilir</strong>. Ürün açıklamalarına net beden tablosu ve <em>"Dar Kalıp - 1 Beden Büyük Tercih Ediniz"</em> uyarısı eklendiğinde beklenen iade düşüşü: <strong>%40</strong>.
+              İade edilen ürünlerde komisyon tutarı pazaryeri tarafından iptal edilse dahi <strong>kargo bedeli çift taraflı olarak satıcıdan tahsil edilir</strong>. Hasarlı gelen iadeler için otomatik tutanak ve kargo itiraz dilekçesi oluşturabilirsiniz.
             </p>
           </div>
 
           <button
             onClick={() => onTriggerActionApproval({
-              id: 'AI-RET-ACTION-FULL',
-              title: 'İade Alan Ürünlere Beden Tablosu & Kalıp Uyarısı Ekle',
+              id: 'AI-RET-ACTION-DISPUTE',
+              title: 'İade & Kargo Hasar İtiraz Taleplerini Başlat',
               marketplace: 'Trendyol & Hepsiburada',
-              product: 'İade Oranı Yüksek Ürünler',
-              q3_financialImpact: 'Aylık Tahmini ~3.480 ₺ Çift Kargo Kaybı Önlenecektir',
+              product: 'İade ve Kargo Kayıtları',
+              q3_financialImpact: 'Kargo Hasar Tazmin Dilekçesi Hazırlanacaktır',
               action: {
-                type: 'LISTING_UPDATE',
-                label: 'Beden & Kalıp Uyarılarını 1-Tıkla Güncelle',
-                payload: { estimatedSaving: '3.480 ₺/ay' }
+                type: 'CARGO_DISPUTE',
+                label: 'İtiraz Dilekçesi Hazırla',
+                payload: { action: 'DISPUTE_ALL' }
               }
             })}
             className="px-5 py-3.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-lg shadow-rose-600/40 transition-all whitespace-nowrap hover:scale-105 flex items-center gap-2 cursor-pointer flex-shrink-0"
           >
             <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>AI Beden & Kalıp Optimizasyonunu Başlat</span>
+            <span>AI İade & Kargo İtiraz Sihirbazı</span>
           </button>
         </div>
       </div>
@@ -352,7 +339,7 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
         {/* Neden 2: Cayma / Renk Farkı */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm hover:border-amber-300 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700">2. Cayma / Renk Farkı</span>
+            <span className="text-xs font-bold text-slate-700">2. Cayma / Beğenilmeme</span>
             <span className="text-xs font-black text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
               %{reasonStats.remorse.percent} Pay
             </span>
@@ -364,7 +351,7 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
             Toplam Zarar: <strong className="text-amber-700 font-black">-{reasonStats.remorse.loss.toFixed(2)} ₺</strong>
           </div>
           <div className="mt-3.5 pt-2.5 border-t border-slate-100 text-[11px] text-amber-700 font-bold flex items-center gap-1">
-            <span>💡</span> <span>Çözüm: Gerçek gün ışığı stüdyo çekimi</span>
+            <span>💡</span> <span>Çözüm: Ürün detay açıklaması optimizasyonu</span>
           </div>
         </div>
 
@@ -383,7 +370,7 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
             Toplam Zarar: <strong className="text-blue-600 font-black">-{reasonStats.damage.loss.toFixed(2)} ₺</strong>
           </div>
           <div className="mt-3.5 pt-2.5 border-t border-slate-100 text-[11px] text-blue-600 font-bold flex items-center gap-1">
-            <span>💡</span> <span>Çözüm: Kargo hasar tazmin talebi</span>
+            <span>💡</span> <span>Çözüm: Kargo hasar tazmin dilekçesi</span>
           </div>
         </div>
 
@@ -396,9 +383,9 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div>
             <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-              <span>İade & Değişim Kayıtları</span>
+              <span>Canlı İade & Değişim Kayıtları</span>
               <span className="text-xs font-bold text-slate-500 font-normal">
-                ({filteredReturns.length} adet gösteriliyor)
+                ({filteredReturns.length} kayıt)
               </span>
             </h3>
             <p className="text-xs text-slate-500">
@@ -465,9 +452,14 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
             <tbody className="divide-y divide-slate-100">
               {filteredReturns.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500 font-medium">
-                    <PackageX className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
-                    Aramanıza uygun iade kaydı bulunamadı.
+                  <td colSpan={8} className="py-16 text-center text-slate-500 font-medium">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                      <Box className="w-6 h-6" />
+                    </div>
+                    <div className="font-bold text-slate-700 text-sm">Açık İade Kaydı Bulunmuyor</div>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
+                      Pazaryeri mağazanızda şu an bekleyen bir iade talebi yoktur. <strong>"Pazaryerinden İadeleri Çek"</strong> butonuna basarak anlık güncelleyebilirsiniz.
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -495,17 +487,24 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
                               });
                               setCustomImageUrl(resolvedImg);
                             }}
-                            className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shadow-sm flex-shrink-0 cursor-pointer group/img bg-slate-100"
+                            className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shadow-sm flex-shrink-0 cursor-pointer group/img bg-slate-100 flex items-center justify-center"
                             title="Görseli Değiştir / Güncelle"
                           >
-                            <img 
-                              src={resolvedImg} 
-                              alt={ret.productName} 
-                              className="w-full h-full object-cover group-hover/img:scale-110 transition-transform"
-                              onError={(e) => {
-                                e.currentTarget.src = CATEGORY_FALLBACK_IMAGES.default;
-                              }}
-                            />
+                            {resolvedImg ? (
+                              <img 
+                                src={resolvedImg} 
+                                alt={ret.productName} 
+                                className="w-full h-full object-cover group-hover/img:scale-110 transition-transform"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  const fb = e.currentTarget.parentElement?.querySelector('.no-img-badge');
+                                  if (fb) fb.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div className={`no-img-badge w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 font-black text-xs items-center justify-center ${resolvedImg ? 'hidden' : 'flex'}`}>
+                              {(ret.productName || 'Ü').trim().charAt(0).toUpperCase()}
+                            </div>
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white text-[9px] font-bold">
                               Değiştir
                             </div>
@@ -632,7 +631,7 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-[#f27a1a]" />
-                Ürün Görselini Güncelle
+                Ürün Görselini Tanımla
               </h3>
               <button 
                 onClick={() => setEditImageModal(null)}
@@ -649,50 +648,30 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
               </div>
 
               {/* Görsel Önizleme */}
-              <div className="w-32 h-32 mx-auto rounded-2xl overflow-hidden border-2 border-slate-200 shadow-md bg-slate-50">
-                <img 
-                  src={customImageUrl || editImageModal.currentImage || CATEGORY_FALLBACK_IMAGES.default} 
-                  alt="Önizleme"
-                  className="w-full h-full object-cover"
-                />
+              <div className="w-32 h-32 mx-auto rounded-2xl overflow-hidden border-2 border-slate-200 shadow-md bg-slate-50 flex items-center justify-center">
+                {customImageUrl ? (
+                  <img 
+                    src={customImageUrl} 
+                    alt="Önizleme"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-xs text-slate-400 font-bold">Görsel Yok</span>
+                )}
               </div>
 
               {/* Görsel URL Girişi */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Yeni Görsel Linki (URL)
+                  Ürünün Gerçek Görsel Linki (URL)
                 </label>
                 <input 
                   type="text"
                   value={customImageUrl}
                   onChange={(e) => setCustomImageUrl(e.target.value)}
-                  placeholder="https://... (Görsel URL yapıştırın)"
+                  placeholder="https://cdn.dsmcdn.com/... (Görsel URL)"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#f27a1a]"
                 />
-              </div>
-
-              {/* Hızlı Kategori Seçimi */}
-              <div>
-                <label className="text-[11px] font-bold text-slate-500 block mb-1">
-                  Veya Hızlı Kategori Fotoğrafı Seç:
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {Object.entries(CATEGORY_FALLBACK_IMAGES).map(([key, url]) => {
-                    if (key === 'default') return null;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setCustomImageUrl(url)}
-                        className={`text-[10px] font-bold px-2 py-1 rounded-lg border capitalize transition-all cursor-pointer ${
-                          customImageUrl === url ? 'bg-[#f27a1a] text-white border-[#f27a1a]' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        {key}
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
             </div>
 
