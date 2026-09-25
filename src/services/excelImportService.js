@@ -1,4 +1,5 @@
 // izeeg AI - Çoklu Pazar Yeri & Trendyol Excel / CSV Ürün İçe ve Dışa Aktarma Servisi
+import { detectOfficialVatRate } from './vatRegulationService';
 
 /**
  * 1. Trendyol Resmi Satıcı Formatında Örnek Excel / CSV Verisi Üretici
@@ -319,7 +320,8 @@ export function parseUploadedProductFile(fileContent) {
       const marketPrice = parseFloat(cols[6]?.replace(',', '.')) || 0;
       const sellingPrice = parseFloat(cols[7]?.replace(',', '.')) || marketPrice || 350;
       const stock = parseInt(cols[8], 10) || 50;
-      const vatRate = parseInt(cols[9], 10) || 10;
+      const rawVat = parseInt(cols[9], 10);
+      const vatRate = !isNaN(rawVat) && rawVat > 0 ? rawVat : detectOfficialVatRate({ name, category, barcode });
       const desi = parseFloat(cols[10]?.replace(',', '.')) || 2;
       const image = cols[11] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=150';
       const color = cols[12] || 'Standart';
@@ -368,7 +370,8 @@ export function parseUploadedProductFile(fileContent) {
       const size = cols[7] || 'Tek Ebat';
       const color = cols[8] || 'Standart';
       const category = cols[9] || 'Genel';
-      const vatRate = parseInt(cols[10], 10) || 10;
+      const rawVat = parseInt(cols[10], 10);
+      const vatRate = !isNaN(rawVat) && rawVat > 0 ? rawVat : detectOfficialVatRate({ name, category, barcode });
       const desi = parseFloat(cols[11]?.replace(',', '.')) || 2;
       const commRate = parseFloat(cols[12]?.replace(',', '.')) || 15;
       const shelf = cols[13] || 'A-01';

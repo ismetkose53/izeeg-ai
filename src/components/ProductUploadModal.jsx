@@ -26,6 +26,7 @@ import {
   generateIzeegMasterCsvContent, 
   parseUploadedProductFile 
 } from '../services/excelImportService';
+import { detectOfficialVatRate } from '../services/vatRegulationService';
 
 export function ProductUploadModal({ 
   isOpen, 
@@ -576,7 +577,11 @@ export function ProductUploadModal({
                       type="text"
                       required
                       value={manualForm.name}
-                      onChange={(e) => setManualForm({ ...manualForm, name: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const autoVat = detectOfficialVatRate(val);
+                        setManualForm({ ...manualForm, name: val, vatRate: String(autoVat) });
+                      }}
                       placeholder="Örn: Antrasit Yıkamalı Taş Detaylı Kadın Eşofman Takımı"
                       className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#f27a1a]"
                     />

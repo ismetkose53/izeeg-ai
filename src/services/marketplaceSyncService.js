@@ -1,4 +1,5 @@
 // izeeg Çoklu Pazaryeri Canlı API Senkronizasyon, Kargo, Komisyon & Kâr Hesaplama Motoru
+import { detectOfficialVatRate } from './vatRegulationService';
 
 const PRODUCTS_STORAGE_KEY = 'izeeg_live_products';
 const ORDERS_STORAGE_KEY = 'izeeg_live_orders';
@@ -372,7 +373,9 @@ export async function fetchTrendyolLiveProducts({ sellerId, apiKey, apiSecret, m
           imageUrl: firstImg,
           sellingPrice: Number(p.salePrice || p.listPrice || 0),
           costPrice: 0,
-          vatRate: Number(p.vatRate || 20),
+          vatRate: p.vatRate !== undefined && p.vatRate !== null && Number(p.vatRate) > 0 
+            ? Number(p.vatRate) 
+            : detectOfficialVatRate({ name: p.title, category: p.categoryName, barcode: p.barcode }),
           desi: Number(p.dimensionalWeight || 1),
           stock: Number(p.quantity || 50),
           commissionRate: 21.5,
@@ -849,6 +852,8 @@ export function mapTrendyolOrderToInternal(raw, sellerId, catalog = [], imageMap
     const itemColor = l.productColor || l.color || matched?.color || 'Standart';
     const itemSize = l.productSize || l.size || l.variant || matched?.size || 'Standart';
 
+    const itemVatRate = detectOfficialVatRate(l.vatRate !== undefined ? l.vatRate : (matched?.vatRate !== undefined ? matched.vatRate : prodName));
+
     return {
       id: `ITEM-${l.id || idx + 1}`,
       title: prodName || 'Ürün',
@@ -859,6 +864,7 @@ export function mapTrendyolOrderToInternal(raw, sellerId, catalog = [], imageMap
       costPrice: unitCost,
       commission: Number((unitComm * qty).toFixed(2)),
       commissionRate: commRate,
+      vatRate: itemVatRate,
       color: itemColor,
       size: itemSize,
       image: itemImg,
@@ -896,6 +902,7 @@ export function mapTrendyolOrderToInternal(raw, sellerId, catalog = [], imageMap
   const deliveryNo = String(firstLine.deliveryNo || firstLine.deliveryNumber || raw.deliveryNumber || raw.orderNumber || '').trim();
   const remaining = calculateRemainingDispatchTime(raw);
   const formattedOrderDate = formatTrendyolOrderDate(raw.orderDate);
+  const dominantVatRate = items.length > 0 ? items[0].vatRate : detectOfficialVatRate(firstLine.productName || '');
 
   return {
     id: `TY-${raw.orderNumber || raw.id || Date.now()}`,
@@ -914,6 +921,7 @@ export function mapTrendyolOrderToInternal(raw, sellerId, catalog = [], imageMap
     costPrice: Number(totalCost.toFixed(2)),
     commission: Number(totalCommission.toFixed(2)),
     commissionRate: avgCommRate,
+    vatRate: dominantVatRate,
     cargoCost: cargoCost,
     cargoFee: cargoCost,
     returnCargoCost: returnCargoCost,
@@ -1035,6 +1043,8 @@ export function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = [], ima
     matched?.imageUrl || 
     '';
 
+  const itemVatRate = detectOfficialVatRate(firstItem.vatRate !== undefined ? firstItem.vatRate : (matched?.vatRate !== undefined ? matched.vatRate : prodName));
+
   return {
     id: `HB-${raw.orderNumber || raw.orderId || Date.now()}`,
     orderNumber: raw.orderNumber ? raw.orderNumber.toString() : `HB-${Date.now().toString().slice(-6)}`,
@@ -1048,6 +1058,7 @@ export function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = [], ima
     costPrice: costPrice,
     commission: totalCommission,
     commissionRate: commRate,
+    vatRate: itemVatRate,
     cargoCost: cargoCost,
     cargoFee: cargoCost,
     returnCargoCost: returnCargoCost,
@@ -1075,6 +1086,7 @@ export function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = [], ima
         costPrice: costPrice,
         commission: totalCommission,
         commissionRate: commRate,
+        vatRate: itemVatRate,
         netProfit: netProfit,
         profitMargin: profitMargin,
         image: hbImage

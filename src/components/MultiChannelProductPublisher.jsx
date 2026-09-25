@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { detectOfficialVatRate } from '../services/vatRegulationService';
 import { 
   Globe, 
   Sparkles, 
@@ -133,7 +134,7 @@ export function MultiChannelProductPublisher({
     costPrice: '',
     marketPrice: '', // Üstü çizili liste fiyatı
     sellingPrice: '', // Ana taban satış fiyatı
-    vatRate: '20',
+    vatRate: '10',
     desi: '2',
     stock: '50',
     criticalStock: '10',
@@ -642,7 +643,11 @@ export function MultiChannelProductPublisher({
                     </label>
                     <select
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      onChange={(e) => {
+                        const newCat = e.target.value;
+                        const detectedVat = detectOfficialVatRate({ name: formData.title, category: newCat });
+                        setFormData({ ...formData, category: newCat, vatRate: String(detectedVat) });
+                      }}
                       className="w-full h-9 px-3 rounded-lg bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold focus:bg-white focus:border-[#f27a1a] outline-none"
                     >
                       <option value="Kadın Giyim">Kadın Giyim</option>
@@ -810,9 +815,9 @@ export function MultiChannelProductPublisher({
                     onChange={(e) => setFormData({ ...formData, vatRate: e.target.value })}
                     className="w-full h-9 px-3 rounded-lg bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold outline-none"
                   >
-                    <option value="20">%20 (Genel Ürünler / Tekstil / Kozmetik)</option>
-                    <option value="10">%10 (Gıda & Temel Tüketim)</option>
-                    <option value="1">%1 (Özel Kategori)</option>
+                    <option value="10">%10 (Tekstil, Konfeksiyon, Giyim, Ayakkabı, Çanta)</option>
+                    <option value="20">%20 (Kozmetik, Elektronik, Aksesuar, Genel)</option>
+                    <option value="1">%1 (Temel Gıda & Bakliyat, Basılı Yayın)</option>
                   </select>
                 </div>
 

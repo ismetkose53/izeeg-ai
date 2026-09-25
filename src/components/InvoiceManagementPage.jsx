@@ -24,10 +24,19 @@ import {
   AlertTriangle,
   Lock,
   Key,
-  Database
+  Database,
+  Info,
+  Scale
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { EINVOICE_PROVIDERS, DEMO_EINVOICE_PROVIDERS, DEMO_ORDERS } from '../services/mockData';
+import { 
+  detectOfficialVatRate, 
+  calculateVatBreakdown, 
+  getVatLegalCitation, 
+  OFFICIAL_VAT_RATES, 
+  OFFICIAL_VAT_CATEGORIES 
+} from '../services/vatRegulationService';
 import { IzeegLogo } from './IzeegLogo';
 import { PageGuideButton } from './PageHelpGuideModal';
 
@@ -42,7 +51,7 @@ export function InvoiceManagementPage({
   autoInvoiceEnabled: propAutoInvoiceEnabled = true,
   setAutoInvoiceEnabled: propSetAutoInvoiceEnabled
 }) {
-  const [activeTab, setActiveTab] = useState('pending'); // pending | issued | providers
+  const [activeTab, setActiveTab] = useState('pending'); // pending | issued | providers | vat_matrix
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState(null); // Modal için
   const [selectedProviderModal, setSelectedProviderModal] = useState(null); // API Ayar Modalı için
@@ -126,7 +135,7 @@ export function InvoiceManagementPage({
   const pendingOrders = localOrders.filter(o => o.invoiceStatus === 'PENDING' || !o.invoiceStatus);
   const issuedOrders = localOrders.filter(o => o.invoiceStatus === 'ISSUED');
 
-  // Tekil Fatura Kes (Resmi E-Arşiv / E-Fatura Üret)
+  // Tekil Fatura Kes (GİB Resmi KDV Oranı Otomatik Hesaplanarak Kesilir)
   const handleIssueInvoice = (orderId) => {
     const timestamp = Date.now().toString().slice(-8);
     const newInvoiceNo = `IZG202600${timestamp}`;
@@ -134,11 +143,19 @@ export function InvoiceManagementPage({
 
     updateOrdersState(prev => prev.map(o => {
       if (o.id === orderId) {
+        const gross = Number(o.grossPrice || o.totalAmount || 1450);
+        const officialVatRate = detectOfficialVatRate(o);
+        const vatCalc = calculateVatBreakdown(gross, officialVatRate);
+
         return {
           ...o,
           invoiceStatus: 'ISSUED',
           invoiceNumber: newInvoiceNo,
           ettnUuid: newEttnUuid,
+          vatRate: officialVatRate,
+          netMatrah: vatCalc.netMatrah,
+          vatAmount: vatCalc.vatAmount,
+          legalCitation: vatCalc.legalCitation,
           invoiceDate: new Date().toLocaleDateString('tr-TR') + ' ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
           signedBy: 'GİB Güvenli E-İmza & Mühür'
         };
@@ -163,7 +180,7 @@ export function InvoiceManagementPage({
       return next;
     });
 
-    showToast(`✅ ${newInvoiceNo} numaralı E-Fatura GİB'e iletildi ve başarıyla mühürlendi!`);
+    showToast(`✅ ${newInvoiceNo} numaralı E-Fatura resmi KDV oranıyla mühürlendi!`);
     confetti({ particleCount: 70, spread: 60 });
   };
 
@@ -174,11 +191,19 @@ export function InvoiceManagementPage({
     updateOrdersState(prev => prev.map((o, idx) => {
       if (o.invoiceStatus === 'PENDING' || !o.invoiceStatus) {
         const timestamp = (Date.now() + idx).toString().slice(-8);
+        const gross = Number(o.grossPrice || o.totalAmount || 1450);
+        const officialVatRate = detectOfficialVatRate(o);
+        const vatCalc = calculateVatBreakdown(gross, officialVatRate);
+
         return {
           ...o,
           invoiceStatus: 'ISSUED',
           invoiceNumber: o.invoiceNumber || `IZG202600${timestamp}`,
           ettnUuid: o.ettnUuid || `c7e3f890-${timestamp.slice(0, 4)}-45e6-b890-${(Date.now() + idx).toString(16).slice(-12)}`,
+          vatRate: officialVatRate,
+          netMatrah: vatCalc.netMatrah,
+          vatAmount: vatCalc.vatAmount,
+          legalCitation: vatCalc.legalCitation,
           invoiceDate: new Date().toLocaleDateString('tr-TR') + ' ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
           signedBy: 'GİB Güvenli E-İmza & Mühür'
         };
@@ -203,7 +228,7 @@ export function InvoiceManagementPage({
       return next;
     });
 
-    showToast(`🎉 Toplam ${pendingOrders.length} adet sipariş için resmi E-Fatura toplu kesildi!`);
+    showToast(`🎉 Toplam ${pendingOrders.length} adet sipariş için resmi KDV oranlarıyla E-Fatura toplu kesildi!`);
     confetti({ particleCount: 120, spread: 80 });
   };
 
@@ -313,11 +338,14 @@ export function InvoiceManagementPage({
             </button>
           )}
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                 Resmi E-Arşiv & E-Fatura Motoru
               </span>
-              <span className="text-xs text-slate-500 font-medium">GİB Uyumlu 5070 Sayılı Kanun</span>
+              <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                <Scale className="w-3 h-3 text-blue-600" />
+                GİB Mevzuatı: 7346 Sayılı C.K. Otomatik KDV
+              </span>
               {onOpenGuide && (
                 <PageGuideButton 
                   onClick={onOpenGuide} 
@@ -382,7 +410,7 @@ export function InvoiceManagementPage({
               </h3>
               <p className="text-xs text-slate-300 max-w-2xl mt-0.5 leading-relaxed">
                 {autoInvoice 
-                  ? "Sipariş durumu 'İşleme Alındı / Paketleniyor' olduğunda sistem arka planda resmi GİB E-Arşiv faturasını (IZG2026...) keser, karekod oluşturur ve pazaryeri sistemine faturayı anında otomatik yükler."
+                  ? "Sipariş durumu 'İşleme Alındı / Paketleniyor' olduğunda sistem ürünün yasal KDV oranını (%10 Tekstil / %20 Genel / %1 Gıda) tespit eder, resmi GİB E-Arşiv faturasını keser, karekod oluşturur ve pazaryeri sistemine faturayı anında otomatik yükler."
                   : "Otomasyon devre dışı. Siparişler işleme alındığında fatura kesilmez, 'Fatura Bekleyen Siparişler' sekmesinden manuel onayınızla kesilir."}
               </p>
             </div>
@@ -489,10 +517,20 @@ export function InvoiceManagementPage({
           <CreditCard className="w-3.5 h-3.5" />
           <span>Fatura Programı API Bağlantıları</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('vat_matrix')}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'vat_matrix' ? 'bg-blue-600 text-white shadow-sm font-black' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Scale className="w-3.5 h-3.5" />
+          <span>GİB Resmi KDV Oran Matrisi</span>
+        </button>
       </div>
 
       {/* 5. ARAMA VE FİLTRELEME */}
-      {activeTab !== 'providers' && (
+      {activeTab !== 'providers' && activeTab !== 'vat_matrix' && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
@@ -543,43 +581,61 @@ export function InvoiceManagementPage({
                     <th className="p-3">Kanal</th>
                     <th className="p-3">Müşteri</th>
                     <th className="p-3">Ürün</th>
+                    <th className="p-3 text-center">GİB KDV %</th>
                     <th className="p-3 text-right">Tutar</th>
                     <th className="p-3 text-center">Durum</th>
                     <th className="p-3 text-right">İşlem</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredList.map(order => (
-                    <tr key={order.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-mono font-bold text-slate-900">{order.orderNumber || order.id}</td>
-                      <td className="p-3 font-bold text-slate-800">{order.marketplace || 'Trendyol'}</td>
-                      <td className="p-3">
-                        <div className="font-bold text-slate-900">{order.customerName}</div>
-                        <div className="text-[10px] text-slate-500">{order.customerCity || 'İstanbul'}</div>
-                      </td>
-                      <td className="p-3">
-                        <div className="font-medium text-slate-800">{order.productName || (order.items && order.items[0]?.title) || 'Tekstil Ürünü'}</div>
-                        <div className="text-[10px] text-slate-500">{order.variant || 'M / Standart'}</div>
-                      </td>
-                      <td className="p-3 text-right font-mono font-bold text-slate-900">
-                        {(order.grossPrice || order.totalAmount || 1450).toFixed(2)} ₺
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                          Bekliyor
-                        </span>
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          onClick={() => handleIssueInvoice(order.id)}
-                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <Zap className="w-3 h-3" />
-                          <span>Fatura Kes</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredList.map(order => {
+                    const vatRate = detectOfficialVatRate(order);
+                    const gross = Number(order.grossPrice || order.totalAmount || 1450);
+
+                    return (
+                      <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 font-mono font-bold text-slate-900">{order.orderNumber || order.id}</td>
+                        <td className="p-3 font-bold text-slate-800">{order.marketplace || 'Trendyol'}</td>
+                        <td className="p-3">
+                          <div className="font-bold text-slate-900">{order.customerName}</div>
+                          <div className="text-[10px] text-slate-500">{order.customerCity || 'İstanbul'}</div>
+                        </td>
+                        <td className="p-3">
+                          <div className="font-medium text-slate-800">{order.productName || (order.items && order.items[0]?.title) || 'Tekstil Ürünü'}</div>
+                          <div className="text-[10px] text-slate-500">{order.variant || 'M / Standart'}</div>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span 
+                            className={`text-[10px] font-black px-2.5 py-0.5 rounded-full cursor-help ${
+                              vatRate === 10 ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                              vatRate === 1 ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                              'bg-purple-50 text-purple-700 border border-purple-200'
+                            }`}
+                            title={getVatLegalCitation(vatRate)}
+                          >
+                            %{vatRate} KDV
+                          </span>
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900">
+                          {gross.toFixed(2)} ₺
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                            Bekliyor
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => handleIssueInvoice(order.id)}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <Zap className="w-3 h-3" />
+                            <span>Fatura Kes</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -611,45 +667,63 @@ export function InvoiceManagementPage({
                     <th className="p-3">Sipariş No</th>
                     <th className="p-3">Müşteri</th>
                     <th className="p-3">Kanal</th>
+                    <th className="p-3 text-center">GİB KDV %</th>
                     <th className="p-3 text-right">Tutar</th>
                     <th className="p-3 text-center">Durum</th>
                     <th className="p-3 text-right">İşlemler</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredList.map(order => (
-                    <tr key={order.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-mono font-black text-emerald-700">{order.invoiceNumber || 'IZG202600189281'}</td>
-                      <td className="p-3 font-mono text-slate-700">{order.orderNumber || order.id}</td>
-                      <td className="p-3">
-                        <div className="font-bold text-slate-900">{order.customerName}</div>
-                        <div className="text-[10px] text-slate-500">{order.customerCity || 'İstanbul'}</div>
-                      </td>
-                      <td className="p-3 font-bold text-slate-800">{order.marketplace || 'Trendyol'}</td>
-                      <td className="p-3 text-right font-mono font-bold text-slate-900">
-                        {(order.grossPrice || order.totalAmount || 1450).toFixed(2)} ₺
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                          Resmi Kesildi
-                        </span>
-                      </td>
-                      <td className="p-3 text-right space-x-2">
-                        <button
-                          onClick={() => handleOpenInvoicePreview(order)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                        >
-                          Görüntüle
-                        </button>
-                        <button
-                          onClick={() => handlePrintDirect(order)}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
-                        >
-                          Yazdır
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredList.map(order => {
+                    const vatRate = order.vatRate || detectOfficialVatRate(order);
+                    const gross = Number(order.grossPrice || order.totalAmount || 1450);
+
+                    return (
+                      <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 font-mono font-black text-emerald-700">{order.invoiceNumber || 'IZG202600189281'}</td>
+                        <td className="p-3 font-mono text-slate-700">{order.orderNumber || order.id}</td>
+                        <td className="p-3">
+                          <div className="font-bold text-slate-900">{order.customerName}</div>
+                          <div className="text-[10px] text-slate-500">{order.customerCity || 'İstanbul'}</div>
+                        </td>
+                        <td className="p-3 font-bold text-slate-800">{order.marketplace || 'Trendyol'}</td>
+                        <td className="p-3 text-center">
+                          <span 
+                            className={`text-[10px] font-black px-2.5 py-0.5 rounded-full cursor-help ${
+                              vatRate === 10 ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                              vatRate === 1 ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                              'bg-purple-50 text-purple-700 border border-purple-200'
+                            }`}
+                            title={getVatLegalCitation(vatRate)}
+                          >
+                            %{vatRate} KDV
+                          </span>
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900">
+                          {gross.toFixed(2)} ₺
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            Resmi Kesildi
+                          </span>
+                        </td>
+                        <td className="p-3 text-right space-x-2">
+                          <button
+                            onClick={() => handleOpenInvoicePreview(order)}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                          >
+                            Görüntüle
+                          </button>
+                          <button
+                            onClick={() => handlePrintDirect(order)}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
+                          >
+                            Yazdır
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -746,6 +820,48 @@ export function InvoiceManagementPage({
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* SEKME 4: GİB RESMİ KDV MEVZUATI MATRİSİ */}
+      {activeTab === 'vat_matrix' && (
+        <div className="space-y-6 animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 lg:p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <Scale className="w-5 h-5 text-blue-600" />
+                  Türkiye Cumhuriyeti Resmi KDV Oran Tablosu (7346 Sayılı C.K.)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Sistemimiz pazaryerinden sipariş veya ürün çekerken aşağıdaki resmi yasal mevzuata göre KDV oranını kuruşu kuruşuna otomatik atar.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {OFFICIAL_VAT_CATEGORIES.map(cat => (
+                <div key={cat.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900">{cat.name}</span>
+                    <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${
+                      cat.rate === 10 ? 'bg-blue-100 text-blue-800' :
+                      cat.rate === 1 ? 'bg-amber-100 text-amber-800' :
+                      'bg-purple-100 text-purple-800'
+                    }`}>
+                      %{cat.rate} KDV
+                    </span>
+                  </div>
+                  <div className="text-[10px] font-bold text-emerald-700 bg-emerald-50 p-1.5 rounded-lg border border-emerald-200">
+                    📜 {cat.lawReference}
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    {cat.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1038,13 +1154,28 @@ function EInvoiceApiConnectModal({ provider, onClose, onSave, onDisconnect }) {
  * 📄 Resmi GİB 5070 Standartlarında E-Arşiv / E-Fatura Önizleme & PDF Modalı
  */
 function OfficialInvoicePreviewModal({ order, onClose, activeProviderName }) {
-  const grossAmount = order.grossPrice || order.totalAmount || 1450.00;
-  const vatRate = 20;
-  const netMatrah = Number(((grossAmount * 100) / (100 + vatRate)).toFixed(2));
-  const vatAmount = Number((grossAmount - netMatrah).toFixed(2));
+  const [overrideVatRate, setOverrideVatRate] = useState(() => {
+    return order.vatRate || detectOfficialVatRate(order);
+  });
+
+  const grossAmount = Number(order.grossPrice || order.totalAmount || 1450.00);
+  const vatRate = Number(overrideVatRate);
+  const vatBreakdown = calculateVatBreakdown(grossAmount, vatRate);
+  
   const invoiceNo = order.invoiceNumber || `IZG202600008491`;
   const ettnUuid = order.ettnUuid || `c7e3f890-4412-45e6-b890-123456789abc`;
   const invoiceDateStr = order.invoiceDate || new Date().toLocaleDateString('tr-TR');
+
+  // Kalemler Listesi
+  const lineItems = (order.items && order.items.length > 0) ? order.items : [
+    {
+      title: order.productName || 'Tekstil Ürünü',
+      sku: order.sku || 'SKU-MODAL-01',
+      barcode: order.barcode || '8680019283712',
+      quantity: order.quantity || 1,
+      unitPrice: grossAmount / (order.quantity || 1)
+    }
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fadeIn font-sans">
@@ -1056,12 +1187,27 @@ function OfficialInvoicePreviewModal({ order, onClose, activeProviderName }) {
             <FileText className="w-5 h-5 text-[#f27a1a]" />
             <span className="text-sm font-black">Resmi E-Arşiv Fatura Önizleme (GİB Standartı)</span>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          {/* Hızlı KDV Oranı Değiştirici */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-300 font-bold hidden sm:inline">KDV Oranı:</span>
+            <select
+              value={overrideVatRate}
+              onChange={(e) => setOverrideVatRate(Number(e.target.value))}
+              className="bg-slate-800 text-white border border-slate-700 text-xs font-bold rounded-lg px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            >
+              <option value={10}>%10 KDV (Tekstil & Giyim - 7346 C.K.)</option>
+              <option value={20}>%20 KDV (Genel - Kozmetik, Aksesuar)</option>
+              <option value={1}>%1 KDV (Temel Gıda & İhtiyaç)</option>
+            </select>
+
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-white cursor-pointer ml-2"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Fatura Kağıdı Görünümü */}
@@ -1124,47 +1270,63 @@ function OfficialInvoicePreviewModal({ order, onClose, activeProviderName }) {
                   <th className="p-2.5">Sıra</th>
                   <th className="p-2.5">Mal / Hizmet Açıklaması</th>
                   <th className="p-2.5 text-center">Miktar</th>
-                  <th className="p-2.5 text-right">Birim Fiyat</th>
+                  <th className="p-2.5 text-right">Birim Fiyat (KDV Hariç)</th>
                   <th className="p-2.5 text-center">KDV %</th>
                   <th className="p-2.5 text-right">KDV Tutarı</th>
                   <th className="p-2.5 text-right">Toplam Tutar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                <tr>
-                  <td className="p-2.5 text-slate-500 font-mono">1</td>
-                  <td className="p-2.5">
-                    <div className="font-bold text-slate-900">{order.productName || (order.items && order.items[0]?.title) || 'Tekstil Ürünü'}</div>
-                    <div className="text-[10px] text-slate-500">Stok Kodu: {order.sku || 'SKU-MODAL-01'} • Barkod: {order.barcode || '8680019283712'}</div>
-                  </td>
-                  <td className="p-2.5 text-center font-bold">{order.quantity || 1} Adet</td>
-                  <td className="p-2.5 text-right font-mono font-medium">{(netMatrah / (order.quantity || 1)).toFixed(2)} ₺</td>
-                  <td className="p-2.5 text-center font-bold text-slate-800">%{vatRate}</td>
-                  <td className="p-2.5 text-right font-mono">{vatAmount.toFixed(2)} ₺</td>
-                  <td className="p-2.5 text-right font-mono font-black text-slate-900">{grossAmount.toFixed(2)} ₺</td>
-                </tr>
+                {lineItems.map((item, idx) => {
+                  const itemQty = item.quantity || 1;
+                  const itemGross = (item.unitPrice || (grossAmount / lineItems.length)) * itemQty;
+                  const itemBreakdown = calculateVatBreakdown(itemGross, vatRate);
+                  const itemUnitNet = itemBreakdown.netMatrah / itemQty;
+
+                  return (
+                    <tr key={idx}>
+                      <td className="p-2.5 text-slate-500 font-mono">{idx + 1}</td>
+                      <td className="p-2.5">
+                        <div className="font-bold text-slate-900">{item.title || item.name || order.productName}</div>
+                        <div className="text-[10px] text-slate-500">Stok Kodu: {item.sku || order.sku || 'SKU-MODAL-01'} • Barkod: {item.barcode || order.barcode || '8680019283712'}</div>
+                      </td>
+                      <td className="p-2.5 text-center font-bold">{itemQty} Adet</td>
+                      <td className="p-2.5 text-right font-mono font-medium">{itemUnitNet.toFixed(2)} ₺</td>
+                      <td className="p-2.5 text-center font-bold text-blue-700">%{vatRate}</td>
+                      <td className="p-2.5 text-right font-mono">{itemBreakdown.vatAmount.toFixed(2)} ₺</td>
+                      <td className="p-2.5 text-right font-mono font-black text-slate-900">{itemGross.toFixed(2)} ₺</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
             {/* Dip Toplamlar & Resmi Mühür */}
             <div className="flex flex-col sm:flex-row justify-between items-end gap-4 pt-2 border-t border-slate-200">
-              <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 w-full sm:w-auto">
-                <QrCode className="w-12 h-12 text-slate-800 flex-shrink-0" />
-                <div className="text-[10px] text-slate-500 leading-snug">
-                  <strong className="text-slate-900 block">5070 Sayılı Kanun Uyarınca Mühürlüdür</strong>
-                  GİB Doğrulama Kodu: <span className="font-mono text-slate-700">{ettnUuid.slice(0, 18)}...</span><br/>
-                  Fatura bu karekod ile GİB E-Arşiv portalından doğrulanabilir.
+              <div className="space-y-2 w-full sm:w-auto">
+                <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <QrCode className="w-12 h-12 text-slate-800 flex-shrink-0" />
+                  <div className="text-[10px] text-slate-500 leading-snug">
+                    <strong className="text-slate-900 block">5070 Sayılı Kanun Uyarınca Mühürlüdür</strong>
+                    GİB Doğrulama Kodu: <span className="font-mono text-slate-700">{ettnUuid.slice(0, 18)}...</span><br/>
+                    Fatura bu karekod ile GİB E-Arşiv portalından doğrulanabilir.
+                  </div>
+                </div>
+
+                <div className="text-[10px] font-bold text-blue-800 bg-blue-50 p-2 rounded-lg border border-blue-200 flex items-center gap-1.5">
+                  <Scale className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                  <span>Yasal Dayanak: {vatBreakdown.legalCitation}</span>
                 </div>
               </div>
 
               <div className="w-full sm:w-72 space-y-1.5 text-xs text-slate-700">
                 <div className="flex justify-between">
-                  <span>Mal Hizmet Toplam Tutarı:</span>
-                  <span className="font-mono font-medium">{netMatrah.toFixed(2)} ₺</span>
+                  <span>Mal Hizmet Toplam Tutarı (Matrah):</span>
+                  <span className="font-mono font-medium">{vatBreakdown.netMatrah.toFixed(2)} ₺</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Hesaplanan KDV (%20):</span>
-                  <span className="font-mono font-medium">{vatAmount.toFixed(2)} ₺</span>
+                  <span>Hesaplanan KDV (%{vatRate}):</span>
+                  <span className="font-mono font-medium text-blue-700">{vatBreakdown.vatAmount.toFixed(2)} ₺</span>
                 </div>
                 <div className="flex justify-between pt-1.5 border-t border-slate-300 font-black text-sm text-slate-900">
                   <span>Ödenecek Tutar (KDV Dahil):</span>

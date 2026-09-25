@@ -1,5 +1,6 @@
 // E-Ticaret Kâr, Kaçak ve Muhasebe Motoru (100% Deterministik Hesaplamalar)
 import { resolveItemCommissionRate } from './marketplaceSyncService';
+import { detectOfficialVatRate, calculateVatBreakdown, getVatLegalCitation } from './vatRegulationService';
 
 /**
  * Tek bir ürün için kâr, komisyon ve net marjı hesaplar
@@ -9,7 +10,8 @@ export function calculateUnitProfit({
   sellingPrice = 0,
   commissionRate = 18,
   cargoFee = 38.50,
-  vatRate = 20, // KDV %20
+  vatRate, // Eğer verilmezse ürün/kategoriye göre otomatik tespit edilir
+  productName = '',
   adCostPerUnit = 0
 }) {
   const selling = Number(sellingPrice) || 0;
@@ -18,8 +20,9 @@ export function calculateUnitProfit({
   const cargo = Number(cargoFee) || 0;
   const ad = Number(adCostPerUnit) || 0;
 
-  // KDV dahil fiyattan KDV payı
-  const vatAmount = selling - (selling / (1 + vatRate / 100));
+  // GİB Resmi KDV Oranı Tespiti (%10 Tekstil, %20 Genel, %1 Gıda)
+  const effectiveVatRate = vatRate !== undefined ? Number(vatRate) : detectOfficialVatRate(productName);
+  const { netMatrah, vatAmount } = calculateVatBreakdown(selling, effectiveVatRate);
   
   // Net Ele Geçen (Pazar yeri komisyon ve kargo kestikten sonra yatan)
   const netMarketplacePayout = selling - commission - cargo;
@@ -130,6 +133,10 @@ export function calculateOrderProfit(order, products = []) {
     const unitNetProfit = unitSelling - unitCost - unitComm - unitCargoShare;
     const unitMargin = unitSelling > 0 ? (unitNetProfit / unitSelling) * 100 : 0;
 
+    // 5. GİB Resmi KDV Tespiti ve Matrah Hesaplaması
+    const itemVatRate = detectOfficialVatRate(it.vatRate !== undefined ? it.vatRate : (matchedProd?.vatRate !== undefined ? matchedProd.vatRate : (it.title || it.productName || order.productName)));
+    const { netMatrah: itemNetMatrah, vatAmount: itemVatAmount } = calculateVatBreakdown(unitSelling * qty, itemVatRate);
+
     totalSelling += (unitSelling * qty);
     totalCost += (unitCost * qty);
     totalCommission += (unitComm * qty);
@@ -142,6 +149,9 @@ export function calculateOrderProfit(order, products = []) {
       commissionAmount: Number(unitComm.toFixed(2)),
       commissionRate: commRate,
       cargoShare: Number(unitCargoShare.toFixed(2)),
+      vatRate: itemVatRate,
+      vatAmount: itemVatAmount,
+      netMatrah: itemNetMatrah,
       unitNetProfit: Number(unitNetProfit.toFixed(2)),
       totalNetProfit: Number((unitNetProfit * qty).toFixed(2)),
       profitMarginPercent: Number(unitMargin.toFixed(1)),
@@ -155,6 +165,10 @@ export function calculateOrderProfit(order, products = []) {
   const totalNetProfit = netPayout - totalCost;
   const profitMarginPercent = grossPrice > 0 ? (totalNetProfit / grossPrice) * 100 : 0;
 
+  const totalVatAmount = calculatedItems.reduce((sum, it) => sum + (it.vatAmount || 0), 0);
+  const totalNetMatrah = calculatedItems.reduce((sum, it) => sum + (it.netMatrah || 0), 0);
+  const dominantVatRate = calculatedItems.length > 0 ? calculatedItems[0].vatRate : detectOfficialVatRate(order.productName || '');
+
   return {
     grossPrice: Number(grossPrice.toFixed(2)),
     totalCostPrice: Number(totalCost.toFixed(2)),
@@ -163,6 +177,9 @@ export function calculateOrderProfit(order, products = []) {
     netPayout: Number(netPayout.toFixed(2)),
     netProfit: Number(totalNetProfit.toFixed(2)),
     profitMarginPercent: Number(profitMarginPercent.toFixed(1)),
+    vatRate: dominantVatRate,
+    totalVatAmount: Number(totalVatAmount.toFixed(2)),
+    totalNetMatrah: Number(totalNetMatrah.toFixed(2)),
     isLoss: totalNetProfit < 0,
     hasMissingCost,
     items: calculatedItems
