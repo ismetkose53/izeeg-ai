@@ -1,5 +1,5 @@
 // Vercel Serverless Function: Hepsiburada Merchant API Secure Gateway
-// Güvenlik: POST-only, Payload Body, Origin Verification, Input Sanitization, Anti-Leak
+// Destek: Canlı (Prod) ve Test (SIT) Ortamları, Developer User-Agent (yumey_dev), Paket & Sipariş Uç Noktaları
 
 export default async function handler(req, res) {
   // 1. Güvenlik Başlıkları
@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
-  // 2. CORS Koruması: Sadece Yetkili Origin veya Same-Origin Kabul Et
+  // 2. CORS Koruması
   const origin = req.headers.origin || '';
   const isAllowedOrigin = 
     !origin || 
@@ -28,7 +28,6 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // 3. Yalnızca POST Metodu Kabul Edilir
   if (req.method !== 'POST') {
     return res.status(405).json({
       success: false,
@@ -36,7 +35,7 @@ export default async function handler(req, res) {
     });
   }
 
-  // 4. Payload ve Gövde Ayrıştırma
+  // 3. Payload Ayrıştırma
   let body = req.body;
   if (typeof body === 'string') {
     try {
@@ -46,9 +45,15 @@ export default async function handler(req, res) {
     }
   }
 
-  const { merchantId, secretKey, action = 'orders', offset = 0, limit = 50 } = body || {};
+  const { 
+    merchantId, 
+    secretKey, 
+    userAgent: customUserAgent, 
+    action = 'orders', 
+    offset = 0, 
+    limit = 50 
+  } = body || {};
 
-  // 5. Girdi Doğrulama & Sanitizasyon
   if (!merchantId || !secretKey) {
     return res.status(400).json({
       success: false,
@@ -56,67 +61,90 @@ export default async function handler(req, res) {
     });
   }
 
-  const cleanMerchantId = String(merchantId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
+  const cleanMerchantId = String(merchantId).trim();
   const cleanSecret = String(secretKey).trim();
   const cleanAction = action === 'products' ? 'products' : 'orders';
   const cleanLimit = Math.min(Math.max(1, parseInt(limit) || 50), 100);
   const cleanOffset = Math.max(0, parseInt(offset) || 0);
 
-  if (!cleanMerchantId || cleanSecret.length < 5) {
-    return res.status(400).json({
-      success: false,
-      message: 'Geçersiz Hepsiburada API kimlik bilgileri formatı.'
-    });
-  }
+  // User-Agent: Hepsiburada'nın kayıtlı Developer Username'i (varsayılan: yumey_dev)
+  const userAgent = (customUserAgent && String(customUserAgent).trim()) || 'yumey_dev';
 
-  // 6. Basic Auth ve Header Oluşturma
+  // 4. Basic Auth
   const authHeader = 'Basic ' + Buffer.from(`${cleanMerchantId}:${cleanSecret}`).toString('base64');
-  const userAgent = `${cleanMerchantId}_izeeg`;
 
-  try {
-    let targetUrl = '';
-    if (cleanAction === 'products') {
-      targetUrl = `https://mpop.hepsiburada.com/product/api/products/all?merchantId=${cleanMerchantId}&offset=${cleanOffset}&limit=${cleanLimit}`;
-    } else {
-      targetUrl = `https://mpop.hepsiburada.com/orders/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`;
-    }
+  // 5. Hepsiburada Olası API Uç Noktaları (Hem Canlı OMS hem SIT/Test Ortamı)
+  let candidateUrls = [];
+  if (cleanAction === 'products') {
+    candidateUrls = [
+      `https://listing-external.hepsiburada.com/listings/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://listing-external-sit.hepsiburada.com/listings/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://mpop.hepsiburada.com/product/api/products/all?merchantId=${cleanMerchantId}&offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://mpop-sit.hepsiburada.com/product/api/products/all?merchantId=${cleanMerchantId}&offset=${cleanOffset}&limit=${cleanLimit}`
+    ];
+  } else {
+    // Sipariş & Paket Uç Noktaları (OMS Live -> OMS SIT -> MPOP Live -> MPOP SIT)
+    candidateUrls = [
+      `https://oms-external.hepsiburada.com/packages/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://oms-external-sit.hepsiburada.com/packages/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://oms-external.hepsiburada.com/orders/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://oms-external-sit.hepsiburada.com/orders/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://mpop.hepsiburada.com/orders/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`
+    ];
+  }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
+  let lastStatus = 403;
+  let lastErrorData = null;
 
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-        'User-Agent': userAgent,
-        'Content-Type': 'application/json'
-      },
-      signal: controller.signal
-    });
+  for (const targetUrl of candidateUrls) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 9000);
 
-    clearTimeout(timeoutId);
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        success: false,
-        status: response.status,
-        message: data.message || data.error || `Hepsiburada API hata döndürdü (HTTP ${response.status}).`
+      const response = await fetch(targetUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': authHeader,
+          'User-Agent': userAgent,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
       });
-    }
 
-    return res.status(200).json({
-      success: true,
-      data: data
-    });
-  } catch (error) {
-    const isTimeout = error.name === 'AbortError';
-    return res.status(isTimeout ? 504 : 500).json({
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}));
+        return res.status(200).json({
+          success: true,
+          data: data,
+          endpoint: targetUrl,
+          userAgentUsed: userAgent
+        });
+      } else {
+        lastStatus = response.status;
+        lastErrorData = await response.json().catch(() => ({}));
+      }
+    } catch (e) {
+      console.warn(`Hepsiburada fetch fallback for ${targetUrl}:`, e.message || e);
+    }
+  }
+
+  // 403 Hatası Teşhisi ve Kullanıcıya Çözüm Rehberi
+  if (lastStatus === 401 || lastStatus === 403) {
+    return res.status(403).json({
       success: false,
-      message: isTimeout 
-        ? 'Hepsiburada sunucusu zaman aşımına uğradı (12sn).' 
-        : 'Bağlantı hatası oluştu.'
+      status: 403,
+      message: `Hepsiburada API Yetkilendirme Hatası (HTTP 403): User-Agent '${userAgent}' veya Secret Key doğrulanamadı. Lütfen Hepsiburada Satıcı Paneli > Entegrasyon > API Entegratör kısmında User-Agent adınızın '${userAgent}' olarak kayıtlı olduğunu kontrol ediniz.`,
+      details: lastErrorData
     });
   }
+
+  return res.status(lastStatus || 500).json({
+    success: false,
+    status: lastStatus,
+    message: lastErrorData?.message || `Hepsiburada API sunucusu hata döndürdü (HTTP ${lastStatus}).`,
+    raw: lastErrorData
+  });
 }

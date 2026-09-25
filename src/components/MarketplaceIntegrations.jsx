@@ -47,6 +47,9 @@ export function MarketplaceIntegrations({
   setProducts,
   cargoLeaks = [],
   setCargoLeaks,
+  autoSyncIntervalMins = 10,
+  setAutoSyncIntervalMins,
+  lastAutoSyncTime,
   onOpenSubModal, 
   onOpenGuide,
   onToast 
@@ -72,9 +75,10 @@ export function MarketplaceIntegrations({
   const [tyStatus, setTyStatus] = useState(storedCreds.tyApiKey && storedCreds.tySellerId ? 'CONNECTED' : 'DISCONNECTED');
   const [showTySecret, setShowTySecret] = useState(false);
 
-  // Hepsiburada API State
-  const [hbMerchantId, setHbMerchantId] = useState(storedCreds.hbMerchantId || '');
-  const [hbSecretKey, setHbSecretKey] = useState(storedCreds.hbSecretKey || '');
+  // Hepsiburada API State (User-Agent: yumey_dev entegratör başlığı ile birlikte)
+  const [hbMerchantId, setHbMerchantId] = useState(storedCreds.hbMerchantId || '0dca66ad-84ac-482a-9b74-b78540c99e12');
+  const [hbSecretKey, setHbSecretKey] = useState(storedCreds.hbSecretKey || '5aB8z64vuVmJ');
+  const [hbUserAgent, setHbUserAgent] = useState(storedCreds.hbUserAgent || 'yumey_dev');
   const [hbStatus, setHbStatus] = useState(storedCreds.hbMerchantId ? 'CONNECTED' : 'DISCONNECTED');
   const [showHbSecret, setShowHbSecret] = useState(false);
 
@@ -227,6 +231,7 @@ export function MarketplaceIntegrations({
       tySellerId,
       hbMerchantId,
       hbSecretKey,
+      hbUserAgent,
       ticimaxUrl,
       ticimaxApiKey
     };
@@ -317,7 +322,11 @@ export function MarketplaceIntegrations({
       }
 
       setHbStatus('CONNECTING');
-      const testResult = await testHepsiburadaApi({ merchantId: hbMerchantId, secretKey: hbSecretKey });
+      const testResult = await testHepsiburadaApi({ 
+        merchantId: hbMerchantId, 
+        secretKey: hbSecretKey, 
+        userAgent: hbUserAgent || 'yumey_dev' 
+      });
       
       if (!testResult.success) {
         setHbStatus('ERROR');
@@ -328,7 +337,11 @@ export function MarketplaceIntegrations({
       }
 
       setHbStatus('CONNECTED');
-      const fetchResult = await fetchHepsiburadaLiveOrders({ merchantId: hbMerchantId, secretKey: hbSecretKey });
+      const fetchResult = await fetchHepsiburadaLiveOrders({ 
+        merchantId: hbMerchantId, 
+        secretKey: hbSecretKey, 
+        userAgent: hbUserAgent || 'yumey_dev' 
+      });
 
       if (fetchResult.orders && fetchResult.orders.length > 0 && setOrders) {
         setOrders(prev => {
@@ -439,7 +452,54 @@ export function MarketplaceIntegrations({
           </div>
         )}
 
-        {/* 2. STANDART PAKETE DAHİL ÇEKİRDEK ENTEGRASYONLAR (TRENDYOL, HEPSİBURADA, TİCİMAX) */}
+        {/* 2. OTOMATİK ARKA PLAN SENKRONİZASYON KONTROL PANELİ */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-5 shadow-lg border border-slate-700 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                {autoSyncIntervalMins > 0 ? `Otomatik Çekim Aktif: Her ${autoSyncIntervalMins} Dakikada Bir` : 'Otomatik Çekim Kapalı (Yalnızca Manuel)'}
+              </span>
+            </div>
+            <h3 className="text-sm font-black text-white flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-400" />
+              <span>Pazaryeri Canlı Sipariş & Kargo Otomatik Çekim Motoru</span>
+            </h3>
+            <p className="text-[11px] text-slate-300">
+              Siz panelde gezinirken veya sipariş hazırlarken, sistem arka planda Trendyol ve Hepsiburada API'lerini otomatik tarar ve verilerinizi günceller.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-400">Periyot:</span>
+            {[
+              { val: 3, label: '3 dk' },
+              { val: 5, label: '5 dk' },
+              { val: 10, label: '10 dk' },
+              { val: 15, label: '15 dk' },
+              { val: 30, label: '30 dk' },
+              { val: 0, label: 'Kapalı' }
+            ].map(item => (
+              <button
+                key={item.val}
+                type="button"
+                onClick={() => {
+                  if (setAutoSyncIntervalMins) setAutoSyncIntervalMins(item.val);
+                  if (onToast) onToast(item.val > 0 ? `⏱️ Otomatik çekim her ${item.val} dakikaya ayarlandı.` : '⏸️ Otomatik çekim kapatıldı.');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  autoSyncIntervalMins === item.val
+                    ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30 scale-105'
+                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-600'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 3. STANDART PAKETE DAHİL ÇEKİRDEK ENTEGRASYONLAR (TRENDYOL, HEPSİBURADA, TİCİMAX) */}
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
@@ -602,12 +662,12 @@ export function MarketplaceIntegrations({
                 {/* Form Alanları */}
                 <div className="space-y-2.5 mt-3 text-xs">
                   <div>
-                    <label className="text-slate-700 font-bold block text-[11px] mb-0.5">Merchant ID</label>
+                    <label className="text-slate-700 font-bold block text-[11px] mb-0.5">Merchant ID (Mağaza UUID)</label>
                     <input
                       type="text"
                       value={hbMerchantId}
                       onChange={(e) => setHbMerchantId(e.target.value)}
-                      placeholder="Örn: 9812-hb"
+                      placeholder="Örn: 0dca66ad-84ac-482a-9b74-b78540c99e12"
                       autoComplete="off"
                       spellCheck="false"
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#ff6000]"
@@ -615,13 +675,13 @@ export function MarketplaceIntegrations({
                   </div>
 
                   <div>
-                    <label className="text-slate-700 font-bold block text-[11px] mb-0.5">Entegratör API Secret</label>
+                    <label className="text-slate-700 font-bold block text-[11px] mb-0.5">Entegratör API Secret Key (Password)</label>
                     <div className="relative">
                       <input
                         type={showHbSecret ? 'text' : 'password'}
                         value={hbSecretKey}
                         onChange={(e) => setHbSecretKey(e.target.value)}
-                        placeholder="••••••••••••••••"
+                        placeholder="Örn: 5aB8z64vuVmJ"
                         autoComplete="off"
                         spellCheck="false"
                         className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-2.5 pr-8 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#ff6000]"
@@ -634,6 +694,23 @@ export function MarketplaceIntegrations({
                         {showHbSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
                     </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <label className="text-slate-700 font-bold block text-[11px]">Developer User-Agent</label>
+                      <span className="text-[10px] text-orange-600 font-semibold">Gerekli Header</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={hbUserAgent}
+                      onChange={(e) => setHbUserAgent(e.target.value)}
+                      placeholder="Örn: yumey_dev"
+                      autoComplete="off"
+                      spellCheck="false"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#ff6000]"
+                    />
+                    <span className="text-[10px] text-slate-400 block mt-0.5">Hepsiburada Entegratör Developer Adı (Örn: yumey_dev)</span>
                   </div>
                 </div>
               </div>

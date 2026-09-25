@@ -43,6 +43,7 @@ import {
   DEMO_CARGO_AUDIT_LEAKS
 } from './services/mockData';
 import { calculateStoreMetrics } from './services/marketplaceEngine';
+import { runAutoSyncAll } from './services/marketplaceSyncService';
 import confetti from 'canvas-confetti';
 
 export function App() {
@@ -93,6 +94,55 @@ export function App() {
   });
 
   const [autoInvoiceEnabled, setAutoInvoiceEnabled] = useState(true);
+
+  // Otomatik Arka Plan Pazaryeri Senkronizasyonu (Varsayılan: Her 10 dakikada bir)
+  const [autoSyncIntervalMins, setAutoSyncIntervalMins] = useState(() => {
+    try {
+      const saved = localStorage.getItem('izeeg_auto_sync_interval_mins');
+      return saved !== null ? parseInt(saved, 10) : 10;
+    } catch {
+      return 10;
+    }
+  });
+
+  const [lastAutoSyncTime, setLastAutoSyncTime] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem('izeeg_auto_sync_interval_mins', String(autoSyncIntervalMins));
+  }, [autoSyncIntervalMins]);
+
+  // Arka Planda Periyodik Otomatik API Taraması
+  useEffect(() => {
+    if (!autoSyncIntervalMins || autoSyncIntervalMins <= 0) return;
+
+    // İlk açılışta 10 saniye sonra bir kere arka planda tara
+    const initialTimer = setTimeout(() => {
+      runAutoSyncAll({
+        onToast: showToast,
+        onNewOrdersReceived: (mergedOrders) => {
+          setOrders(mergedOrders);
+          setLastAutoSyncTime(new Date());
+        }
+      });
+    }, 10000);
+
+    // Belirlenen periyotta (örn 10 dk) tekrarlanan otomatik senkronizasyon
+    const intervalMs = autoSyncIntervalMins * 60 * 1000;
+    const intervalId = setInterval(() => {
+      runAutoSyncAll({
+        onToast: showToast,
+        onNewOrdersReceived: (mergedOrders) => {
+          setOrders(mergedOrders);
+          setLastAutoSyncTime(new Date());
+        }
+      });
+    }, intervalMs);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(intervalId);
+    };
+  }, [autoSyncIntervalMins]);
 
   // Verilerin localStorage ile otomatik senkronizasyonu
   useEffect(() => {
@@ -433,6 +483,9 @@ export function App() {
             setProducts={setProducts}
             cargoLeaks={cargoLeaks}
             setCargoLeaks={setCargoLeaks}
+            autoSyncIntervalMins={autoSyncIntervalMins}
+            setAutoSyncIntervalMins={setAutoSyncIntervalMins}
+            lastAutoSyncTime={lastAutoSyncTime}
             onToast={showToast}
             onOpenSubModal={handleOpenAddonCheckout} 
             onOpenGuide={() => setGuideModalPage('ai-worker')}
