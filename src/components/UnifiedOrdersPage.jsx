@@ -989,11 +989,11 @@ export function UnifiedOrdersPage({
                         </div>
 
                         <div className="text-[11px] text-slate-500">
-                          Paket No: <span className="font-mono text-slate-700">{order.packageNo || '4182778690'}</span>
+                          Paket No: <span className="font-mono text-slate-700">{order.packageNo || order.shipmentPackageId || String(order.id || '').replace(/\D/g, '')}</span>
                         </div>
 
                         <div className="text-[11px] text-slate-500">
-                          Teslimat No: <span className="font-mono text-slate-700">{order.deliveryNo || '10888698922'}</span>
+                          Teslimat No: <span className="font-mono text-slate-700">{order.deliveryNo || order.orderNumber || String(order.id || '').replace(/\D/g, '')}</span>
                         </div>
 
                         {order.remainingTime && (
