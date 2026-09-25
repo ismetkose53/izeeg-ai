@@ -40,7 +40,7 @@ import {
 import { ShippingLabelModal } from './ShippingLabelModal';
 import { OrderDocsModal } from './OrderDocsModal';
 import { calculateOrderProfit } from '../services/marketplaceEngine';
-import { getStoredImageCache } from '../services/marketplaceSyncService';
+import { getStoredImageCache, resolveSmartProductImage, CATEGORY_FALLBACK_IMAGES, saveCustomProductImage } from '../services/marketplaceSyncService';
 import confetti from 'canvas-confetti';
 
 export function UnifiedOrdersPage({ 
@@ -911,15 +911,13 @@ export function UnifiedOrdersPage({
                       (titleLower && p.name && p.name.toLowerCase().trim() === titleLower)
                     );
 
-                    const resolvedImage = 
-                      item.image || 
-                      (barcode && cachedImageMap[barcode]) ||
-                      (sku && cachedImageMap[sku]) ||
-                      (titleLower && cachedImageMap[titleLower]) ||
-                      matchedProd?.image ||
-                      matchedProd?.imageUrl ||
-                      order.image ||
-                      '';
+                    const resolvedImage = resolveSmartProductImage({
+                      directImage: item.image || order.image,
+                      barcode,
+                      sku,
+                      title,
+                      category: matchedProd?.category
+                    });
 
                     return {
                       ...item,
@@ -1028,25 +1026,16 @@ export function UnifiedOrdersPage({
                         {itemsList.map((item, itemIdx) => (
                           <div key={item.id || itemIdx} className="flex items-start gap-3">
                             {/* Ürün Resmi & Mavi Adet Rozeti */}
-                            <div className="relative flex-shrink-0 w-12 h-12">
-                              {item.image ? (
-                                <img 
-                                  src={item.image} 
-                                  alt={item.title || 'Ürün'} 
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const fb = e.currentTarget.parentElement?.querySelector('.img-fallback-box');
-                                    if (fb) fb.style.display = 'flex';
-                                  }}
-                                  className="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-sm"
-                                />
-                              ) : null}
-                              <div 
-                                className={`img-fallback-box w-12 h-12 rounded-lg bg-gradient-to-br from-orange-50 via-slate-100 to-slate-200 border border-slate-200 items-center justify-center text-slate-500 shadow-sm ${item.image ? 'hidden' : 'flex'}`}
-                              >
-                                <ShoppingBag className="w-5 h-5 text-orange-500" />
-                              </div>
-                              <span className="absolute -top-1.5 -left-1.5 w-4 h-4 bg-blue-600 text-white font-black text-[10px] rounded-full flex items-center justify-center shadow-sm z-10">
+                            <div className="relative flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100">
+                              <img 
+                                src={item.image || CATEGORY_FALLBACK_IMAGES.default} 
+                                alt={item.title || 'Ürün'} 
+                                onError={(e) => {
+                                  e.currentTarget.src = CATEGORY_FALLBACK_IMAGES.default;
+                                }}
+                                className="w-12 h-12 object-cover"
+                              />
+                              <span className="absolute -top-1 -left-1 w-4 h-4 bg-blue-600 text-white font-black text-[10px] rounded-full flex items-center justify-center shadow-sm z-10">
                                 {item.quantity || 1}
                               </span>
                             </div>

@@ -63,7 +63,7 @@ export default async function handler(req, res) {
 
   const cleanMerchantId = String(merchantId).trim();
   const cleanSecret = String(secretKey).trim();
-  const cleanAction = action === 'products' ? 'products' : 'orders';
+  const cleanAction = action === 'products' ? 'products' : (action === 'returns' || action === 'claims' ? 'returns' : 'orders');
   const cleanLimit = Math.min(Math.max(1, parseInt(limit) || 50), 100);
   const cleanOffset = Math.max(0, parseInt(offset) || 0);
 
@@ -81,6 +81,14 @@ export default async function handler(req, res) {
       `https://listing-external-sit.hepsiburada.com/listings/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
       `https://mpop.hepsiburada.com/product/api/products/all?merchantId=${cleanMerchantId}&offset=${cleanOffset}&limit=${cleanLimit}`,
       `https://mpop-sit.hepsiburada.com/product/api/products/all?merchantId=${cleanMerchantId}&offset=${cleanOffset}&limit=${cleanLimit}`
+    ];
+  } else if (cleanAction === 'returns') {
+    candidateUrls = [
+      `https://oms-external.hepsiburada.com/returns/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://oms-external-sit.hepsiburada.com/returns/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://claim-external.hepsiburada.com/claims/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://claim-external-sit.hepsiburada.com/claims/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://mpop.hepsiburada.com/returns/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`
     ];
   } else {
     // Sipariş & Paket Uç Noktaları (OMS Live -> OMS SIT -> MPOP Live -> MPOP SIT)

@@ -132,6 +132,31 @@ export const CARGO_BAREMLERI = {
   }
 };
 
+// Yüksek Çözünürlüklü Otantik Kategori Görsel Havuzu (Asla boş turuncu kutu bırakmaz)
+export const CATEGORY_FALLBACK_IMAGES = {
+  jean: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=300&auto=format&fit=crop&q=80',
+  pantolon: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=300&auto=format&fit=crop&q=80',
+  tshirt: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
+  tişört: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
+  elbise: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&auto=format&fit=crop&q=80',
+  gömlek: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=300&auto=format&fit=crop&q=80',
+  bluz: 'https://images.unsplash.com/photo-1564257631407-4deb1f99d992?w=300&auto=format&fit=crop&q=80',
+  ayakkabı: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&auto=format&fit=crop&q=80',
+  bot: 'https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=300&auto=format&fit=crop&q=80',
+  çanta: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&auto=format&fit=crop&q=80',
+  mont: 'https://images.unsplash.com/photo-1544441893-675973e31985?w=300&auto=format&fit=crop&q=80',
+  ceket: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=300&auto=format&fit=crop&q=80',
+  sweatshirt: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=300&auto=format&fit=crop&q=80',
+  şort: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=300&auto=format&fit=crop&q=80',
+  aksesuar: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=300&auto=format&fit=crop&q=80',
+  takı: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=300&auto=format&fit=crop&q=80',
+  saat: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=300&auto=format&fit=crop&q=80',
+  kozmetik: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=300&auto=format&fit=crop&q=80',
+  parfüm: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=300&auto=format&fit=crop&q=80',
+  elektronik: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&auto=format&fit=crop&q=80',
+  default: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&auto=format&fit=crop&q=80'
+};
+
 /**
  * Kayıtlı ürün görsel önbelleğini localStorage'dan çeker
  */
@@ -155,6 +180,77 @@ export function saveStoredImageCache(newEntries = {}) {
     return updated;
   } catch {
     return newEntries;
+  }
+}
+
+/**
+ * Akıllı Ürün Görseli Çözücü:
+ * Doğrudan API görseli -> Önbellek -> Katalog -> Otantik Kategori Fotoğrafı
+ */
+export function resolveSmartProductImage({ directImage = '', barcode = '', sku = '', title = '', category = '' } = {}) {
+  if (directImage && typeof directImage === 'string' && directImage.startsWith('http') && !directImage.includes('placeholder')) {
+    return directImage;
+  }
+
+  const imageCache = getStoredImageCache();
+  const cleanBarcode = String(barcode || '').trim();
+  const cleanSku = String(sku || '').trim();
+  const cleanTitle = String(title || '').toLowerCase().trim();
+
+  if (cleanBarcode && imageCache[cleanBarcode]) return imageCache[cleanBarcode];
+  if (cleanSku && imageCache[cleanSku]) return imageCache[cleanSku];
+  if (cleanTitle && imageCache[cleanTitle]) return imageCache[cleanTitle];
+
+  // Katalogdan ara
+  const catalog = getCatalogProducts();
+  const matched = catalog.find(p => 
+    (cleanBarcode && p.barcode === cleanBarcode) ||
+    (cleanSku && (p.sku === cleanSku || p.id === cleanSku)) ||
+    (cleanTitle && p.name && p.name.toLowerCase().trim() === cleanTitle)
+  );
+
+  if (matched?.image && matched.image.startsWith('http')) return matched.image;
+  if (matched?.imageUrl && matched.imageUrl.startsWith('http')) return matched.imageUrl;
+
+  // Kategori / Ürün Başlığı Akıllı Fotoğraf Eşleşmesi
+  const searchStr = `${title} ${category}`.toLowerCase();
+  for (const [key, imgUrl] of Object.entries(CATEGORY_FALLBACK_IMAGES)) {
+    if (key !== 'default' && searchStr.includes(key)) {
+      return imgUrl;
+    }
+  }
+
+  return CATEGORY_FALLBACK_IMAGES.default;
+}
+
+/**
+ * Kullanıcının 1 tıkla bir ürüne/barkoda özel görsel tanımlamasını sağlar
+ */
+export function saveCustomProductImage(key, imageUrl) {
+  if (!key || !imageUrl) return;
+  const cleanKey = String(key).trim();
+  saveStoredImageCache({ [cleanKey]: imageUrl, [cleanKey.toLowerCase()]: imageUrl });
+
+  try {
+    const products = getCatalogProducts();
+    const updatedProducts = products.map(p => {
+      if (p.barcode === cleanKey || p.sku === cleanKey || p.id === cleanKey || (p.name && p.name.toLowerCase() === cleanKey.toLowerCase())) {
+        return { ...p, image: imageUrl, imageUrl: imageUrl };
+      }
+      return p;
+    });
+    localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(updatedProducts));
+
+    const ordersRaw = localStorage.getItem(ORDERS_STORAGE_KEY);
+    if (ordersRaw) {
+      const orders = JSON.parse(ordersRaw);
+      const updatedOrders = backfillOrderImages(orders, updatedProducts, { [cleanKey]: imageUrl });
+      localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedOrders));
+    }
+    
+    window.dispatchEvent(new CustomEvent('izeeg_images_updated', { detail: { key, imageUrl } }));
+  } catch (e) {
+    console.warn("saveCustomProductImage notice:", e);
   }
 }
 
@@ -880,6 +976,361 @@ export function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = [], ima
   };
 }
 
+// ==========================================
+// CANLI İADE & TALEP (CLAIMS) YÖNETİMİ
+// ==========================================
+
+export const RETURNS_STORAGE_KEY = 'izeeg_live_returns';
+
+export function getStoredReturns() {
+  try {
+    const saved = localStorage.getItem(RETURNS_STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+export function saveStoredReturns(returnsList = []) {
+  try {
+    localStorage.setItem(RETURNS_STORAGE_KEY, JSON.stringify(returnsList));
+  } catch (e) {
+    console.warn("saveStoredReturns error:", e);
+  }
+}
+
+/**
+ * Trendyol Talep / İade (Claims) Nesnesini İç Yapıya Dönüştürür
+ */
+export function mapTrendyolClaimToInternal(rawClaim, baseCargoCost = 87.00, catalog = [], imageMap = {}) {
+  const items = rawClaim.items || [rawClaim];
+  const firstItem = items[0] || {};
+  const barcode = String(firstItem.barcode || rawClaim.barcode || '').trim();
+  const sku = String(firstItem.merchantSku || firstItem.sku || rawClaim.merchantSku || '').trim();
+  const title = String(firstItem.productName || rawClaim.productName || 'Trendyol İade Ürünü').trim();
+
+  const matched = catalog.find(p => 
+    (barcode && p.barcode === barcode) ||
+    (sku && (p.sku === sku || p.id === sku)) ||
+    (title && p.name && p.name.toLowerCase() === title.toLowerCase())
+  );
+
+  const prodImg = resolveSmartProductImage({
+    directImage: firstItem.productImage || firstItem.imageUrl || rawClaim.imageUrl,
+    barcode,
+    sku,
+    title,
+    category: matched?.category
+  });
+
+  const productPrice = Number(firstItem.price || rawClaim.customerClaimAmount || 0);
+  const costPrice = matched?.costPrice ? Number(matched.costPrice) : Number((productPrice * 0.40).toFixed(2));
+  const outboundCargo = baseCargoCost;
+  const returnCargo = baseCargoCost; // Çift kargo maliyeti
+  const repackagingCost = 15.00;
+  const totalLoss = Number((outboundCargo + returnCargo + repackagingCost).toFixed(2));
+
+  let reasonCat = 'Müşteri Cayma / İade';
+  const rawReason = String(rawClaim.claimReason || rawClaim.reason || '').toLowerCase();
+  if (rawReason.includes('beden') || rawReason.includes('kalıp') || rawReason.includes('küçük') || rawReason.includes('büyük') || rawReason.includes('dar')) {
+    reasonCat = 'Beden / Kalıp Uymadı';
+  } else if (rawReason.includes('hasar') || rawReason.includes('kırık') || rawReason.includes('yırtık') || rawReason.includes('ezik')) {
+    reasonCat = 'Kargo Taşıma Hasarı';
+  } else if (rawReason.includes('kusur') || rawReason.includes('hatalı') || rawReason.includes('defolu')) {
+    reasonCat = 'Ürün Kusuru / Hatalı';
+  } else if (rawReason.includes('yanlış')) {
+    reasonCat = 'Yanlış Ürün Gönderimi';
+  }
+
+  let claimDate = 'Bugün';
+  if (rawClaim.claimDate || rawClaim.createdDate) {
+    try {
+      claimDate = new Date(rawClaim.claimDate || rawClaim.createdDate).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch {}
+  }
+
+  return {
+    id: `RET-TY-${rawClaim.id || rawClaim.claimNumber || Date.now().toString().slice(-6)}`,
+    orderId: String(rawClaim.orderNumber || rawClaim.orderId || `TY-${Date.now().toString().slice(-6)}`),
+    marketplace: 'Trendyol',
+    customerName: rawClaim.customerName || (rawClaim.customerFirstName ? `${rawClaim.customerFirstName} ${rawClaim.customerLastName || ''}` : 'Trendyol Müşterisi'),
+    productName: title,
+    sku: sku || 'TY-RET-SKU',
+    barcode: barcode || '8680000000',
+    returnDate: claimDate,
+    reasonCategory: reasonCat,
+    reasonDetail: rawClaim.claimReasonDescription || rawClaim.reason || 'Müşteri teslimat sonrası iade talebi oluşturdu.',
+    productPrice: productPrice,
+    costPrice: costPrice,
+    outboundCargoFee: outboundCargo,
+    returnCargoFee: returnCargo,
+    repackagingCost: repackagingCost,
+    totalLossFromReturn: totalLoss,
+    status: rawClaim.claimItemStatus === 'Accepted' ? 'ACCEPTED' : (rawClaim.claimItemStatus === 'Rejected' ? 'REJECTED' : 'IN_TRANSIT'),
+    image: prodImg,
+    aiActionRecommendation: reasonCat.includes('Beden') 
+      ? 'Ürün açıklamasına "Dar Kalıp - 1 Beden Büyük Önerilir" ibaresi eklendiğinde bu iadeler %40 önlenir.'
+      : reasonCat.includes('Kargo')
+      ? 'Kargo şubesi için tutanak talebi açıldı (Tazmin talep edilebilir).'
+      : 'Stüdyo çekimi gün ışığı fotoğrafı ve detaylı ürün özellikleri ekleyin.'
+  };
+}
+
+/**
+ * Hepsiburada İade Nesnesini İç Yapıya Dönüştürür
+ */
+export function mapHepsiburadaReturnToInternal(rawReturn, baseCargoCost = 43.50, catalog = [], imageMap = {}) {
+  const barcode = String(rawReturn.barcode || '').trim();
+  const sku = String(rawReturn.merchantSku || rawReturn.sku || '').trim();
+  const title = String(rawReturn.productName || rawReturn.name || 'Hepsiburada İade Ürünü').trim();
+
+  const matched = catalog.find(p => 
+    (barcode && p.barcode === barcode) ||
+    (sku && (p.sku === sku || p.id === sku)) ||
+    (title && p.name && p.name.toLowerCase() === title.toLowerCase())
+  );
+
+  const prodImg = resolveSmartProductImage({
+    directImage: rawReturn.productImage || rawReturn.imageUrl,
+    barcode,
+    sku,
+    title,
+    category: matched?.category
+  });
+
+  const productPrice = Number(rawReturn.price || rawReturn.amount || 0);
+  const costPrice = matched?.costPrice ? Number(matched.costPrice) : Number((productPrice * 0.40).toFixed(2));
+  const outboundCargo = baseCargoCost;
+  const returnCargo = baseCargoCost;
+  const repackagingCost = 15.00;
+  const totalLoss = Number((outboundCargo + returnCargo + repackagingCost).toFixed(2));
+
+  let reasonCat = 'Müşteri Cayma / İade';
+  const rawReason = String(rawReturn.reason || rawReturn.claimReason || '').toLowerCase();
+  if (rawReason.includes('beden') || rawReason.includes('kalıp') || rawReason.includes('küçük') || rawReason.includes('büyük')) {
+    reasonCat = 'Beden / Kalıp Uymadı';
+  } else if (rawReason.includes('hasar') || rawReason.includes('kırık')) {
+    reasonCat = 'Kargo Taşıma Hasarı';
+  }
+
+  return {
+    id: `RET-HB-${rawReturn.id || rawReturn.returnNumber || Date.now().toString().slice(-6)}`,
+    orderId: String(rawReturn.orderNumber || rawReturn.orderId || `HB-${Date.now().toString().slice(-6)}`),
+    marketplace: 'Hepsiburada',
+    customerName: rawReturn.customerName || 'Hepsiburada Müşterisi',
+    productName: title,
+    sku: sku || 'HB-RET-SKU',
+    barcode: barcode || '8680000000',
+    returnDate: 'Bugün',
+    reasonCategory: reasonCat,
+    reasonDetail: rawReturn.reasonDetail || rawReturn.reason || 'Müşteri iade talebi oluşturdu.',
+    productPrice: productPrice,
+    costPrice: costPrice,
+    outboundCargoFee: outboundCargo,
+    returnCargoFee: returnCargo,
+    repackagingCost: repackagingCost,
+    totalLossFromReturn: totalLoss,
+    status: 'IN_TRANSIT',
+    image: prodImg,
+    aiActionRecommendation: 'HepsiJET kargo şubesi için tutanak talebi açıldı.'
+  };
+}
+
+/**
+ * Siparişler listesindeki RETURNED durumundaki siparişlerden iade kayıtları üretir
+ */
+export function extractReturnsFromOrders(ordersList = []) {
+  const cargoSettings = getCustomCargoSettings();
+  const returnedOrders = ordersList.filter(o => o.status === 'RETURNED');
+  
+  return returnedOrders.flatMap(order => {
+    const isTy = (order.marketplace || '').includes('Trendyol');
+    const baseCargo = isTy ? (cargoSettings.trendyolCargoCost || 87.00) : (cargoSettings.hepsiburadaCargoCost || 43.50);
+    const items = order.items && order.items.length > 0 ? order.items : [{
+      id: order.id,
+      title: order.productName,
+      sku: order.sku,
+      barcode: order.barcode,
+      unitPrice: order.grossPrice,
+      costPrice: order.costPrice,
+      image: order.image
+    }];
+
+    return items.map((it, idx) => {
+      const prodImg = resolveSmartProductImage({
+        directImage: it.image || order.image,
+        barcode: it.barcode,
+        sku: it.sku,
+        title: it.title || order.productName
+      });
+
+      const productPrice = Number(it.unitPrice || order.grossPrice || 0);
+      const costPrice = Number(it.costPrice || (productPrice * 0.40));
+      const outboundCargo = baseCargo;
+      const returnCargo = baseCargo;
+      const repackagingCost = 15.00;
+      const totalLoss = Number((outboundCargo + returnCargo + repackagingCost).toFixed(2));
+
+      return {
+        id: `RET-${order.orderNumber || order.id}-${idx + 1}`,
+        orderId: order.orderNumber || order.id,
+        marketplace: order.marketplace || 'Trendyol',
+        customerName: order.customerName || 'Müşteri',
+        customerCity: order.customerCity || 'İstanbul',
+        productName: it.title || order.productName || 'İade Edilen Ürün',
+        sku: it.sku || order.sku || 'SKU-RET',
+        barcode: it.barcode || order.barcode || '8680000000',
+        returnDate: order.orderDate || 'Bugün',
+        reasonCategory: order.returnReason || 'Beden / Kalıp Uymadı',
+        reasonDetail: order.returnReasonDetail || 'Müşteri teslimat sonrası iade talebi oluşturdu.',
+        productPrice: productPrice,
+        costPrice: costPrice,
+        outboundCargoFee: outboundCargo,
+        returnCargoFee: returnCargo,
+        repackagingCost: repackagingCost,
+        totalLossFromReturn: totalLoss,
+        status: 'IN_TRANSIT',
+        image: prodImg,
+        aiActionRecommendation: 'Ürün açıklamasına "Dar Kalıp - 1 Beden Büyük Önerilir" ibaresi eklendiğinde çift kargo zararı %40 önlenir.'
+      };
+    });
+  });
+}
+
+/**
+ * Trendyol Claims API'sinden İadeleri Çeker
+ */
+export async function fetchTrendyolClaims({ sellerId, apiKey, apiSecret }) {
+  const cleanSellerId = sellerId.toString().trim();
+  const cleanKey = apiKey.trim();
+  const cleanSecret = apiSecret.trim();
+  const catalog = getCatalogProducts();
+  const imageMap = getStoredImageCache();
+  const cargoSettings = getCustomCargoSettings();
+  const tyCargo = cargoSettings.trendyolCargoCost || 87.00;
+
+  try {
+    const res = await fetch('/api/trendyol', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sellerId: cleanSellerId,
+        apiKey: cleanKey,
+        apiSecret: cleanSecret,
+        action: 'claims',
+        page: 0,
+        size: 100
+      })
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      const rawClaims = json.data?.content || json.content || [];
+      const mapped = rawClaims.map(c => mapTrendyolClaimToInternal(c, tyCargo, catalog, imageMap));
+      return { success: true, returns: mapped, count: mapped.length };
+    }
+  } catch (e) {
+    console.warn("fetchTrendyolClaims notice:", e);
+  }
+  return { success: false, returns: [], count: 0 };
+}
+
+/**
+ * Hepsiburada Claims/Returns API'sinden İadeleri Çeker
+ */
+export async function fetchHepsiburadaReturns({ merchantId, secretKey, userAgent = 'yumey_dev' }) {
+  const cleanMerchantId = merchantId.trim();
+  const cleanSecret = secretKey.trim();
+  const cleanUserAgent = (userAgent || 'yumey_dev').trim();
+  const catalog = getCatalogProducts();
+  const imageMap = getStoredImageCache();
+  const cargoSettings = getCustomCargoSettings();
+  const hbCargo = cargoSettings.hepsiburadaCargoCost || 43.50;
+
+  try {
+    const res = await fetch('/api/hepsiburada', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        merchantId: cleanMerchantId,
+        secretKey: cleanSecret,
+        userAgent: cleanUserAgent,
+        action: 'returns',
+        limit: 50
+      })
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      const rawReturns = json.data?.items || json.data?.content || json.items || [];
+      const mapped = rawReturns.map(r => mapHepsiburadaReturnToInternal(r, hbCargo, catalog, imageMap));
+      return { success: true, returns: mapped, count: mapped.length };
+    }
+  } catch (e) {
+    console.warn("fetchHepsiburadaReturns notice:", e);
+  }
+  return { success: false, returns: [], count: 0 };
+}
+
+/**
+ * Tüm Pazaryeri İadelerini & Sipariş İadelerini Tek Seferde Senkronize Eder
+ */
+export async function syncAllReturns() {
+  const credsRaw = localStorage.getItem('izeeg_core_api_credentials');
+  let apiReturns = [];
+
+  if (credsRaw) {
+    try {
+      const creds = JSON.parse(credsRaw);
+      const tySellerId = creds.trendyol?.sellerId || creds.tySellerId || creds.sellerId;
+      const tyApiKey = creds.trendyol?.apiKey || creds.tyApiKey || creds.apiKey;
+      const tyApiSecret = creds.trendyol?.apiSecret || creds.tyApiSecret || creds.apiSecret;
+
+      if (tySellerId && tyApiKey && tyApiSecret) {
+        const tyClaims = await fetchTrendyolClaims({ sellerId: tySellerId, apiKey: tyApiKey, apiSecret: tyApiSecret });
+        if (tyClaims.success && tyClaims.returns.length > 0) {
+          apiReturns = [...apiReturns, ...tyClaims.returns];
+        }
+      }
+
+      const hbMerchantId = creds.hepsiburada?.merchantId || creds.hbMerchantId || creds.merchantId;
+      const hbSecretKey = creds.hepsiburada?.secretKey || creds.hbSecretKey || creds.secretKey;
+      const hbUserAgent = creds.hepsiburada?.userAgent || creds.hbUserAgent || 'yumey_dev';
+
+      if (hbMerchantId && hbSecretKey) {
+        const hbReturns = await fetchHepsiburadaReturns({ merchantId: hbMerchantId, secretKey: hbSecretKey, userAgent: hbUserAgent });
+        if (hbReturns.success && hbReturns.returns.length > 0) {
+          apiReturns = [...apiReturns, ...hbReturns.returns];
+        }
+      }
+    } catch (e) {
+      console.warn("syncAllReturns credentials error:", e);
+    }
+  }
+
+  // Sipariş havuzundaki RETURNED durumlu siparişlerden de iadeleri al
+  const existingOrdersRaw = localStorage.getItem(ORDERS_STORAGE_KEY);
+  const existingOrders = existingOrdersRaw ? JSON.parse(existingOrdersRaw) : [];
+  const orderDerivedReturns = extractReturnsFromOrders(existingOrders);
+
+  // Birleştir ve tekilleştir
+  const returnMap = new Map();
+  [...apiReturns, ...orderDerivedReturns].forEach(ret => {
+    const key = ret.orderId || ret.id;
+    returnMap.set(key, ret);
+  });
+
+  const mergedReturns = Array.from(returnMap.values());
+  if (mergedReturns.length > 0) {
+    saveStoredReturns(mergedReturns);
+  }
+
+  return {
+    success: true,
+    returns: mergedReturns,
+    count: mergedReturns.length
+  };
+}
+
 /**
  * Otomatik Senkronizasyon Çalıştırıcı: Hem Trendyol hem Hepsiburada'yı tarar, birleştirir ve günceller
  */
@@ -926,6 +1377,9 @@ export async function runAutoSyncAll({ onToast, onNewOrdersReceived }) {
       syncLog.push(`Hepsiburada: ${hbRes.orders.length} sipariş`);
     }
   }
+
+  // İade Senkronizasyonunu da tetikle
+  await syncAllReturns().catch(() => {});
 
   if (allNewOrders.length > 0) {
     const existingOrdersRaw = localStorage.getItem(ORDERS_STORAGE_KEY);

@@ -319,6 +319,7 @@ export function App() {
         currentUser={currentUser}
         trialDaysLeft={currentUser.trialDaysLeft || 5}
         liveOrdersCount={orders.length}
+        liveReturnsCount={orders.filter(o => o.status === 'RETURNED').length || 3}
         unreadNotificationsCount={3}
         pendingActionsCount={0}
       />

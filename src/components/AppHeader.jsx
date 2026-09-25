@@ -48,6 +48,7 @@ export function AppHeader({
   currentUser = { role: 'merchant', storeName: 'yumey', ownerName: 'İsmet Bey', trialDaysLeft: 5 },
   trialDaysLeft = 5,
   liveOrdersCount = 6,
+  liveReturnsCount = 0,
   unreadNotificationsCount = 3,
   pendingActionsCount = 0
 }) {
@@ -75,7 +76,7 @@ export function AppHeader({
     setMobileMenuOpen(false);
   };
 
-  const isOperationActive = ['invoices', 'cargo-audit', 'returns', 'customer-questions'].includes(activeTab);
+  const isOperationActive = ['invoices', 'cargo-audit', 'customer-questions'].includes(activeTab);
   const isOmnichannelActive = ['omnichannel-products', 'product-mapping', 'supplier-reorder', 'warehouse'].includes(activeTab);
   const isFinanceActive = ['pro-table', 'repricer', 'reports', 'ads'].includes(activeTab);
   const isIntegrationsActive = ['integrations', 'whatsapp'].includes(activeTab);
@@ -84,7 +85,7 @@ export function AppHeader({
     <header ref={headerRef} className="sticky top-0 z-50 bg-[#121924] text-slate-200 border-b border-slate-700/80 shadow-xl w-full font-sans select-none">
       
       {/* Ana Header Bar - Dengeli, Kusursuz Hizalı ve Taşmasız */}
-      <div className="w-full max-w-[1720px] mx-auto px-3 sm:px-5 flex items-center justify-between gap-2 h-16">
+      <div className="w-full max-w-[1780px] mx-auto px-3 sm:px-5 flex items-center justify-between gap-2 h-16">
         
         {/* Sol: Orijinal izeeg AI Logosu */}
         <div 
@@ -95,7 +96,7 @@ export function AppHeader({
           <IzeegLogo size="sm" variant="full" theme="dark" showBadge={true} badgeText="AI" />
         </div>
 
-        {/* Orta: Tam Ortalanmış 7 Ana Sekme */}
+        {/* Orta: Tam Ortalanmış Ana Sekmeler */}
         <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-1.5 text-xs font-bold text-slate-300 flex-1 mx-1">
           
           {/* 1. AI ÇALIŞANI */}
@@ -127,7 +128,7 @@ export function AppHeader({
           {/* 3. SİPARİŞLER */}
           <button
             onClick={() => handleSelectTab('orders')}
-            className={`h-9 px-3 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
+            className={`h-9 px-2.5 xl:px-3 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
               activeTab === 'orders'
                 ? 'bg-blue-600 text-white shadow-md'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -138,6 +139,24 @@ export function AppHeader({
             <span className="bg-[#f27a1a] text-white text-[10px] px-1.5 py-0.2 rounded-full font-black">
               {liveOrdersCount}
             </span>
+          </button>
+
+          {/* 4. İADE & DEĞİŞİM (ANA BAŞLIK) */}
+          <button
+            onClick={() => handleSelectTab('returns')}
+            className={`h-9 px-2.5 xl:px-3 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
+              activeTab === 'returns'
+                ? 'bg-rose-600 text-white shadow-md'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <RotateCcw className={`w-4 h-4 ${activeTab === 'returns' ? 'text-white' : 'text-rose-400'}`} />
+            <span>İade & Değişim</span>
+            {liveReturnsCount > 0 && (
+              <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-black">
+                {liveReturnsCount}
+              </span>
+            )}
           </button>
 
           {/* 4. ÇOK KANALLI ÜRÜN & DAĞITIM DROPDOWN */}
@@ -236,15 +255,6 @@ export function AppHeader({
                   <span>Kargo Kaçağı & Desi İtiraz</span>
                 </button>
 
-                <button
-                  onClick={() => handleSelectTab('returns')}
-                  className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
-                    activeTab === 'returns' ? 'bg-rose-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  <RotateCcw className="w-4 h-4 text-rose-400" />
-                  <span>İade & Değişim Yönetimi</span>
-                </button>
 
                 <button
                   onClick={() => handleSelectTab('customer-questions')}

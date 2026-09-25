@@ -59,7 +59,7 @@ export default async function handler(req, res) {
   const cleanSellerId = String(sellerId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
   const cleanKey = String(apiKey).trim();
   const cleanSecret = String(apiSecret).trim();
-  const cleanAction = action === 'products' ? 'products' : 'orders';
+  const cleanAction = action === 'products' ? 'products' : (action === 'claims' ? 'claims' : 'orders');
   const cleanSize = Math.min(Math.max(1, parseInt(size) || 50), 100);
   const cleanPage = Math.max(0, parseInt(page) || 0);
   const cleanBarcode = barcode ? String(barcode).trim() : '';
@@ -79,6 +79,8 @@ export default async function handler(req, res) {
     let targetUrl = '';
     if (cleanAction === 'products') {
       targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/products?page=${cleanPage}&size=${cleanSize}${cleanBarcode ? `&barcode=${encodeURIComponent(cleanBarcode)}` : ''}`;
+    } else if (cleanAction === 'claims') {
+      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/claims?page=${cleanPage}&size=${cleanSize}&claimItemStatus=Created,WaitingInAction,Accepted,Rejected,Cancelled`;
     } else {
       targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/orders?page=${cleanPage}&size=${cleanSize}&orderByDirection=DESC`;
     }
