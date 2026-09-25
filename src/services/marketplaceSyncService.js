@@ -6,20 +6,26 @@ const CARGO_LEAKS_STORAGE_KEY = 'izeeg_live_cargo_leaks';
 const CARGO_SETTINGS_KEY = 'izeeg_custom_cargo_settings';
 const IMAGE_CACHE_KEY = 'izeeg_product_image_cache';
 
-// Kullanıcı Tanımlı Özel Kargo Anlaşma Baremleri (Varsayılan Trendyol: 87.00 ₺)
+// Kullanıcı Tanımlı Özel Kargo & Komisyon Ayarları (Varsayılan Trendyol: 87.00 ₺, %21.5 Komisyon)
 export function getCustomCargoSettings() {
   try {
     const saved = localStorage.getItem(CARGO_SETTINGS_KEY);
     return saved ? JSON.parse(saved) : {
       trendyolCargoCost: 87.00,
       hepsiburadaCargoCost: 43.50,
-      amazonCargoCost: 40.00
+      amazonCargoCost: 40.00,
+      trendyolCommissionRate: 21.5,
+      hepsiburadaCommissionRate: 20.0,
+      amazonCommissionRate: 15.0
     };
   } catch {
     return {
       trendyolCargoCost: 87.00,
       hepsiburadaCargoCost: 43.50,
-      amazonCargoCost: 40.00
+      amazonCargoCost: 40.00,
+      trendyolCommissionRate: 21.5,
+      hepsiburadaCommissionRate: 20.0,
+      amazonCommissionRate: 15.0
     };
   }
 }
@@ -30,6 +36,75 @@ export function saveCustomCargoSettings(settings) {
   } catch (e) {
     console.warn("Cargo settings save notice:", e);
   }
+}
+
+// Güncel 2026 Türkiye Pazaryeri Kategori Komisyon Matrisi
+export const DEFAULT_COMMISSION_MATRIX = {
+  TRENDYOL: {
+    defaultRate: 21.5,
+    categories: [
+      { name: 'Kadın & Erkek Giyim (Tişört, Jean, Elbise, Gömlek, Bluz, Ceket)', rate: 21.5, keywords: ['jean', 'tshirt', 'tişört', 'gömlek', 'bluz', 'elbise', 'pantolon', 'ceket', 'takım', 'etek', 'tayt', 'crop', 'şort', 'palozzo', 'hotfix', 'vatkalı'] },
+      { name: 'Ayakkabı & Çanta', rate: 21.0, keywords: ['ayakkabı', 'çanta', 'bot', 'çizme', 'sneaker', 'sandalet', 'terlik', 'cüzdan'] },
+      { name: 'Takı & Aksesuar', rate: 23.0, keywords: ['kolye', 'küpe', 'yüzük', 'bileklik', 'saat', 'gözlük', 'kemer', 'şapka', 'şal', 'atkı', 'toka'] },
+      { name: 'Kozmetik & Kişisel Bakım', rate: 18.0, keywords: ['parfüm', 'krem', 'serum', 'makyaj', 'ruj', 'maskara', 'şampuan', 'losyon'] },
+      { name: 'Ev & Tekstil / Yaşam', rate: 20.0, keywords: ['nevresim', 'havlu', 'perde', 'bardak', 'tabak', 'tencere', 'yastık', 'halı'] },
+      { name: 'Elektronik & Aksesuar', rate: 12.0, keywords: ['kılıf', 'şarj', 'kulaklık', 'kablo', 'powerbank', 'hoparlör'] }
+    ]
+  },
+  HEPSIBURADA: {
+    defaultRate: 20.0,
+    categories: [
+      { name: 'Giyim & Moda', rate: 20.0, keywords: ['jean', 'tshirt', 'tişört', 'gömlek', 'bluz', 'elbise', 'pantolon', 'ceket', 'etek', 'crop', 'palozzo'] },
+      { name: 'Ayakkabı & Çanta', rate: 20.5, keywords: ['ayakkabı', 'çanta', 'bot', 'sneaker'] },
+      { name: 'Aksesuar & Takı', rate: 22.0, keywords: ['kolye', 'küpe', 'saat', 'gözlük'] },
+      { name: 'Kozmetik', rate: 17.5, keywords: ['parfüm', 'krem', 'makyaj'] }
+    ]
+  },
+  AMAZON: {
+    defaultRate: 15.0,
+    categories: [
+      { name: 'Giyim & Aksesuar', rate: 15.0, keywords: ['jean', 'tshirt', 'gömlek', 'elbise'] },
+      { name: 'Ayakkabı', rate: 15.0, keywords: ['ayakkabı', 'sneaker'] },
+      { name: 'Takı', rate: 20.0, keywords: ['kolye', 'yüzük'] }
+    ]
+  }
+};
+
+/**
+ * Akıllı Komisyon Oranı Çözücü:
+ * 1. API'den gelen gerçek komisyon oranı (varsa)
+ * 2. Ürün kataloğunda girilmiş özel oran (varsa)
+ * 3. Kategori / Başlık anahtar kelime eşleşmesi
+ * 4. Satıcının belirlediği genel varsayılan oran (Trendyol: %21.5)
+ */
+export function resolveItemCommissionRate({ marketplace = 'Trendyol', productName = '', category = '', rawCommissionRate = null, catalogProduct = null }) {
+  if (rawCommissionRate !== null && rawCommissionRate !== undefined && Number(rawCommissionRate) > 0) {
+    return Number(rawCommissionRate);
+  }
+
+  if (catalogProduct && catalogProduct.commissionRate !== undefined && Number(catalogProduct.commissionRate) > 0) {
+    return Number(catalogProduct.commissionRate);
+  }
+
+  const customSettings = getCustomCargoSettings();
+  const mpName = String(marketplace || 'Trendyol').toUpperCase();
+  const baseDefault = mpName.includes('TRENDYOL') 
+    ? Number(customSettings.trendyolCommissionRate || 21.5)
+    : (mpName.includes('HEPSI') ? Number(customSettings.hepsiburadaCommissionRate || 20.0) : Number(customSettings.amazonCommissionRate || 15.0));
+
+  const matrixKey = mpName.includes('TRENDYOL') ? 'TRENDYOL' : (mpName.includes('HEPSI') ? 'HEPSIBURADA' : 'AMAZON');
+  const matrix = DEFAULT_COMMISSION_MATRIX[matrixKey];
+
+  if (matrix && matrix.categories) {
+    const searchTarget = `${productName} ${category}`.toLowerCase();
+    for (const cat of matrix.categories) {
+      if (cat.keywords && cat.keywords.some(kw => searchTarget.includes(kw))) {
+        return cat.rate;
+      }
+    }
+  }
+
+  return baseDefault;
 }
 
 // Güncel 2026 Türkiye Pazaryeri Kargo Baremleri (TL + KDV dahil)
@@ -526,11 +601,8 @@ export function mapTrendyolOrderToInternal(raw, sellerId, catalog = [], imageMap
   const items = lines.map((l, idx) => {
     const qty = Number(l.quantity || 1);
     const unitPrice = Number(l.price || 0);
-    const commRate = Number(l.commissionRate || 18.0);
-    const unitComm = Number(((unitPrice * commRate) / 100).toFixed(2));
-    
-    // Ürün Maliyetini Katalogdan Bul
     let unitCost = 0;
+
     const barcode = String(l.barcode || '').trim();
     const sku = String(l.merchantSku || l.sku || '').trim();
     const prodName = String(l.productName || '').trim();
@@ -541,6 +613,14 @@ export function mapTrendyolOrderToInternal(raw, sellerId, catalog = [], imageMap
       (sku && (p.sku === sku || p.id === sku)) ||
       (prodNameLower && p.name && p.name.toLowerCase() === prodNameLower)
     );
+
+    const commRate = resolveItemCommissionRate({
+      marketplace: 'Trendyol',
+      productName: prodName,
+      rawCommissionRate: l.commissionRate,
+      catalogProduct: matched
+    });
+    const unitComm = Number(((unitPrice * commRate) / 100).toFixed(2));
 
     if (matched && matched.costPrice !== undefined && matched.costPrice > 0) {
       unitCost = Number(matched.costPrice);
@@ -688,14 +768,6 @@ export function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = [], ima
   else if (rawStatus.includes('delivered') || rawStatus.includes('teslim')) status = 'DELIVERED';
   else if (rawStatus.includes('packing') || rawStatus.includes('hazır')) status = 'PREPARING';
 
-  const commRate = 20.0;
-  const totalCommission = Number(((totalGrossPrice * commRate) / 100).toFixed(2));
-
-  const cargoSettings = getCustomCargoSettings();
-  const rawCargoFee = Number(raw.cargoFee || raw.cargoCost || 0);
-  const baseCargoCost = rawCargoFee > 0 ? rawCargoFee : (cargoSettings.hepsiburadaCargoCost || 43.50);
-
-  let costPrice = 0;
   const barcode = String(firstItem.barcode || raw.barcode || '').trim();
   const sku = String(firstItem.merchantSku || raw.merchantSku || '').trim();
   const prodName = String(firstItem.productName || raw.productName || '').trim();
@@ -707,6 +779,19 @@ export function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = [], ima
     (prodNameLower && p.name && p.name.toLowerCase() === prodNameLower)
   );
 
+  const commRate = resolveItemCommissionRate({
+    marketplace: 'Hepsiburada',
+    productName: prodName,
+    rawCommissionRate: firstItem.commissionRate || raw.commissionRate,
+    catalogProduct: matched
+  });
+  const totalCommission = Number(((totalGrossPrice * commRate) / 100).toFixed(2));
+
+  const cargoSettings = getCustomCargoSettings();
+  const rawCargoFee = Number(raw.cargoFee || raw.cargoCost || 0);
+  const baseCargoCost = rawCargoFee > 0 ? rawCargoFee : (cargoSettings.hepsiburadaCargoCost || 43.50);
+
+  let costPrice = 0;
   if (matched && matched.costPrice !== undefined && matched.costPrice > 0) {
     costPrice = Number(matched.costPrice);
   } else {

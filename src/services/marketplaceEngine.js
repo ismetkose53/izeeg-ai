@@ -1,4 +1,5 @@
 // E-Ticaret Kâr, Kaçak ve Muhasebe Motoru (100% Deterministik Hesaplamalar)
+import { resolveItemCommissionRate } from './marketplaceSyncService';
 
 /**
  * Tek bir ürün için kâr, komisyon ve net marjı hesaplar
@@ -114,13 +115,13 @@ export function calculateOrderProfit(order, products = []) {
       }
     }
 
-    // 2. Komisyon Oranı (Pazar yeri API veya Kategori Komisyon Matrisi)
-    let commRate = 14;
-    if (order.marketplace === 'Trendyol') commRate = 21.5;
-    else if (order.marketplace === 'Hepsiburada') commRate = 20.0;
-    else if (order.marketplace === 'Amazon TR') commRate = 15.0;
-    else if (order.marketplace === 'N11') commRate = 20.0;
-    else if (order.marketplace?.includes('Shopify') || order.marketplace?.includes('Kendi Sitem')) commRate = 2.5;
+    // 2. Komisyon Oranı (Pazar yeri API, Ürün Özel Oranı veya Akıllı Kategori Matrisi)
+    const commRate = resolveItemCommissionRate({
+      marketplace: order.marketplace || 'Trendyol',
+      productName: it.title || order.productName || '',
+      rawCommissionRate: it.commissionRate || (it.commission ? (Number(it.commission) / (unitSelling * qty)) * 100 : null),
+      catalogProduct: matchedProd
+    });
 
     const unitComm = it.commission ? (Number(it.commission) / qty) : ((unitSelling * commRate) / 100);
     

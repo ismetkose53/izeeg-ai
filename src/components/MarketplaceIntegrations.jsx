@@ -58,10 +58,12 @@ export function MarketplaceIntegrations({
 }) {
   const currentUser = getCurrentUser();
 
-  // Kargo Anlaşma Maliyeti State'leri (Trendyol Anlaşması: 87.00 ₺)
+  // Kargo & Komisyon Anlaşma Maliyeti State'leri (Trendyol Kargo: 87.00 ₺, Komisyon: %21.5)
   const [cargoSettings, setCargoSettings] = useState(getCustomCargoSettings());
   const [tyCargoCost, setTyCargoCost] = useState(cargoSettings.trendyolCargoCost || 87.00);
   const [hbCargoCost, setHbCargoCost] = useState(cargoSettings.hepsiburadaCargoCost || 43.50);
+  const [tyCommRate, setTyCommRate] = useState(cargoSettings.trendyolCommissionRate || 21.5);
+  const [hbCommRate, setHbCommRate] = useState(cargoSettings.hepsiburadaCommissionRate || 20.0);
 
   // Kayıtlı API Bilgilerini Güvenle Yükle
   const getStoredCreds = () => {
@@ -221,12 +223,14 @@ export function MarketplaceIntegrations({
     ]);
   };
 
-  // Kargo Anlaşma Maliyetlerini Kaydet ve Siparişleri Yeniden Hesapla
+  // Kargo & Komisyon Anlaşma Maliyetlerini Kaydet ve Siparişleri Yeniden Hesapla
   const handleSaveCargoSettings = () => {
     const updated = {
       ...cargoSettings,
       trendyolCargoCost: Number(tyCargoCost) || 87.00,
-      hepsiburadaCargoCost: Number(hbCargoCost) || 43.50
+      hepsiburadaCargoCost: Number(hbCargoCost) || 43.50,
+      trendyolCommissionRate: Number(tyCommRate) || 21.5,
+      hepsiburadaCommissionRate: Number(hbCommRate) || 20.0
     };
     saveCustomCargoSettings(updated);
     setCargoSettings(updated);
@@ -234,11 +238,15 @@ export function MarketplaceIntegrations({
     if (setOrders) {
       setOrders(prev => prev.map(o => {
         const newCargoFee = o.marketplace === 'Trendyol' ? Number(tyCargoCost) : (o.marketplace === 'Hepsiburada' ? Number(hbCargoCost) : (o.cargoCost || 42.91));
-        const newNetPayout = Number((o.grossPrice - o.commission - newCargoFee).toFixed(2));
-        const newNetProfit = Number((newNetPayout - o.costPrice).toFixed(2));
+        const newCommRate = o.marketplace === 'Trendyol' ? Number(tyCommRate) : (o.marketplace === 'Hepsiburada' ? Number(hbCommRate) : 15.0);
+        const newCommission = Number(((o.grossPrice * newCommRate) / 100).toFixed(2));
+        const newNetPayout = Number((o.grossPrice - newCommission - newCargoFee).toFixed(2));
+        const newNetProfit = Number((newNetPayout - (o.costPrice || 0)).toFixed(2));
         const newMargin = o.grossPrice > 0 ? Number(((newNetProfit / o.grossPrice) * 100).toFixed(1)) : 0;
         return {
           ...o,
+          commission: newCommission,
+          commissionRate: newCommRate,
           cargoCost: newCargoFee,
           cargoFee: newCargoFee,
           netPayout: newNetPayout,
@@ -249,7 +257,7 @@ export function MarketplaceIntegrations({
       }));
     }
 
-    if (onToast) onToast(`🚚 Kargo anlaşma maliyetleri güncellendi (Trendyol: ${tyCargoCost} ₺)!`);
+    if (onToast) onToast(`🚚 Özel kargo (87 ₺) ve komisyon oranları (%${tyCommRate}) güncellendi!`);
     confetti({ particleCount: 50, spread: 60 });
   };
 
@@ -540,9 +548,9 @@ export function MarketplaceIntegrations({
                 🚚
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-900">Mağaza Özel Kargo Anlaşma Baremleri</h3>
+                <h3 className="text-sm font-black text-slate-900">Mağaza Özel Kargo & Komisyon Anlaşma Ayarları</h3>
                 <p className="text-[11px] text-slate-500">
-                  Pazaryeri API'leri sipariş anında özel fatura bareminizi içermediğinde sistem burada tanımladığınız anlaşma tutarını uygular.
+                  Pazaryeri API'leri sipariş anında özel cari bareminizi veya özel kategori komisyonunuzu göndermediğinde sistem burada tanımladığınız oranları baz alır.
                 </p>
               </div>
             </div>
@@ -553,14 +561,15 @@ export function MarketplaceIntegrations({
               className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow transition-all flex items-center gap-1.5 cursor-pointer self-end md:self-auto"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>Kargo Maliyetini Kaydet & Uygula</span>
+              <span>Ayarları Kaydet & Yeniden Hesapla</span>
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2 border-t border-slate-100 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-slate-100 text-xs">
+            {/* 1. Trendyol Kargo */}
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-800">Trendyol Anlaşmalı Kargo</span>
+                <span className="font-bold text-slate-800">Trendyol Kargo Anlaşması</span>
                 <span className="text-[10px] font-black text-[#f27a1a] bg-orange-100 px-1.5 py-0.5 rounded">TY Express</span>
               </div>
               <div className="flex items-center gap-2">
@@ -571,33 +580,68 @@ export function MarketplaceIntegrations({
                   onChange={(e) => setTyCargoCost(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-mono font-bold text-slate-900 text-sm focus:outline-none focus:border-indigo-500"
                 />
-                <span className="font-bold text-slate-500">₺/Paket</span>
+                <span className="font-bold text-slate-500">₺</span>
               </div>
               <span className="text-[10px] text-slate-400 block">Sizin cari anlaşmanız (87.00 ₺)</span>
             </div>
 
+            {/* 2. Trendyol Komisyon */}
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-800">Hepsiburada Anlaşmalı Kargo</span>
-                <span className="text-[10px] font-black text-[#ff6000] bg-orange-100 px-1.5 py-0.5 rounded">HepsiJET</span>
+                <span className="font-bold text-slate-800">Trendyol Komisyon Oranı</span>
+                <span className="text-[10px] font-black text-[#f27a1a] bg-orange-100 px-1.5 py-0.5 rounded">%21.5 Tekstil</span>
               </div>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  step="0.01"
-                  value={hbCargoCost}
-                  onChange={(e) => setHbCargoCost(e.target.value)}
+                  step="0.1"
+                  value={tyCommRate}
+                  onChange={(e) => setTyCommRate(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-mono font-bold text-slate-900 text-sm focus:outline-none focus:border-indigo-500"
                 />
-                <span className="font-bold text-slate-500">₺/Paket</span>
+                <span className="font-bold text-slate-500">%</span>
               </div>
-              <span className="text-[10px] text-slate-400 block">Varsayılan barem tutarı</span>
+              <span className="text-[10px] text-slate-400 block">Giyim/Jean/Tişört kategorisi</span>
             </div>
 
-            <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-emerald-900">Otomatik İade Çift Kargo Kesintisi:</span>
+            {/* 3. Hepsiburada Kargo & Komisyon */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800">Hepsiburada Komisyon / Kargo</span>
+                <span className="text-[10px] font-black text-[#ff6000] bg-orange-100 px-1.5 py-0.5 rounded">HepsiJET</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={hbCommRate}
+                    onChange={(e) => setHbCommRate(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono font-bold text-slate-900 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                  <span className="text-[10px] text-slate-500 font-bold">%</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={hbCargoCost}
+                    onChange={(e) => setHbCargoCost(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono font-bold text-slate-900 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                  <span className="text-[10px] text-slate-500 font-bold">₺</span>
+                </div>
+              </div>
+              <span className="text-[10px] text-slate-400 block">%20 Komisyon • 43.50 ₺ Kargo</span>
+            </div>
+
+            {/* 4. Akıllı Kategori Matrisi Bilgisi */}
+            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 flex flex-col justify-between">
+              <span className="text-[11px] font-black text-emerald-900 flex items-center gap-1">
+                <span>⚡</span> Akıllı Kategori Matrisi Aktif
+              </span>
               <p className="text-[10px] text-emerald-800 leading-snug">
-                İade siparişlerde (Gidiş + Dönüş) <strong>{(Number(tyCargoCost) * 2).toFixed(2)} ₺</strong> otomatik düşülür.
+                Sipariş satırında komisyon yoksa; <strong>Jean/Gömlek ➔ %21.5</strong>, <strong>Aksesuar ➔ %23</strong>, <strong>Çanta ➔ %21</strong> otomatik eşlenir.
               </p>
             </div>
           </div>
