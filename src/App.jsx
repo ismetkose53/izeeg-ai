@@ -42,6 +42,7 @@ import {
   DEMO_ORDERS,
   DEMO_CARGO_AUDIT_LEAKS
 } from './services/mockData';
+import { calculateStoreMetrics } from './services/marketplaceEngine';
 import { runAutoSyncAll, backfillOrderImages, getCatalogProducts, getStoredReturns } from './services/marketplaceSyncService';
 import confetti from 'canvas-confetti';
 
