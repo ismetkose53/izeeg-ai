@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AppHeader } from './components/AppHeader';
 import { AIWorkerDashboard } from './components/AIWorkerDashboard';
 import { RealNetProfitModule } from './components/RealNetProfitModule';
@@ -55,12 +55,61 @@ export function App() {
   const [activeTab, setActiveTab] = useState('orders');
   const [selectedMarketplace, setSelectedMarketplace] = useState('ALL');
   
-  // Canlı & Demo Veri Havuzları (Trendyol Satıcı Paneli Birebir Sipariş Seti)
-  const [products, setProducts] = useState(DEMO_PRODUCTS);
-  const [orders, setOrders] = useState(DEMO_ORDERS);
-  const [cargoLeaks, setCargoLeaks] = useState(DEMO_CARGO_AUDIT_LEAKS);
+  // Canlı & Temiz Veri Havuzları (Varsayılan olarak sıfır verili temiz başlar; gerçek satış modu)
+  const [products, setProducts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('izeeg_live_products');
+      return saved !== null ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [orders, setOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem('izeeg_live_orders');
+      return saved !== null ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [cargoLeaks, setCargoLeaks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('izeeg_live_cargo_leaks');
+      return saved !== null ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [isDemoMode, setIsDemoMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('izeeg_demo_mode');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   const [autoInvoiceEnabled, setAutoInvoiceEnabled] = useState(true);
-  const [isDemoMode, setIsDemoMode] = useState(true);
+
+  // Verilerin localStorage ile otomatik senkronizasyonu
+  useEffect(() => {
+    localStorage.setItem('izeeg_live_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('izeeg_live_orders', JSON.stringify(orders));
+  }, [orders]);
+
+  useEffect(() => {
+    localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(cargoLeaks));
+  }, [cargoLeaks]);
+
+  useEffect(() => {
+    localStorage.setItem('izeeg_demo_mode', isDemoMode ? 'true' : 'false');
+  }, [isDemoMode]);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [selectedAddonForCheckout, setSelectedAddonForCheckout] = useState(null);
@@ -74,7 +123,11 @@ export function App() {
     setOrders(DEMO_ORDERS);
     setCargoLeaks(DEMO_CARGO_AUDIT_LEAKS);
     setIsDemoMode(true);
-    showToast("✨ Demo verileri başarıyla yüklendi! Canlı simülasyon aktif.");
+    localStorage.setItem('izeeg_live_products', JSON.stringify(DEMO_PRODUCTS));
+    localStorage.setItem('izeeg_live_orders', JSON.stringify(DEMO_ORDERS));
+    localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(DEMO_CARGO_AUDIT_LEAKS));
+    localStorage.setItem('izeeg_demo_mode', 'true');
+    showToast("✨ Demo test verileri yüklendi! Canlı simülasyon aktif.");
     confetti({ particleCount: 90, spread: 80 });
   };
 
@@ -83,7 +136,11 @@ export function App() {
     setOrders([]);
     setCargoLeaks([]);
     setIsDemoMode(false);
-    showToast("🧹 Canlı Satış Modu Aktif: Tüm örnek veriler temizlendi.");
+    localStorage.setItem('izeeg_live_products', JSON.stringify([]));
+    localStorage.setItem('izeeg_live_orders', JSON.stringify([]));
+    localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify([]));
+    localStorage.setItem('izeeg_demo_mode', 'false');
+    showToast("🧹 Canlı Satış Modu: Tüm deneme verileri temizlendi, tertemiz sıfırlandı.");
   };
 
   const handleOpenAddonCheckout = (addonId) => {
@@ -104,6 +161,9 @@ export function App() {
   };
 
   const handleExploreDemo = () => {
+    setProducts(DEMO_PRODUCTS);
+    setOrders(DEMO_ORDERS);
+    setCargoLeaks(DEMO_CARGO_AUDIT_LEAKS);
     setIsDemoMode(true);
     setIsPortalOpen(false);
     showToast("🚀 Canlı Demo Modu: Tüm özellikleri sınırsız deneyebilirsiniz.");
@@ -491,11 +551,23 @@ export function App() {
         initialSelectedAddon={selectedAddonForCheckout}
       />
 
-      {/* Giriş & Kayıt & Kurucu Auth Modalı */}
+      {/* Giriş & Kayıt & Kurucu Auth & Profil Yönetimi Modalı */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onLoginSuccess={handleLoginSuccess}
+        currentUser={currentUser}
+        onUpdateUser={(updated) => {
+          setCurrentUser(updated);
+          showToast(`✅ Mağaza profili (${updated.storeName}) başarıyla güncellendi.`);
+        }}
+        onLogout={handleLogout}
+        onResetToClean={handleResetToClean}
+        onLoadDemoData={handleLoadDemoData}
+        isDemoMode={isDemoMode}
+        ordersCount={orders.length}
+        productsCount={products.length}
+        cargoLeaksCount={cargoLeaks.length}
       />
 
       {/* Biz Sizi Arayalım & İletişim Modalı */}

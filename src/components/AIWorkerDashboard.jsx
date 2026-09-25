@@ -176,125 +176,149 @@ export function AIWorkerDashboard({
         </div>
 
         {/* 4 Soru Kartları Listesi */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-5">
-          {filteredCases.map(item => (
-            <div 
-              key={item.id} 
-              className={`bg-white border rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm transition-all hover:shadow-md ${
-                item.severity === 'CRITICAL' 
-                  ? 'border-rose-300 ring-1 ring-rose-200' 
-                  : item.severity === 'WARNING'
-                  ? 'border-amber-300'
-                  : 'border-blue-300'
-              }`}
-            >
-              
-              {/* Kart Üst Başlık & Etiketler */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
-                    item.severity === 'CRITICAL'
-                      ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                      : item.severity === 'WARNING'
-                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : 'bg-blue-100 text-blue-700 border border-blue-200'
-                  }`}>
-                    {item.badge}
-                  </span>
-
-                  <span className="text-xs font-bold text-slate-500">
-                    {item.marketplace} • <strong>{item.product}</strong>
-                  </span>
-                </div>
-
-                <div className="text-[11px] text-slate-400 font-mono">
-                  {item.id}
-                </div>
+        {!isDemoMode && orders.length === 0 && products.length === 0 ? (
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center shadow-sm">
+            <div className="max-w-md mx-auto space-y-3">
+              <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                <Brain className="w-8 h-8" />
               </div>
-
-              {/* Ana Vaka Başlığı */}
-              <h3 className="text-base font-black text-slate-900 mt-3 mb-4">
-                {item.title}
+              <h3 className="text-base font-black text-slate-900">
+                🟢 AI E-Ticaret Çalışanı Canlı İzlemede (0 Kritik Kaçak)
               </h3>
-
-              {/* 4 Soru Grid'i */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Mağazanız canlı satış moduna alınmıştır. Trendyol, Hepsiburada veya Amazon'dan sipariş ve ürün verileriniz akmaya başladığında; komisyon uyuşmazlığı, haksız desi kesintisi ve fiyat optimizasyonları saniye saniye burada listelenecektir.
+              </p>
+              <div className="pt-2 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => onNavigateTab('integrations')}
+                  className="px-4 py-2 rounded-xl bg-[#151e2a] hover:bg-slate-900 text-white font-bold text-xs shadow transition-all cursor-pointer"
+                >
+                  🔗 API Bağlantılarını Gör
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:gap-5">
+            {filteredCases.map(item => (
+              <div 
+                key={item.id} 
+                className={`bg-white border rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm transition-all hover:shadow-md ${
+                  item.severity === 'CRITICAL' 
+                    ? 'border-rose-300 ring-1 ring-rose-200' 
+                    : item.severity === 'WARNING'
+                    ? 'border-amber-300'
+                    : 'border-blue-300'
+                }`}
+              >
                 
-                {/* 1. Ne Oldu? */}
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 mb-2 uppercase tracking-wide">
-                      <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[11px] font-bold">1</span>
-                      Ne Oldu?
-                    </div>
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      {item.q1_whatHappened}
-                    </p>
+                {/* Kart Üst Başlık & Etiketler */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                      item.severity === 'CRITICAL'
+                        ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                        : item.severity === 'WARNING'
+                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                        : 'bg-blue-100 text-blue-700 border border-blue-200'
+                    }`}>
+                      {item.badge}
+                    </span>
+
+                    <span className="text-xs font-bold text-slate-500">
+                      {item.marketplace} • <strong>{item.product}</strong>
+                    </span>
                   </div>
-                  <div className="mt-3 text-[10px] text-slate-400 font-semibold">
-                    Durum Tespiti
+
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    {item.id}
                   </div>
                 </div>
 
-                {/* 2. Neden Oldu? */}
-                <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-200/80 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center gap-1.5 text-xs font-black text-amber-900 mb-2 uppercase tracking-wide">
-                      <span className="w-5 h-5 rounded-full bg-amber-200 text-amber-900 flex items-center justify-center text-[11px] font-bold">2</span>
-                      Neden Oldu?
-                    </div>
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      {item.q2_whyHappened}
-                    </p>
-                  </div>
-                  <div className="mt-3 text-[10px] text-amber-700 font-semibold">
-                    Kök Neden Korelasyonu
-                  </div>
-                </div>
+                {/* Ana Vaka Başlığı */}
+                <h3 className="text-base font-black text-slate-900 mt-3 mb-4">
+                  {item.title}
+                </h3>
 
-                {/* 3. Finansal Etkisi Ne? */}
-                <div className="bg-rose-50/50 rounded-2xl p-4 border border-rose-200/80 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center gap-1.5 text-xs font-black text-rose-900 mb-2 uppercase tracking-wide">
-                      <span className="w-5 h-5 rounded-full bg-rose-200 text-rose-900 flex items-center justify-center text-[11px] font-bold">3</span>
-                      Finansal Etkisi Ne?
+                {/* 4 Soru Grid'i */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  
+                  {/* 1. Ne Oldu? */}
+                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 mb-2 uppercase tracking-wide">
+                        <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[11px] font-bold">1</span>
+                        Ne Oldu?
+                      </div>
+                      <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                        {item.q1_whatHappened}
+                      </p>
                     </div>
-                    <p className="text-xs text-rose-900 leading-relaxed font-bold">
-                      {item.q3_financialImpact}
-                    </p>
-                  </div>
-                  <div className="mt-3 text-[10px] text-rose-700 font-semibold">
-                    Net Nakit Kaybı / Fırsat
-                  </div>
-                </div>
-
-                {/* 4. Ne Yapılabilir? + Onay Butonu */}
-                <div className="bg-emerald-50/60 rounded-2xl p-4 border border-emerald-200 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center gap-1.5 text-xs font-black text-emerald-900 mb-2 uppercase tracking-wide">
-                      <span className="w-5 h-5 rounded-full bg-emerald-200 text-emerald-900 flex items-center justify-center text-[11px] font-bold">4</span>
-                      Ne Yapılabilir?
+                    <div className="mt-3 text-[10px] text-slate-400 font-semibold">
+                      Durum Tespiti
                     </div>
-                    <p className="text-xs text-slate-800 leading-relaxed font-medium mb-3">
-                      {item.q4_whatToDo}
-                    </p>
                   </div>
 
-                  {/* Güvenlik Kapısı Aksiyon Butonu */}
-                  <button
-                    onClick={() => onTriggerActionApproval(item)}
-                    className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-[#f27a1a] text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-1.5 group"
-                  >
-                    <span>{item.action?.label || 'Aksiyonu İncele & Onayla'}</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                  </button>
+                  {/* 2. Neden Oldu? */}
+                  <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-200/80 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-black text-amber-900 mb-2 uppercase tracking-wide">
+                        <span className="w-5 h-5 rounded-full bg-amber-200 text-amber-900 flex items-center justify-center text-[11px] font-bold">2</span>
+                        Neden Oldu?
+                      </div>
+                      <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                        {item.q2_whyHappened}
+                      </p>
+                    </div>
+                    <div className="mt-3 text-[10px] text-amber-700 font-semibold">
+                      Kök Neden Korelasyonu
+                    </div>
+                  </div>
+
+                  {/* 3. Finansal Etkisi Ne? */}
+                  <div className="bg-rose-50/50 rounded-2xl p-4 border border-rose-200/80 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-black text-rose-900 mb-2 uppercase tracking-wide">
+                        <span className="w-5 h-5 rounded-full bg-rose-200 text-rose-900 flex items-center justify-center text-[11px] font-bold">3</span>
+                        Finansal Etkisi Ne?
+                      </div>
+                      <p className="text-xs text-rose-900 leading-relaxed font-bold">
+                        {item.q3_financialImpact}
+                      </p>
+                    </div>
+                    <div className="mt-3 text-[10px] text-rose-700 font-semibold">
+                      Net Nakit Kaybı / Fırsat
+                    </div>
+                  </div>
+
+                  {/* 4. Ne Yapılabilir? + Onay Butonu */}
+                  <div className="bg-emerald-50/60 rounded-2xl p-4 border border-emerald-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-black text-emerald-900 mb-2 uppercase tracking-wide">
+                        <span className="w-5 h-5 rounded-full bg-emerald-200 text-emerald-900 flex items-center justify-center text-[11px] font-bold">4</span>
+                        Ne Yapılabilir?
+                      </div>
+                      <p className="text-xs text-slate-800 leading-relaxed font-medium mb-3">
+                        {item.q4_whatToDo}
+                      </p>
+                    </div>
+
+                    {/* Güvenlik Kapısı Aksiyon Butonu */}
+                    <button
+                      onClick={() => onTriggerActionApproval(item)}
+                      className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-[#f27a1a] text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-1.5 group"
+                    >
+                      <span>{item.action?.label || 'Aksiyonu İncele & Onayla'}</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+
                 </div>
 
               </div>
-
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 4. Güvenlik Denetim Kayıtları (Audit Logs Tablosu) */}

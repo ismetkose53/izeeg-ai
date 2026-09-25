@@ -654,63 +654,74 @@ export function ProProfitTable({ products, onNavigateToOrders, onOpenGuide }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {filteredProducts.map(p => (
-                      <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-3 font-mono text-[11px] text-slate-600 font-medium">
-                          {p.barcode}
-                          <div className="text-[10px] text-slate-400 font-mono">{p.id}</div>
-                        </td>
-
-                        <td className="py-3 px-3">
-                          <div className="font-extrabold text-slate-900 text-xs">{p.name}</div>
-                          <div className="text-[11px] text-slate-500">{p.variant} • <span className="text-[#f27a1a] font-bold">{p.marketplace}</span></div>
-                        </td>
-
-                        <td className="py-3 px-3 text-center">
-                          <span className={`font-black text-xs ${
-                            p.stock === 0 ? 'text-rose-600' : p.stock < 10 ? 'text-rose-500 font-bold' : 'text-emerald-700'
-                          }`}>
-                            {p.stock}
-                          </span>
-                        </td>
-
-                        <td className="py-3 px-3 text-right text-slate-800 font-bold">
-                          {p.costPrice.toFixed(2)} ₺
-                        </td>
-
-                        <td className="py-3 px-3 text-right font-black text-slate-900">
-                          {p.sellingPrice.toFixed(2)} ₺
-                        </td>
-
-                        <td className="py-3 px-3 text-center text-slate-800 font-bold">
-                          %{p.commissionRate}
-                        </td>
-
-                        <td className="py-3 px-3 text-center text-slate-700 font-medium">
-                          %{p.vatRate}
-                        </td>
-
-                        <td className="py-3 px-3 text-center text-slate-900 font-black">
-                          {p.desi}
-                        </td>
-
-                        <td className="py-3 px-3 text-right text-slate-800 font-semibold">
-                          {p.cargoCost.toFixed(2)} ₺
-                        </td>
-
-                        <td className={`py-3 px-3 text-right font-black text-xs ${
-                          p.netProfit > 0 ? 'text-emerald-700 bg-emerald-50/60' : 'text-rose-700 bg-rose-50/80'
-                        }`}>
-                          {p.netProfit > 0 ? `+${p.netProfit.toFixed(2)} ₺` : `${p.netProfit.toFixed(2)} ₺`}
-                        </td>
-
-                        <td className={`py-3 px-3 text-right font-black text-xs ${
-                          p.profitMargin > 0 ? 'text-emerald-700 bg-emerald-50/60' : 'text-rose-700 bg-rose-50/80'
-                        }`}>
-                          %{p.profitMargin}
+                    {filteredProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={11} className="py-14 text-center text-slate-500 bg-slate-50/70">
+                          <div className="max-w-sm mx-auto space-y-2">
+                            <div className="font-black text-sm text-slate-900">🟢 Ürün Listesi Boş (Canlı Satış Modu)</div>
+                            <p className="text-xs text-slate-500">Ürün eklemek için Excel yükleyebilir veya 'Çok Kanallı Ürün Yükleme' modülünü kullanabilirsiniz.</p>
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredProducts.map(p => (
+                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3 px-3 font-mono text-[11px] text-slate-600 font-medium">
+                            {p.barcode}
+                            <div className="text-[10px] text-slate-400 font-mono">{p.id}</div>
+                          </td>
+
+                          <td className="py-3 px-3">
+                            <div className="font-extrabold text-slate-900 text-xs">{p.name}</div>
+                            <div className="text-[11px] text-slate-500">{p.variant} • <span className="text-[#f27a1a] font-bold">{p.marketplace}</span></div>
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <span className={`font-black text-xs ${
+                              p.stock === 0 ? 'text-rose-600' : p.stock < 10 ? 'text-rose-500 font-bold' : 'text-emerald-700'
+                            }`}>
+                              {p.stock}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-3 text-right text-slate-800 font-bold">
+                            {p.costPrice?.toFixed(2) || '0.00'} ₺
+                          </td>
+
+                          <td className="py-3 px-3 text-right font-black text-slate-900">
+                            {p.sellingPrice?.toFixed(2) || '0.00'} ₺
+                          </td>
+
+                          <td className="py-3 px-3 text-center text-slate-800 font-bold">
+                            %{p.commissionRate || 15}
+                          </td>
+
+                          <td className="py-3 px-3 text-center text-slate-700 font-medium">
+                            %{p.vatRate || 20}
+                          </td>
+
+                          <td className="py-3 px-3 text-center text-slate-900 font-black">
+                            {p.desi || 1}
+                          </td>
+
+                          <td className="py-3 px-3 text-right text-slate-800 font-semibold">
+                            {p.cargoCost?.toFixed(2) || '42.91'} ₺
+                          </td>
+
+                          <td className={`py-3 px-3 text-right font-black text-xs ${
+                            (p.netProfit || 0) > 0 ? 'text-emerald-700 bg-emerald-50/60' : 'text-rose-700 bg-rose-50/80'
+                          }`}>
+                            {(p.netProfit || 0) > 0 ? `+${p.netProfit.toFixed(2)} ₺` : `${(p.netProfit || 0).toFixed(2)} ₺`}
+                          </td>
+
+                          <td className={`py-3 px-3 text-right font-black text-xs ${
+                            (p.profitMargin || 0) > 0 ? 'text-emerald-700 bg-emerald-50/60' : 'text-rose-700 bg-rose-50/80'
+                          }`}>
+                            %{p.profitMargin || 0}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

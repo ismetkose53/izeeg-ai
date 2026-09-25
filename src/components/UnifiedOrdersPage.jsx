@@ -858,10 +858,22 @@ export function UnifiedOrdersPage({
             <tbody className="divide-y divide-slate-200">
               {filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center text-slate-500 bg-slate-50">
-                    <ShoppingBag className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-                    <div className="font-bold text-sm text-slate-800">Filtreye Uygun Sipariş Bulunamadı</div>
-                    <div className="text-xs text-slate-500 mt-1">Arama kriterlerinizi değiştirebilir veya filtreleri temizleyebilirsiniz.</div>
+                  <td colSpan={10} className="py-16 text-center text-slate-500 bg-slate-50/80">
+                    <div className="max-w-md mx-auto space-y-3">
+                      <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                        <ShoppingBag className="w-8 h-8" />
+                      </div>
+                      <div>
+                        <div className="font-black text-base text-slate-900">
+                          {orders.length === 0 ? '🟢 Canlı Satış Modu Aktif (0 Sipariş)' : 'Filtreye Uygun Sipariş Bulunamadı'}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                          {orders.length === 0 
+                            ? 'Tüm deneme verileri temizlenmiştir. Pazar yeri API bağlantılarınızdan veya web sitenizden yeni sipariş aldığınızda anlık olarak tüm detaylarıyla burada listelenecektir.' 
+                            : 'Arama kriterlerinizi değiştirebilir veya filtreleri temizleyerek tüm siparişleri görebilirsiniz.'}
+                        </p>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : (

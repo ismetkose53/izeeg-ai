@@ -310,47 +310,57 @@ Yukarıda bilgileri yer alan siparişe ait ürünümüz sistemde ${selectedLeak?
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-amber-400" />
                 <h3 className="text-sm font-black text-white">
-                  Resmi Kargo İtiraz Dilekçesi ({selectedLeak?.orderNumber})
+                  Resmi Kargo İtiraz Dilekçesi {selectedLeak ? `(${selectedLeak.orderNumber})` : ''}
                 </h3>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCopyPetition}
-                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-all flex items-center gap-1 border border-slate-700"
-                >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-                  <span>{copied ? 'Kopyalandı!' : 'Metni Kopyala'}</span>
-                </button>
+              {selectedLeak && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopyPetition}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-all flex items-center gap-1 border border-slate-700 cursor-pointer"
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+                    <span>{copied ? 'Kopyalandı!' : 'Metni Kopyala'}</span>
+                  </button>
 
-                <button
-                  onClick={handleDownloadPdf}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#f27a1a] hover:bg-orange-600 text-xs font-black text-white shadow transition-all flex items-center gap-1"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>PDF İndir</span>
-                </button>
-              </div>
+                  <button
+                    onClick={handleDownloadPdf}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#f27a1a] hover:bg-orange-600 text-xs font-black text-white shadow transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>PDF İndir</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Dilekçe Metin Önizleme */}
-            <div className="bg-[#151e2a] border border-slate-800 rounded-2xl p-4 mt-4 text-xs font-mono text-slate-300 space-y-2.5 leading-relaxed overflow-y-auto max-h-72">
-              <p className="text-amber-400 font-bold">
-                T.C. {selectedLeak?.marketplace?.toUpperCase() || 'TRENDYOL'} PAZAR YERİ VE {selectedLeak?.carrier?.toUpperCase() || 'KARGO'} OPERASYONLARI DİREKTÖRLÜĞÜ'NE
-              </p>
-              <p><strong>Konu:</strong> Hatalı Desi Kesintisi İtirazı ve Cari İade Talebi</p>
-              <p><strong>Tarih:</strong> {new Date().toLocaleDateString('tr-TR')}</p>
-              <p><strong>Sipariş No:</strong> {selectedLeak?.orderNumber} ({selectedLeak?.productName})</p>
-              <p><strong>Taşıyıcı Firma:</strong> {selectedLeak?.carrier}</p>
-              <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-700/60 my-2 text-slate-200">
-                • Sistemimizde Kayıtlı Paket Ebatı: <strong>{selectedLeak?.registeredDesi} Desi</strong><br/>
-                • Kargo Faturasında Tahsil Edilen: <strong className="text-rose-400">{selectedLeak?.billedDesi} Desi</strong><br/>
-                • Haksız Kesilen Fazla Tutar: <strong className="text-emerald-400">+{selectedLeak?.leakAmount} TL</strong>
+            {!selectedLeak ? (
+              <div className="bg-[#151e2a] border border-slate-800 rounded-2xl p-8 mt-4 text-center text-slate-400">
+                <ShieldCheck className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
+                <h4 className="text-sm font-bold text-slate-200">İtiraz Edilecek Desi Kaçağı Yok</h4>
+                <p className="text-xs text-slate-400 mt-1">Faturalarınızda desi uyuşmazlığı tespit edildiğinde resmi dilekçeniz otomatik olarak burada üretilecektir.</p>
               </div>
-              <p className="text-[11px] text-slate-400">
-                Yukarıda detayları verilen siparişin desi tartımının şube kamera ve kantar kayıtlarıyla tekrar incelenmesini ve haksız kesilen tutarın satıcı cari hesabımıza iadesini arz ederiz.
-              </p>
-            </div>
+            ) : (
+              <div className="bg-[#151e2a] border border-slate-800 rounded-2xl p-4 mt-4 text-xs font-mono text-slate-300 space-y-2.5 leading-relaxed overflow-y-auto max-h-72">
+                <p className="text-amber-400 font-bold">
+                  T.C. {selectedLeak?.marketplace?.toUpperCase() || 'TRENDYOL'} PAZAR YERİ VE {selectedLeak?.carrier?.toUpperCase() || 'KARGO'} OPERASYONLARI DİREKTÖRLÜĞÜ'NE
+                </p>
+                <p><strong>Konu:</strong> Hatalı Desi Kesintisi İtirazı ve Cari İade Talebi</p>
+                <p><strong>Tarih:</strong> {new Date().toLocaleDateString('tr-TR')}</p>
+                <p><strong>Sipariş No:</strong> {selectedLeak?.orderNumber} ({selectedLeak?.productName})</p>
+                <p><strong>Taşıyıcı Firma:</strong> {selectedLeak?.carrier}</p>
+                <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-700/60 my-2 text-slate-200">
+                  • Sistemimizde Kayıtlı Paket Ebatı: <strong>{selectedLeak?.registeredDesi} Desi</strong><br/>
+                  • Kargo Faturasında Tahsil Edilen: <strong className="text-rose-400">{selectedLeak?.billedDesi} Desi</strong><br/>
+                  • Haksız Kesilen Fazla Tutar: <strong className="text-emerald-400">+{selectedLeak?.leakAmount} TL</strong>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Yukarıda detayları verilen siparişin desi tartımının şube kamera ve kantar kayıtlarıyla tekrar incelenmesini ve haksız kesilen tutarın satıcı cari hesabımıza iadesini arz ederiz.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">

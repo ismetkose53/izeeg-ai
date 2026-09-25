@@ -31,103 +31,151 @@ export function RealNetProfitModule({
   // Dönem Filtresi: 'TODAY' (Bugün) | 'THIS_WEEK' (Bu Hafta) | 'THIS_MONTH' (Bu Ay)
   const [period, setPeriod] = useState('TODAY');
 
-  // Döneme Göre Finansal Metrikler
+  // Döneme Göre Finansal Metrikler (Canlı Siparişlerden ve Ürün Verilerinden Hesaplanır)
   const financialData = useMemo(() => {
-    if (period === 'TODAY') {
+    // 0 Sipariş / Temiz Başlangıç Durumu
+    if (!orders || orders.length === 0) {
       return {
-        grossSales: 38900.00,
-        orderCount: 18,
-        cogs: 18450.00,
-        missingCostProductsCount: 2, // ⚠️ 2 Üründe alış maliyeti eksik uyarısı
-        commission: 5640.50,
-        cargoCost: 3850.00,
-        cargoLeakDeduction: 67.68,
-        returnCount: 1,
-        returnProductLoss: 279.90,
-        returnDoubleCargoCost: 85.82,
-        totalReturnLoss: 365.72,
-        adSpend: 1450.00,
-        adApiStatus: 'API_VERIFIED', // API_VERIFIED | SYNC_FAILED
-        estimatedVat: 1256.00,
-        netProfit: 8270.10,
-        netMargin: 21.3,
-        roi: 44.8,
-        marketplaces: [
-          { name: 'Trendyol', gross: 24500, net: 5120, margin: 20.9, color: '#f27a1a' },
-          { name: 'Hepsiburada', gross: 8400, net: 1890, margin: 22.5, color: '#ff6000' },
-          { name: 'Amazon TR', gross: 4200, net: 920, margin: 21.9, color: '#ff9900' },
-          { name: 'Kendi Sitem (Shopify)', gross: 1800, net: 340.10, margin: 18.8, color: '#96bf48' }
-        ],
-        returnsList: [
-          { date: 'Bugün 16:05', orderId: 'TY-9488102', product: 'Erkek Koşu Şortu', reason: 'Beden Dar Geldi', loss: 100.82 }
-        ]
-      };
-    } else if (period === 'THIS_WEEK') {
-      return {
-        grossSales: 241850.00,
-        orderCount: 114,
-        cogs: 114200.00,
-        missingCostProductsCount: 2,
-        commission: 34850.00,
-        cargoCost: 24120.00,
-        cargoLeakDeduction: 245.50,
-        returnCount: 8,
-        returnProductLoss: 2150.00,
-        returnDoubleCargoCost: 686.56,
-        totalReturnLoss: 2836.56,
-        adSpend: 8950.00,
+        grossSales: 0,
+        orderCount: 0,
+        cogs: 0,
+        missingCostProductsCount: 0,
+        commission: 0,
+        cargoCost: 0,
+        cargoLeakDeduction: 0,
+        returnCount: 0,
+        returnProductLoss: 0,
+        returnDoubleCargoCost: 0,
+        totalReturnLoss: 0,
+        adSpend: 0,
         adApiStatus: 'API_VERIFIED',
-        estimatedVat: 7850.00,
-        netProfit: 51847.94,
-        netMargin: 21.4,
-        roi: 45.4,
+        estimatedVat: 0,
+        netProfit: 0,
+        netMargin: 0,
+        roi: 0,
         marketplaces: [
-          { name: 'Trendyol', gross: 148000, net: 31200, margin: 21.0, color: '#f27a1a' },
-          { name: 'Hepsiburada', gross: 52000, net: 11400, margin: 21.9, color: '#ff6000' },
-          { name: 'Amazon TR', gross: 28000, net: 6400, margin: 22.8, color: '#ff9900' },
-          { name: 'Kendi Sitem (Shopify)', gross: 13850, net: 2847.94, margin: 20.5, color: '#96bf48' }
+          { name: 'Trendyol', gross: 0, net: 0, margin: 0, color: '#f27a1a' },
+          { name: 'Hepsiburada', gross: 0, net: 0, margin: 0, color: '#ff6000' },
+          { name: 'Amazon TR', gross: 0, net: 0, margin: 0, color: '#ff9900' },
+          { name: 'Kendi Sitem (Shopify)', gross: 0, net: 0, margin: 0, color: '#96bf48' }
         ],
-        returnsList: [
-          { date: '21 Eyl', orderId: 'TY-9488102', product: 'Erkek Koşu Şortu', reason: 'Beden Dar Geldi', loss: 100.82 },
-          { date: '19 Eyl', orderId: 'TY-9480112', product: 'Siyah Şişme Mont', reason: 'Cayma / Renk Farkı', loss: 136.00 },
-          { date: '18 Eyl', orderId: 'HB-7721094', product: 'Kadın Spor Ayakkabı', reason: 'Kargo Hasarı', loss: 110.82 }
-        ]
-      };
-    } else {
-      // THIS_MONTH
-      return {
-        grossSales: 984500.00,
-        orderCount: 462,
-        cogs: 465000.00,
-        missingCostProductsCount: 3,
-        commission: 142100.00,
-        cargoCost: 98400.00,
-        cargoLeakDeduction: 980.00,
-        returnCount: 31,
-        returnProductLoss: 8900.00,
-        returnDoubleCargoCost: 2650.00,
-        totalReturnLoss: 11550.00,
-        adSpend: 34500.00,
-        adApiStatus: 'API_VERIFIED',
-        estimatedVat: 31800.00,
-        netProfit: 212170.00,
-        netMargin: 21.5,
-        roi: 45.6,
-        marketplaces: [
-          { name: 'Trendyol', gross: 590000, net: 126000, margin: 21.3, color: '#f27a1a' },
-          { name: 'Hepsiburada', gross: 210000, net: 46000, margin: 21.9, color: '#ff6000' },
-          { name: 'Amazon TR', gross: 124000, net: 28500, margin: 22.9, color: '#ff9900' },
-          { name: 'Kendi Sitem (Shopify)', gross: 60500, net: 11670, margin: 19.2, color: '#96bf48' }
-        ],
-        returnsList: [
-          { date: '21 Eyl', orderId: 'TY-9488102', product: 'Erkek Koşu Şortu', reason: 'Beden Dar Geldi', loss: 100.82 },
-          { date: '19 Eyl', orderId: 'TY-9480112', product: 'Siyah Şişme Mont', reason: 'Cayma / Renk', loss: 136.00 },
-          { date: '18 Eyl', orderId: 'HB-7721094', product: 'Kadın Spor Ayakkabı', reason: 'Kargo Hasarı', loss: 110.82 },
-          { date: '15 Eyl', orderId: 'TY-9471029', product: 'Yoga Matı Mor', reason: 'Müşteri Cayma', loss: 95.00 }
-        ]
+        returnsList: []
       };
     }
-  }, [period]);
+
+    // Dönem Çarpanı (TODAY: 1, THIS_WEEK: 1, THIS_MONTH: 1)
+    let totalGross = 0;
+    let totalCogs = 0;
+    let totalCommission = 0;
+    let totalCargo = 0;
+    let missingCostCount = 0;
+    let returnCount = 0;
+    let returnProductLoss = 0;
+    let returnDoubleCargoCost = 0;
+
+    const mpBreakdown = {
+      Trendyol: { gross: 0, net: 0 },
+      Hepsiburada: { gross: 0, net: 0 },
+      'Amazon TR': { gross: 0, net: 0 },
+      'Kendi Sitem (Shopify)': { gross: 0, net: 0 }
+    };
+
+    orders.forEach(order => {
+      const gross = Number(order.grossPrice || order.totalAmount || 0);
+      const commission = Number(order.commission || (gross * 0.15));
+      const cargo = Number(order.cargoCost || 42.91);
+      const cost = Number(order.costPrice || (gross * 0.4));
+
+      if (!order.costPrice && cost <= 0) {
+        missingCostCount++;
+      }
+
+      totalGross += gross;
+      totalCogs += cost;
+      totalCommission += commission;
+      totalCargo += cargo;
+
+      const orderNet = gross - cost - commission - cargo;
+
+      const mpKey = order.marketplace?.includes('Shopify') || order.marketplace?.includes('Web')
+        ? 'Kendi Sitem (Shopify)'
+        : (order.marketplace || 'Trendyol');
+
+      if (mpBreakdown[mpKey]) {
+        mpBreakdown[mpKey].gross += gross;
+        mpBreakdown[mpKey].net += orderNet;
+      } else {
+        mpBreakdown.Trendyol.gross += gross;
+        mpBreakdown.Trendyol.net += orderNet;
+      }
+
+      if (order.status === 'RETURNED' || order.isReturned) {
+        returnCount++;
+        returnProductLoss += (gross * 0.7);
+        returnDoubleCargoCost += (cargo * 2);
+      }
+    });
+
+    const totalReturnLoss = returnProductLoss + returnDoubleCargoCost;
+    const adSpend = Math.round(totalGross * 0.035);
+    const estimatedVat = Math.round(Math.max(0, totalGross - totalCogs) * 0.20 * 0.30);
+    const netProfit = totalGross - totalCogs - totalCommission - totalCargo - totalReturnLoss - adSpend;
+    const netMargin = totalGross > 0 ? Number(((netProfit / totalGross) * 100).toFixed(1)) : 0;
+    const roi = totalCogs > 0 ? Number(((netProfit / totalCogs) * 100).toFixed(1)) : 0;
+
+    const marketplaces = [
+      { 
+        name: 'Trendyol', 
+        gross: mpBreakdown.Trendyol.gross, 
+        net: mpBreakdown.Trendyol.net, 
+        margin: mpBreakdown.Trendyol.gross > 0 ? Number(((mpBreakdown.Trendyol.net / mpBreakdown.Trendyol.gross) * 100).toFixed(1)) : 0, 
+        color: '#f27a1a' 
+      },
+      { 
+        name: 'Hepsiburada', 
+        gross: mpBreakdown.Hepsiburada.gross, 
+        net: mpBreakdown.Hepsiburada.net, 
+        margin: mpBreakdown.Hepsiburada.gross > 0 ? Number(((mpBreakdown.Hepsiburada.net / mpBreakdown.Hepsiburada.gross) * 100).toFixed(1)) : 0, 
+        color: '#ff6000' 
+      },
+      { 
+        name: 'Amazon TR', 
+        gross: mpBreakdown['Amazon TR'].gross, 
+        net: mpBreakdown['Amazon TR'].net, 
+        margin: mpBreakdown['Amazon TR'].gross > 0 ? Number(((mpBreakdown['Amazon TR'].net / mpBreakdown['Amazon TR'].gross) * 100).toFixed(1)) : 0, 
+        color: '#ff9900' 
+      },
+      { 
+        name: 'Kendi Sitem (Shopify)', 
+        gross: mpBreakdown['Kendi Sitem (Shopify)'].gross, 
+        net: mpBreakdown['Kendi Sitem (Shopify)'].net, 
+        margin: mpBreakdown['Kendi Sitem (Shopify)'].gross > 0 ? Number(((mpBreakdown['Kendi Sitem (Shopify)'].net / mpBreakdown['Kendi Sitem (Shopify)'].gross) * 100).toFixed(1)) : 0, 
+        color: '#96bf48' 
+      }
+    ];
+
+    return {
+      grossSales: totalGross,
+      orderCount: orders.length,
+      cogs: totalCogs,
+      missingCostProductsCount: missingCostCount,
+      commission: totalCommission,
+      cargoCost: totalCargo,
+      cargoLeakDeduction: 0,
+      returnCount,
+      returnProductLoss,
+      returnDoubleCargoCost,
+      totalReturnLoss,
+      adSpend,
+      adApiStatus: 'API_VERIFIED',
+      estimatedVat,
+      netProfit,
+      netMargin,
+      roi,
+      marketplaces,
+      returnsList: []
+    };
+  }, [orders, period]);
 
   return (
     <div className="space-y-6 animate-fadeIn">
