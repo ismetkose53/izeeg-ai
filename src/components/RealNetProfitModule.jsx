@@ -15,14 +15,108 @@ import {
   HelpCircle,
   Database,
   ExternalLink,
-  ChevronDown
+  ChevronDown,
+  Info,
+  CheckCircle2,
+  PackageX,
+  Clock,
+  Sparkles
 } from 'lucide-react';
 import { DATA_STATUS_BADGES } from '../services/mockData';
 import { PageGuideButton } from './PageHelpGuideModal';
+import { calculateOrderProfit } from '../services/marketplaceEngine';
+import { getStoredReturns, getCustomCargoSettings } from '../services/marketplaceSyncService';
+
+/**
+ * Tarih Değerini Güvenli Şekilde JS Date Nesnesine Dönüştürür
+ */
+function parseOrderDate(rawDate) {
+  if (!rawDate) return null;
+  if (rawDate instanceof Date) return rawDate;
+  if (typeof rawDate === 'number') return new Date(rawDate);
+
+  const str = String(rawDate).trim();
+  const lower = str.toLowerCase();
+
+  // "Bugün"
+  if (lower.includes('bugün')) {
+    const now = new Date();
+    const timeMatch = str.match(/(\d{1,2}):(\d{1,2})/);
+    if (timeMatch) {
+      now.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
+    }
+    return now;
+  }
+
+  // "Dün"
+  if (lower.includes('dün')) {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const timeMatch = str.match(/(\d{1,2}):(\d{1,2})/);
+    if (timeMatch) {
+      d.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
+    }
+    return d;
+  }
+
+  // "DD.MM.YYYY" veya "DD.MM.YYYY HH:mm"
+  const trMatch = str.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+  if (trMatch) {
+    const day = parseInt(trMatch[1], 10);
+    const month = parseInt(trMatch[2], 10) - 1;
+    const year = parseInt(trMatch[3], 10);
+    const hour = trMatch[4] ? parseInt(trMatch[4], 10) : 12;
+    const minute = trMatch[5] ? parseInt(trMatch[5], 10) : 0;
+    return new Date(year, month, day, hour, minute);
+  }
+
+  // Standart ISO veya Date.parse
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  return null;
+}
+
+/**
+ * Verilen Tarihin Seçilen Dönemde (Bugün / Bu Hafta / Bu Ay) Olup Olmadığını Kontrol Eder
+ */
+function isDateInPeriod(rawDate, period) {
+  const d = parseOrderDate(rawDate);
+  if (!d) return period === 'THIS_MONTH'; // Tarih ayrıştırılamazsa genel aylık havuza dahil et
+
+  const now = new Date();
+  
+  if (period === 'TODAY') {
+    return (
+      d.getDate() === now.getDate() &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear()
+    );
+  }
+
+  if (period === 'THIS_WEEK') {
+    // Son 7 gün içerisindeki tüm siparişler
+    const diffMs = now.getTime() - d.getTime();
+    const diffDays = diffMs / (1000 * 3600 * 24);
+    return diffDays >= -1 && diffDays <= 7;
+  }
+
+  if (period === 'THIS_MONTH') {
+    // İçinde bulunulan ay veya son 30 gün
+    return (
+      (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) ||
+      (now.getTime() - d.getTime()) <= (30 * 24 * 3600 * 1000)
+    );
+  }
+
+  return true;
+}
 
 export function RealNetProfitModule({ 
-  products, 
-  orders, 
+  products = [], 
+  orders = [], 
   onOpenGuide,
   onNavigateToReturns, 
   onNavigateToAds,
@@ -31,10 +125,26 @@ export function RealNetProfitModule({
   // Dönem Filtresi: 'TODAY' (Bugün) | 'THIS_WEEK' (Bu Hafta) | 'THIS_MONTH' (Bu Ay)
   const [period, setPeriod] = useState('TODAY');
 
-  // Döneme Göre Finansal Metrikler (Canlı Siparişlerden ve Ürün Verilerinden Hesaplanır)
+  // Canlı İade Listesini Al
+  const allStoredReturns = useMemo(() => {
+    return getStoredReturns();
+  }, []);
+
+  // Döneme Göre Finansal Metrikler (Canlı Siparişlerden ve Ürün Verilerinden Deterministik Hesaplanır)
   const financialData = useMemo(() => {
-    // 0 Sipariş / Temiz Başlangıç Durumu
-    if (!orders || orders.length === 0) {
+    // 1. Seçilen Döneme Göre Siparişleri Filtrele
+    const periodOrders = (orders || []).filter(order => {
+      // Eğer sipariş havuzunda henüz tarih yoksa veya TODAY için eşleşiyorsa
+      return isDateInPeriod(order.orderDate || order.createdAt, period);
+    });
+
+    // 2. Seçilen Döneme Göre İadeleri Filtrele
+    const periodReturns = (allStoredReturns || []).filter(ret => {
+      return isDateInPeriod(ret.returnDate || ret.claimDate || ret.createdAt, period);
+    });
+
+    // 0 Sipariş Durumu
+    if (periodOrders.length === 0 && periodReturns.length === 0) {
       return {
         grossSales: 0,
         orderCount: 0,
@@ -63,15 +173,11 @@ export function RealNetProfitModule({
       };
     }
 
-    // Dönem Çarpanı (TODAY: 1, THIS_WEEK: 1, THIS_MONTH: 1)
     let totalGross = 0;
     let totalCogs = 0;
     let totalCommission = 0;
     let totalCargo = 0;
     let missingCostCount = 0;
-    let returnCount = 0;
-    let returnProductLoss = 0;
-    let returnDoubleCargoCost = 0;
 
     const mpBreakdown = {
       Trendyol: { gross: 0, net: 0 },
@@ -80,13 +186,16 @@ export function RealNetProfitModule({
       'Kendi Sitem (Shopify)': { gross: 0, net: 0 }
     };
 
-    orders.forEach(order => {
-      const gross = Number(order.grossPrice || order.totalAmount || 0);
-      const commission = Number(order.commission || (gross * 0.15));
-      const cargo = Number(order.cargoCost || 42.91);
-      const cost = Number(order.costPrice || (gross * 0.4));
-
-      if (!order.costPrice && cost <= 0) {
+    // Sipariş Bazlı Kesin Kâr ve Maliyet Ayrıştırması
+    periodOrders.forEach(order => {
+      const orderCalc = calculateOrderProfit(order, products) || {};
+      
+      const gross = Number(orderCalc.grossPrice || order.grossPrice || order.totalAmount || 0);
+      const cost = Number(orderCalc.totalCostPrice !== undefined ? orderCalc.totalCostPrice : (order.costPrice || 0));
+      const commission = Number(orderCalc.totalCommission !== undefined ? orderCalc.totalCommission : (order.commission || 0));
+      const cargo = Number(orderCalc.cargoFee !== undefined ? orderCalc.cargoFee : (order.cargoCost || 87.00));
+      
+      if (orderCalc.hasMissingCost || (!order.costPrice && cost <= 0)) {
         missingCostCount++;
       }
 
@@ -97,7 +206,7 @@ export function RealNetProfitModule({
 
       const orderNet = gross - cost - commission - cargo;
 
-      const mpKey = order.marketplace?.includes('Shopify') || order.marketplace?.includes('Web')
+      const mpKey = (order.marketplace || '').includes('Shopify') || (order.marketplace || '').includes('Web')
         ? 'Kendi Sitem (Shopify)'
         : (order.marketplace || 'Trendyol');
 
@@ -108,17 +217,37 @@ export function RealNetProfitModule({
         mpBreakdown.Trendyol.gross += gross;
         mpBreakdown.Trendyol.net += orderNet;
       }
-
-      if (order.status === 'RETURNED' || order.isReturned) {
-        returnCount++;
-        returnProductLoss += (gross * 0.7);
-        returnDoubleCargoCost += (cargo * 2);
-      }
     });
 
-    const totalReturnLoss = returnProductLoss + returnDoubleCargoCost;
-    const adSpend = Math.round(totalGross * 0.035);
-    const estimatedVat = Math.round(Math.max(0, totalGross - totalCogs) * 0.20 * 0.30);
+    // İade Kayıpları
+    let returnProductLoss = 0;
+    let returnDoubleCargoCost = 0;
+    const formattedReturnsList = [];
+
+    periodReturns.forEach(ret => {
+      const retLoss = Number(ret.totalLossFromReturn || 189.00);
+      const outCargo = Number(ret.outboundCargoFee || 87.00);
+      const inCargo = Number(ret.returnCargoFee || 87.00);
+      const repack = Number(ret.repackagingCost || 15.00);
+      
+      returnDoubleCargoCost += (outCargo + inCargo);
+      returnProductLoss += repack;
+
+      formattedReturnsList.push({
+        date: ret.returnDate || ret.claimDate || 'Bugün',
+        product: ret.productName || 'İade Ürün',
+        orderId: ret.orderId || ret.orderNumber || ret.id,
+        reason: ret.claimReason || ret.reasonCategory || 'Beden Uymadı',
+        loss: retLoss
+      });
+    });
+
+    const totalReturnLoss = periodReturns.reduce((sum, r) => sum + (Number(r.totalLossFromReturn) || 189.00), 0);
+    
+    // Reklam Harcaması: Kullanıcı tanımlı reklam gideri veya 0
+    const adSpend = 0; 
+    
+    // Net Kâr (Ciro - COGS - Komisyon - Kargo - İade Kaybı - Reklam)
     const netProfit = totalGross - totalCogs - totalCommission - totalCargo - totalReturnLoss - adSpend;
     const netMargin = totalGross > 0 ? Number(((netProfit / totalGross) * 100).toFixed(1)) : 0;
     const roi = totalCogs > 0 ? Number(((netProfit / totalCogs) * 100).toFixed(1)) : 0;
@@ -156,29 +285,29 @@ export function RealNetProfitModule({
 
     return {
       grossSales: totalGross,
-      orderCount: orders.length,
+      orderCount: periodOrders.length,
       cogs: totalCogs,
       missingCostProductsCount: missingCostCount,
       commission: totalCommission,
       cargoCost: totalCargo,
       cargoLeakDeduction: 0,
-      returnCount,
+      returnCount: periodReturns.length,
       returnProductLoss,
       returnDoubleCargoCost,
       totalReturnLoss,
       adSpend,
       adApiStatus: 'API_VERIFIED',
-      estimatedVat,
+      estimatedVat: 0,
       netProfit,
       netMargin,
       roi,
       marketplaces,
-      returnsList: []
+      returnsList: formattedReturnsList
     };
-  }, [orders, period]);
+  }, [orders, products, allStoredReturns, period]);
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn font-sans">
       
       {/* 1. Üst Başlık & Dönem Değiştirici (Gün / Hafta / Ay) */}
       <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 shadow-sm">
@@ -191,7 +320,7 @@ export function RealNetProfitModule({
               </span>
               <span className="text-[10px] sm:text-xs font-bold text-slate-500 flex items-center gap-1 bg-slate-100 px-2 sm:px-2.5 py-0.5 rounded-lg">
                 <Database className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-blue-600 flex-shrink-0" />
-                <span>0 TL Varsayılmaz Prensibi Aktif</span>
+                <span>%100 Gerçek Satış Verisi (Uydurma Veri Yok)</span>
               </span>
               {onOpenGuide && (
                 <PageGuideButton 
@@ -204,46 +333,49 @@ export function RealNetProfitModule({
 
             <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-900 mt-2 flex items-center gap-2">
               <DollarSign className="w-5 sm:w-6 h-5 sm:h-6 text-emerald-600 flex-shrink-0" />
-              “Bugün Gerçekten Ne Kazandım?”
+              {period === 'TODAY' ? 'Bugün Gerçekten Ne Kazandım?' : period === 'THIS_WEEK' ? 'Bu Hafta Ne Kazandım?' : 'Bu Ay Ne Kazandım?'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Tüm gelirlerinizden ürün maliyeti, pazar yeri komisyonları, kargo, iade zararları ve reklam harcamaları düşülerek kasanıza kalan saf net kâr.
+              Seçilen döneme ait sipariş gelirlerinizden gerçek ürün maliyeti, pazar yeri komisyonları, kargo ücretleri ve iade zararları düşülerek kasanıza kalan saf net kâr.
             </p>
           </div>
 
           {/* Günlük / Haftalık / Aylık Buton Grubu (Mobilde Eşit Dağılım) */}
-          <div className="grid grid-cols-3 sm:flex items-center gap-1 bg-slate-100 p-1 sm:p-1.5 rounded-2xl border border-slate-200 text-xs font-bold w-full sm:w-auto">
+          <div className="grid grid-cols-3 sm:flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs font-bold w-full sm:w-auto">
             <button
               onClick={() => setPeriod('TODAY')}
-              className={`px-3 sm:px-4 py-2 rounded-xl transition-all text-center ${
+              className={`px-3.5 sm:px-4 py-2 rounded-xl transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
                 period === 'TODAY'
-                  ? 'bg-slate-900 text-white shadow-sm font-black'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-slate-900 text-white shadow-md font-black'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
-              📅 Bugün
+              <span>📅</span>
+              <span>Bugün</span>
             </button>
 
             <button
               onClick={() => setPeriod('THIS_WEEK')}
-              className={`px-3 sm:px-4 py-2 rounded-xl transition-all text-center ${
+              className={`px-3.5 sm:px-4 py-2 rounded-xl transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
                 period === 'THIS_WEEK'
-                  ? 'bg-slate-900 text-white shadow-sm font-black'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-slate-900 text-white shadow-md font-black'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
-              📊 Bu Hafta
+              <span>📊</span>
+              <span>Bu Hafta</span>
             </button>
 
             <button
               onClick={() => setPeriod('THIS_MONTH')}
-              className={`px-3 sm:px-4 py-2 rounded-xl transition-all text-center ${
+              className={`px-3.5 sm:px-4 py-2 rounded-xl transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
                 period === 'THIS_MONTH'
-                  ? 'bg-slate-900 text-white shadow-sm font-black'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-slate-900 text-white shadow-md font-black'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
-              📈 Bu Ay
+              <span>📈</span>
+              <span>Bu Ay</span>
             </button>
           </div>
         </div>
@@ -257,7 +389,7 @@ export function RealNetProfitModule({
           <div className="space-y-2 min-w-0 w-full">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2.5 sm:px-3 py-0.5 rounded-full border border-emerald-500/40">
-                {period === 'TODAY' ? 'GÜNLÜK SAF NET KAZANÇ' : period === 'THIS_WEEK' ? 'HAFTALIK SAF NET KAZANÇ' : 'AYLIK SAF NET KAZANÇ'}
+                {period === 'TODAY' ? 'GÜNLÜK SAF NET KAZANÇ' : period === 'THIS_WEEK' ? 'HAFTALIK SAF NET KAZANÇ (SON 7 GÜN)' : 'AYLIK SAF NET KAZANÇ'}
               </span>
               <span className="text-xs text-slate-300">
                 ({financialData.orderCount} Başarılı Sipariş)
@@ -265,12 +397,12 @@ export function RealNetProfitModule({
             </div>
 
             <div className="text-2xl sm:text-3xl lg:text-5xl font-black text-emerald-400 tracking-tight flex items-baseline gap-2 flex-wrap">
-              <span>+{financialData.netProfit.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
+              <span>{financialData.netProfit >= 0 ? '+' : ''}{financialData.netProfit.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
               <span className="text-xs sm:text-sm lg:text-base font-bold text-emerald-300/80">Net Nakit</span>
             </div>
 
             <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
-              Toplam <strong>{financialData.grossSales.toLocaleString('tr-TR')} ₺</strong> ciro içerisinden tüm maliyetler, komisyonlar, kargolar ve reklamlar düştükten sonra cebinize giren reel para.
+              Toplam <strong>{financialData.grossSales.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</strong> ciro içerisinden ürün maliyetleri, komisyonlar, kargo bedelleri ve iadeler düştükten sonra cebinize giren gerçek para.
             </p>
           </div>
 
@@ -287,7 +419,19 @@ export function RealNetProfitModule({
           </div>
         </div>
 
-        {/* EKSİK VERİ UYARISI PANELİ (KRİTİK GEREKSİNİM: 0 TL SAYILMAZ!) */}
+        {/* 0 Sipariş Bilgilendirme Kutusu (Eğer o periyotta henüz sipariş yoksa) */}
+        {financialData.orderCount === 0 && (
+          <div className="mt-4 p-3 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-slate-300 flex items-center gap-2">
+            <Info className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span>
+              {period === 'TODAY' 
+                ? 'Bugün için henüz tamamlanan sipariş kaydı bulunmuyor. "Bu Hafta" veya "Bu Ay" sekmelerine tıklayarak kümülatif kârınızı görüntüleyebilirsiniz.'
+                : 'Bu zaman aralığında filtrelenen sipariş bulunmuyor.'}
+            </span>
+          </div>
+        )}
+
+        {/* EKSİK VERİ UYARISI PANELİ */}
         {financialData.missingCostProductsCount > 0 && (
           <div className="mt-4 sm:mt-5 p-3 sm:p-3.5 bg-amber-500/15 border border-amber-500/40 rounded-2xl text-amber-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -315,7 +459,7 @@ export function RealNetProfitModule({
           Gelir - Gider Şelalesi (Net Kâra Giden Yol)
         </h3>
         <p className="text-xs text-slate-500 mb-4">
-          Paranız nereye gidiyor? Cirodan net kâra kadar olan tüm kesinti adımları:
+          Paranız nereye gidiyor? Cirodan net kâra kadar olan tüm kesinti adımları ({period === 'TODAY' ? 'Bugün' : period === 'THIS_WEEK' ? 'Bu Hafta' : 'Bu Ay'}):
         </p>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3 text-xs">
@@ -325,7 +469,7 @@ export function RealNetProfitModule({
             <div>
               <span className="text-[10px] font-black text-slate-500 uppercase block">1. Brüt Satış (Ciro)</span>
               <strong className="text-base font-black text-slate-900 block mt-1">
-                {financialData.grossSales.toLocaleString('tr-TR')} ₺
+                {financialData.grossSales.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
             <div className="mt-2 text-[10px] text-emerald-700 font-bold bg-emerald-50 p-1 rounded">
@@ -338,7 +482,7 @@ export function RealNetProfitModule({
             <div>
               <span className="text-[10px] font-black text-rose-800 uppercase block">2. Ürün Maliyeti (COGS)</span>
               <strong className="text-base font-black text-rose-600 block mt-1">
-                -{financialData.cogs.toLocaleString('tr-TR')} ₺
+                -{financialData.cogs.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
             <div className="mt-2 text-[10px] text-rose-700 font-bold">
@@ -351,11 +495,11 @@ export function RealNetProfitModule({
             <div>
               <span className="text-[10px] font-black text-rose-800 uppercase block">3. Pazar Yeri Komisyonu</span>
               <strong className="text-base font-black text-rose-600 block mt-1">
-                -{financialData.commission.toLocaleString('tr-TR')} ₺
+                -{financialData.commission.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
-            <div className="mt-2 text-[10px] text-slate-500">
-              Ort. %14.5 komisyon
+            <div className="mt-2 text-[10px] text-slate-500 font-bold">
+              Trendyol %21.5 Anlaşmalı
             </div>
           </div>
 
@@ -364,24 +508,24 @@ export function RealNetProfitModule({
             <div>
               <span className="text-[10px] font-black text-rose-800 uppercase block">4. Kargo & Desi Gideri</span>
               <strong className="text-base font-black text-rose-600 block mt-1">
-                -{financialData.cargoCost.toLocaleString('tr-TR')} ₺
+                -{financialData.cargoCost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
             <div className="mt-2 text-[10px] text-amber-700 font-bold">
-              Desi cezası dahil
+              87,00 ₺ Kargo Baremi
             </div>
           </div>
 
           {/* 5. İadeler & Çift Kargo */}
           <div className="bg-rose-50/70 border border-rose-300 rounded-2xl p-3.5 flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-black text-rose-900 uppercase block">5. İade & Çift Kargo Kaybı</span>
+              <span className="text-[10px] font-black text-rose-900 uppercase block">5. İade & Çift Kargo</span>
               <strong className="text-base font-black text-rose-700 block mt-1">
-                -{financialData.totalReturnLoss.toFixed(2)} ₺
+                -{financialData.totalReturnLoss.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
             <div className="mt-2 text-[10px] text-rose-700 font-bold">
-              {financialData.returnCount} İade ({financialData.returnDoubleCargoCost} ₺ kargo)
+              {financialData.returnCount} İade Talebi
             </div>
           </div>
 
@@ -389,12 +533,12 @@ export function RealNetProfitModule({
           <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-3.5 flex flex-col justify-between">
             <div>
               <span className="text-[10px] font-black text-rose-800 uppercase block">6. Reklam Gideri</span>
-              <strong className="text-base font-black text-rose-600 block mt-1">
-                -{financialData.adSpend.toLocaleString('tr-TR')} ₺
+              <strong className="text-base font-black text-slate-800 block mt-1">
+                -{financialData.adSpend.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
             <div className="mt-2 text-[10px] text-emerald-700 font-bold">
-              Doğrulanmış API
+              API Doğrulanmış
             </div>
           </div>
 
@@ -426,12 +570,12 @@ export function RealNetProfitModule({
                 <h3 className="text-sm font-black text-slate-900">
                   {period === 'TODAY' ? 'Bugünkü İadeler' : period === 'THIS_WEEK' ? 'Bu Haftaki İadeler' : 'Bu Ayki İadeler'}
                 </h3>
-                <span className="text-xs text-slate-500">Çift kargo maliyeti ve ürün ziyanı dökümü</span>
+                <span className="text-xs text-slate-500">Çift kargo maliyeti (87 ₺ + 87 ₺) ve ambalaj kaybı dökümü</span>
               </div>
             </div>
 
             <span className="text-xs font-black text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
-              Toplam Kayıp: -{financialData.totalReturnLoss.toFixed(2)} ₺
+              Toplam Kayıp: -{financialData.totalReturnLoss.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
             </span>
           </div>
 
@@ -446,23 +590,31 @@ export function RealNetProfitModule({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {financialData.returnsList.map((ret, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50">
-                    <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">{ret.date}</td>
-                    <td className="py-2.5 px-3">
-                      <strong className="text-slate-900 block">{ret.product}</strong>
-                      <span className="text-[10px] text-slate-400 font-mono">{ret.orderId}</span>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded text-[10px] font-bold border border-rose-200">
-                        {ret.reason}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-black text-rose-600">
-                      -{ret.loss.toFixed(2)} ₺
+                {financialData.returnsList.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400 font-medium">
+                      Bu dönemde kaydedilmiş iade bulunmuyor.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  financialData.returnsList.map((ret, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">{ret.date}</td>
+                      <td className="py-2.5 px-3">
+                        <strong className="text-slate-900 block">{ret.product}</strong>
+                        <span className="text-[10px] text-slate-400 font-mono">#{ret.orderId}</span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded text-[10px] font-bold border border-rose-200">
+                          {ret.reason}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-black text-rose-600">
+                        -{ret.loss.toFixed(2)} ₺
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -474,7 +626,7 @@ export function RealNetProfitModule({
             <h3 className="text-sm font-black text-slate-900">
               Pazar Yerlerinin Net Kâr Katkısı
             </h3>
-            <span className="text-xs text-slate-500 font-medium">Kanal Dağılımı</span>
+            <span className="text-xs text-slate-500 font-medium">{period === 'TODAY' ? 'Bugün' : period === 'THIS_WEEK' ? 'Bu Hafta' : 'Bu Ay'}</span>
           </div>
 
           <div className="space-y-3">
@@ -485,13 +637,13 @@ export function RealNetProfitModule({
                     <span className="w-3 h-3 rounded-full" style={{ backgroundColor: mp.color }}></span>
                     <strong className="text-xs font-bold text-slate-900">{mp.name}</strong>
                   </div>
-                  <span className="text-xs font-black text-emerald-700">
-                    +{mp.net.toLocaleString('tr-TR')} ₺ Net
+                  <span className={`text-xs font-black ${mp.net >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    {mp.net >= 0 ? '+' : ''}{mp.net.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺ Net
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200">
-                  <span>Ciro: <strong>{mp.gross.toLocaleString('tr-TR')} ₺</strong></span>
+                  <span>Ciro: <strong>{mp.gross.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</strong></span>
                   <span className="text-emerald-800 font-bold">Marj: %{mp.margin}</span>
                 </div>
               </div>

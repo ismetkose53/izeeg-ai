@@ -42,8 +42,7 @@ import {
   DEMO_ORDERS,
   DEMO_CARGO_AUDIT_LEAKS
 } from './services/mockData';
-import { calculateStoreMetrics } from './services/marketplaceEngine';
-import { runAutoSyncAll, backfillOrderImages, getCatalogProducts } from './services/marketplaceSyncService';
+import { runAutoSyncAll, backfillOrderImages, getCatalogProducts, getStoredReturns } from './services/marketplaceSyncService';
 import confetti from 'canvas-confetti';
 
 export function App() {
@@ -319,7 +318,15 @@ export function App() {
         currentUser={currentUser}
         trialDaysLeft={currentUser.trialDaysLeft || 5}
         liveOrdersCount={orders.length}
-        liveReturnsCount={orders.filter(o => o.status === 'RETURNED').length || 3}
+        liveReturnsCount={(() => {
+          try {
+            const list = getStoredReturns();
+            const actionWaiting = list.filter(r => r.status === 'WAITING_ACTION');
+            return actionWaiting.length > 0 ? actionWaiting.length : list.length;
+          } catch {
+            return orders.filter(o => o.status === 'RETURNED').length;
+          }
+        })()}
         unreadNotificationsCount={3}
         pendingActionsCount={0}
       />
