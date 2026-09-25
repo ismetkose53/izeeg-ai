@@ -43,7 +43,7 @@ import {
   DEMO_CARGO_AUDIT_LEAKS
 } from './services/mockData';
 import { calculateStoreMetrics } from './services/marketplaceEngine';
-import { runAutoSyncAll } from './services/marketplaceSyncService';
+import { runAutoSyncAll, backfillOrderImages, getCatalogProducts } from './services/marketplaceSyncService';
 import confetti from 'canvas-confetti';
 
 export function App() {
@@ -69,7 +69,8 @@ export function App() {
   const [orders, setOrders] = useState(() => {
     try {
       const saved = localStorage.getItem('izeeg_live_orders');
-      return saved !== null ? JSON.parse(saved) : [];
+      const parsed = saved !== null ? JSON.parse(saved) : [];
+      return backfillOrderImages(parsed);
     } catch {
       return [];
     }
@@ -115,7 +116,7 @@ export function App() {
   useEffect(() => {
     if (!autoSyncIntervalMins || autoSyncIntervalMins <= 0) return;
 
-    // İlk açılışta 10 saniye sonra bir kere arka planda tara
+    // İlk açılışta 1.5 saniye sonra arka planda ürünleri ve siparişleri tara & görselleri güncelle
     const initialTimer = setTimeout(() => {
       runAutoSyncAll({
         onToast: showToast,
@@ -124,7 +125,7 @@ export function App() {
           setLastAutoSyncTime(new Date());
         }
       });
-    }, 10000);
+    }, 1500);
 
     // Belirlenen periyotta (örn 10 dk) tekrarlanan otomatik senkronizasyon
     const intervalMs = autoSyncIntervalMins * 60 * 1000;

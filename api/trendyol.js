@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const { sellerId, apiKey, apiSecret, action = 'orders', page = 0, size = 50 } = body || {};
+  const { sellerId, apiKey, apiSecret, action = 'orders', page = 0, size = 50, barcode } = body || {};
 
   // 5. Girdi Doğrulama & Sanitizasyon (SSRF / SQLi / Header Injection Koruması)
   if (!sellerId || !apiKey || !apiSecret) {
@@ -62,6 +62,7 @@ export default async function handler(req, res) {
   const cleanAction = action === 'products' ? 'products' : 'orders';
   const cleanSize = Math.min(Math.max(1, parseInt(size) || 50), 100);
   const cleanPage = Math.max(0, parseInt(page) || 0);
+  const cleanBarcode = barcode ? String(barcode).trim() : '';
 
   if (!cleanSellerId || cleanKey.length < 5 || cleanSecret.length < 5) {
     return res.status(400).json({
@@ -77,7 +78,7 @@ export default async function handler(req, res) {
   try {
     let targetUrl = '';
     if (cleanAction === 'products') {
-      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/products?page=${cleanPage}&size=${cleanSize}`;
+      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/products?page=${cleanPage}&size=${cleanSize}${cleanBarcode ? `&barcode=${encodeURIComponent(cleanBarcode)}` : ''}`;
     } else {
       targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/orders?page=${cleanPage}&size=${cleanSize}&orderByDirection=DESC`;
     }

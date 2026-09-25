@@ -40,6 +40,7 @@ import {
 import { ShippingLabelModal } from './ShippingLabelModal';
 import { OrderDocsModal } from './OrderDocsModal';
 import { calculateOrderProfit } from '../services/marketplaceEngine';
+import { getStoredImageCache } from '../services/marketplaceSyncService';
 import confetti from 'canvas-confetti';
 
 export function UnifiedOrdersPage({ 
@@ -879,7 +880,8 @@ export function UnifiedOrdersPage({
               ) : (
                 filteredOrders.map((order) => {
                   const isSelected = selectedOrderIds.includes(order.id);
-                  const itemsList = order.items && order.items.length > 0 ? order.items : [
+                  const cachedImageMap = getStoredImageCache();
+                  const rawItems = order.items && order.items.length > 0 ? order.items : [
                     {
                       id: 'ITEM-DEFAULT',
                       quantity: order.quantity || 1,
@@ -896,6 +898,34 @@ export function UnifiedOrdersPage({
                       image: order.image
                     }
                   ];
+
+                  const itemsList = rawItems.map(item => {
+                    const barcode = String(item.barcode || '').trim();
+                    const sku = String(item.sku || '').trim();
+                    const title = String(item.title || '').trim();
+                    const titleLower = title.toLowerCase();
+
+                    const matchedProd = (products || []).find(p => 
+                      (barcode && p.barcode === barcode) ||
+                      (sku && (p.sku === sku || p.id === sku)) ||
+                      (titleLower && p.name && p.name.toLowerCase().trim() === titleLower)
+                    );
+
+                    const resolvedImage = 
+                      item.image || 
+                      (barcode && cachedImageMap[barcode]) ||
+                      (sku && cachedImageMap[sku]) ||
+                      (titleLower && cachedImageMap[titleLower]) ||
+                      matchedProd?.image ||
+                      matchedProd?.imageUrl ||
+                      order.image ||
+                      '';
+
+                    return {
+                      ...item,
+                      image: resolvedImage
+                    };
+                  });
 
                   // Deterministik Gerçek Net Kâr ve Maliyet Hesaplaması (products hafızası ile senkron)
                   const profitCalc = calculateOrderProfit(order, products);

@@ -4,6 +4,7 @@ const PRODUCTS_STORAGE_KEY = 'izeeg_live_products';
 const ORDERS_STORAGE_KEY = 'izeeg_live_orders';
 const CARGO_LEAKS_STORAGE_KEY = 'izeeg_live_cargo_leaks';
 const CARGO_SETTINGS_KEY = 'izeeg_custom_cargo_settings';
+const IMAGE_CACHE_KEY = 'izeeg_product_image_cache';
 
 // Kullanıcı Tanımlı Özel Kargo Anlaşma Baremleri (Varsayılan Trendyol: 87.00 ₺)
 export function getCustomCargoSettings() {
@@ -57,9 +58,35 @@ export const CARGO_BAREMLERI = {
 };
 
 /**
+ * Kayıtlı ürün görsel önbelleğini localStorage'dan çeker
+ */
+export function getStoredImageCache() {
+  try {
+    const saved = localStorage.getItem(IMAGE_CACHE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Yeni ürün görsellerini önbelleğe kaydeder
+ */
+export function saveStoredImageCache(newEntries = {}) {
+  try {
+    const current = getStoredImageCache();
+    const updated = { ...current, ...newEntries };
+    localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(updated));
+    return updated;
+  } catch {
+    return newEntries;
+  }
+}
+
+/**
  * Kayıtlı ürün kataloğunu localStorage'dan çeker
  */
-function getCatalogProducts() {
+export function getCatalogProducts() {
   try {
     const saved = localStorage.getItem(PRODUCTS_STORAGE_KEY);
     return saved ? JSON.parse(saved) : [];
@@ -128,12 +155,135 @@ export async function testTrendyolApi({ sellerId, apiKey, apiSecret }) {
 }
 
 /**
+ * Trendyol Ürün Kataloğunu Çeker ve Görsel Haritasını (Barcode -> Image) Çıkarır
+ */
+export async function fetchTrendyolLiveProducts({ sellerId, apiKey, apiSecret, maxPages = 3 }) {
+  const cleanSellerId = sellerId.toString().trim();
+  const cleanKey = apiKey.trim();
+  const cleanSecret = apiSecret.trim();
+
+  let allProducts = [];
+  const imageMap = {};
+
+  try {
+    for (let page = 0; page < maxPages; page++) {
+      const res = await fetch('/api/trendyol', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sellerId: cleanSellerId,
+          apiKey: cleanKey,
+          apiSecret: cleanSecret,
+          action: 'products',
+          page,
+          size: 100
+        })
+      });
+
+      if (!res.ok) break;
+
+      const json = await res.json().catch(() => ({}));
+      const content = json.data?.content || json.content || [];
+      if (!Array.isArray(content) || content.length === 0) break;
+
+      content.forEach(p => {
+        let firstImg = '';
+        if (Array.isArray(p.images) && p.images.length > 0) {
+          firstImg = typeof p.images[0] === 'string' ? p.images[0] : (p.images[0]?.url || '');
+        } else if (p.imageUrl) {
+          firstImg = p.imageUrl;
+        } else if (p.productImage) {
+          firstImg = p.productImage;
+        } else if (p.image) {
+          firstImg = p.image;
+        }
+
+        if (p.barcode && firstImg) imageMap[p.barcode] = firstImg;
+        if (p.stockCode && firstImg) imageMap[p.stockCode] = firstImg;
+        if (p.title && firstImg) imageMap[p.title.toLowerCase().trim()] = firstImg;
+
+        allProducts.push({
+          id: p.stockCode || p.barcode || `TY-${Date.now()}-${Math.random()}`,
+          barcode: p.barcode || '',
+          name: p.title || 'Trendyol Ürünü',
+          sku: p.stockCode || p.barcode || '',
+          brand: p.brand || 'Trendyol',
+          category: p.categoryName || 'Genel',
+          marketplace: 'Trendyol',
+          image: firstImg,
+          imageUrl: firstImg,
+          sellingPrice: Number(p.salePrice || p.listPrice || 0),
+          costPrice: 0,
+          vatRate: Number(p.vatRate || 20),
+          desi: Number(p.dimensionalWeight || 1),
+          stock: Number(p.quantity || 50),
+          commissionRate: 21.5,
+          cargoCost: 87.00
+        });
+      });
+
+      const totalPages = json.data?.totalPages || json.totalPages || 1;
+      if (page >= totalPages - 1) break;
+    }
+
+    // Önbelleği güncelle
+    if (Object.keys(imageMap).length > 0) {
+      saveStoredImageCache(imageMap);
+    }
+
+    // Mevcut ürün kataloğuyla birleştir (özel girilmiş maliyetleri koru)
+    if (allProducts.length > 0) {
+      const existingCatalog = getCatalogProducts();
+      const existingMap = new Map(existingCatalog.map(p => [p.barcode || p.id, p]));
+
+      allProducts.forEach(newP => {
+        const key = newP.barcode || newP.id;
+        if (existingMap.has(key)) {
+          const oldP = existingMap.get(key);
+          existingMap.set(key, {
+            ...newP,
+            costPrice: (oldP.costPrice !== undefined && oldP.costPrice > 0) ? oldP.costPrice : newP.costPrice,
+            image: newP.image || oldP.image
+          });
+        } else {
+          existingMap.set(key, newP);
+        }
+      });
+
+      const mergedList = Array.from(existingMap.values());
+      try {
+        localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(mergedList));
+      } catch (e) {
+        console.warn("Products storage write error:", e);
+      }
+      return { success: true, products: mergedList, imageMap, count: allProducts.length };
+    }
+  } catch (e) {
+    console.warn("fetchTrendyolLiveProducts fallback:", e);
+  }
+
+  return { success: false, products: getCatalogProducts(), imageMap: getStoredImageCache(), count: 0 };
+}
+
+/**
  * Trendyol Canlı Siparişleri ve Ürünleri Çeker & Sisteme Dönüştürür
  */
 export async function fetchTrendyolLiveOrders({ sellerId, apiKey, apiSecret }) {
   const cleanSellerId = sellerId.toString().trim();
   const cleanKey = apiKey.trim();
   const cleanSecret = apiSecret.trim();
+
+  // 1. Önce Trendyol ürün kataloğunu ve görsel haritasını eşzamanlı çek
+  let imageMap = getStoredImageCache();
+  try {
+    const prodRes = await fetchTrendyolLiveProducts({ sellerId: cleanSellerId, apiKey: cleanKey, apiSecret: cleanSecret });
+    if (prodRes.imageMap) {
+      imageMap = { ...imageMap, ...prodRes.imageMap };
+    }
+  } catch (err) {
+    console.warn("Trendyol products fetch notice:", err);
+  }
+
   const catalog = getCatalogProducts();
 
   try {
@@ -146,7 +296,7 @@ export async function fetchTrendyolLiveOrders({ sellerId, apiKey, apiSecret }) {
         apiSecret: cleanSecret,
         action: 'orders',
         page: 0,
-        size: 50
+        size: 100
       })
     });
 
@@ -154,12 +304,14 @@ export async function fetchTrendyolLiveOrders({ sellerId, apiKey, apiSecret }) {
       const json = await res.json();
       const rawOrders = json.data?.content || json.content || [];
       
-      const mappedOrders = rawOrders.map(raw => mapTrendyolOrderToInternal(raw, cleanSellerId, catalog));
+      const mappedOrders = rawOrders.map(raw => mapTrendyolOrderToInternal(raw, cleanSellerId, catalog, imageMap));
+      
+      // Mevcut siparişleri de zenginleştir
       return {
         success: true,
         orders: mappedOrders,
         count: mappedOrders.length,
-        message: `✅ Trendyol'dan ${mappedOrders.length} adet canlı sipariş başarıyla çekildi.`
+        message: `✅ Trendyol'dan ${mappedOrders.length} adet canlı sipariş ve ürün görselleri başarıyla çekildi.`
       };
     } else {
       const errJson = await res.json().catch(() => ({}));
@@ -241,6 +393,7 @@ export async function fetchHepsiburadaLiveOrders({ merchantId, secretKey, userAg
   const cleanSecret = secretKey.trim();
   const cleanUserAgent = (userAgent || 'yumey_dev').trim();
   const catalog = getCatalogProducts();
+  const imageMap = getStoredImageCache();
 
   try {
     const res = await fetch('/api/hepsiburada', {
@@ -258,7 +411,7 @@ export async function fetchHepsiburadaLiveOrders({ merchantId, secretKey, userAg
     if (res.ok) {
       const json = await res.json();
       const rawOrders = json.data?.items || json.data?.content || json.data?.packages || json.items || json.content || [];
-      const mappedOrders = rawOrders.map(raw => mapHepsiburadaOrderToInternal(raw, cleanMerchantId, catalog));
+      const mappedOrders = rawOrders.map(raw => mapHepsiburadaOrderToInternal(raw, cleanMerchantId, catalog, imageMap));
       return {
         success: true,
         orders: mappedOrders,
@@ -291,9 +444,58 @@ export async function fetchHepsiburadaLiveOrders({ merchantId, secretKey, userAg
 // ==========================================
 
 /**
+ * Sipariş listesindeki eksik ürün görsellerini önbellek ve katalogla geriye dönük tamamlar
+ */
+export function backfillOrderImages(ordersList = [], catalog = [], customImageMap = {}) {
+  const imageMap = { ...getStoredImageCache(), ...customImageMap };
+  const products = catalog.length > 0 ? catalog : getCatalogProducts();
+
+  return ordersList.map(order => {
+    let orderChanged = false;
+    const items = (order.items || []).map(it => {
+      if (it.image) return it;
+
+      const barcode = String(it.barcode || '').trim();
+      const sku = String(it.sku || it.merchantSku || '').trim();
+      const name = String(it.title || it.productName || '').toLowerCase().trim();
+
+      const matchedProd = products.find(p => 
+        (barcode && p.barcode === barcode) ||
+        (sku && (p.sku === sku || p.id === sku)) ||
+        (name && p.name && p.name.toLowerCase().trim() === name)
+      );
+
+      const foundImg = 
+        (barcode && imageMap[barcode]) ||
+        (sku && imageMap[sku]) ||
+        (name && imageMap[name]) ||
+        matchedProd?.image ||
+        matchedProd?.imageUrl ||
+        '';
+
+      if (foundImg) {
+        orderChanged = true;
+        return { ...it, image: foundImg };
+      }
+      return it;
+    });
+
+    const mainImg = items.find(i => i.image)?.image || order.image || '';
+    if (orderChanged || (!order.image && mainImg)) {
+      return {
+        ...order,
+        image: mainImg,
+        items
+      };
+    }
+    return order;
+  });
+}
+
+/**
  * Trendyol Ham API Nesnesini Kesin Finansal Değerlerle Eşler
  */
-function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
+export function mapTrendyolOrderToInternal(raw, sellerId, catalog = [], imageMap = {}) {
   const lines = raw.lines || [];
   const firstLine = lines[0] || {};
   const totalGrossPrice = Number(raw.totalPrice || lines.reduce((sum, l) => sum + (Number(l.price || 0) * Number(l.quantity || 1)), 0) || 0);
@@ -329,16 +531,20 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
     
     // Ürün Maliyetini Katalogdan Bul
     let unitCost = 0;
+    const barcode = String(l.barcode || '').trim();
+    const sku = String(l.merchantSku || l.sku || '').trim();
+    const prodName = String(l.productName || '').trim();
+    const prodNameLower = prodName.toLowerCase();
+
     const matched = catalog.find(p => 
-      (l.barcode && p.barcode === l.barcode) ||
-      (l.merchantSku && (p.sku === l.merchantSku || p.id === l.merchantSku)) ||
-      (l.productName && p.name && p.name.toLowerCase() === l.productName.toLowerCase())
+      (barcode && p.barcode === barcode) ||
+      (sku && (p.sku === sku || p.id === sku)) ||
+      (prodNameLower && p.name && p.name.toLowerCase() === prodNameLower)
     );
 
-    if (matched && matched.costPrice !== undefined) {
+    if (matched && matched.costPrice !== undefined && matched.costPrice > 0) {
       unitCost = Number(matched.costPrice);
     } else {
-      // Katalogda henüz maliyet tanımlanmadıysa varsayılan %40 tahmini
       unitCost = Number((unitPrice * 0.40).toFixed(2));
     }
 
@@ -350,12 +556,16 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
     totalCommission += (unitComm * qty);
     totalCost += (unitCost * qty);
 
+    // Çoklu Görsel Eşleme Kaynakları (Görsel Haritası -> API -> Katalog)
     const itemImg = 
+      (barcode && imageMap[barcode]) ||
+      (sku && imageMap[sku]) ||
+      (prodNameLower && imageMap[prodNameLower]) ||
       l.productImage || 
       l.imageUrl || 
       l.image || 
-      (l.images && l.images[0]) || 
-      (l.content && l.content[0]?.images?.[0]) || 
+      (Array.isArray(l.images) && (l.images[0]?.url || l.images[0])) || 
+      (l.content && l.content[0]?.images?.[0]?.url) || 
       raw.imageUrl || 
       raw.productImage || 
       matched?.image || 
@@ -367,9 +577,9 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
 
     return {
       id: `ITEM-${l.id || idx + 1}`,
-      title: l.productName || 'Ürün',
-      sku: l.merchantSku || `TY-SKU-${idx + 1}`,
-      barcode: l.barcode || '8680000000',
+      title: prodName || 'Ürün',
+      sku: sku || `TY-SKU-${idx + 1}`,
+      barcode: barcode || '8680000000',
       quantity: qty,
       unitPrice: unitPrice,
       costPrice: unitCost,
@@ -383,12 +593,11 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
     };
   });
 
-  // 2. Kargo Maliyeti Hesabı (İadelerde Gidiş-Dönüş Çift Kargo Kesilir)
+  // 2. Kargo Maliyeti Hesabı
   let cargoCost = baseCargoCost;
   let returnCargoCost = 0;
 
   if (status === 'RETURNED') {
-    // İadelerde satıcıya hem gidiş hem dönüş kargosu faturalandırılır
     cargoCost = Number((baseCargoCost * CARGO_BAREMLERI.TRENDYOL.returnMultiplier).toFixed(2));
     returnCargoCost = cargoCost;
   }
@@ -398,7 +607,6 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
   let netProfit = 0;
 
   if (status === 'RETURNED') {
-    // İade siparişte ciro 0'dır, sadece kargo iade zararı oluşur
     netPayout = -cargoCost;
     netProfit = -cargoCost;
   } else {
@@ -408,7 +616,7 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
 
   const profitMargin = totalGrossPrice > 0 ? Number(((netProfit / totalGrossPrice) * 100).toFixed(1)) : 0;
   const avgCommRate = totalGrossPrice > 0 ? Number(((totalCommission / totalGrossPrice) * 100).toFixed(1)) : 18.0;
-  const mainImage = items[0]?.image || firstLine.productImage || firstLine.imageUrl || '';
+  const mainImage = items.find(i => i.image)?.image || firstLine.productImage || firstLine.imageUrl || '';
 
   return {
     id: `TY-${raw.orderNumber || raw.id || Date.now()}`,
@@ -461,45 +669,49 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
 /**
  * Hepsiburada Ham API Nesnesini Kesin Finansal Değerlerle Eşler
  */
-function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = []) {
-  const items = raw.items || raw.lines || [];
+export function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = [], imageMap = {}) {
+  const items = raw.items || raw.lines || raw.packageLines || [];
   const firstItem = items[0] || {};
-  const totalGrossPrice = Number(raw.totalPrice || raw.grossAmount || firstItem.unitPrice || firstItem.price || 0);
+  const totalGrossPrice = Number(raw.totalPrice || raw.totalAmount || firstItem.price || 0);
 
-  // Durum Eşleme
   let status = 'NEW';
-  const rawStatus = (raw.status || raw.orderStatus || '').toLowerCase();
+  const rawStatus = (raw.status || '').toLowerCase();
   const isCancelledOrReturned = 
     rawStatus.includes('cancel') || 
     rawStatus.includes('iptal') || 
-    rawStatus.includes('returned') || 
+    rawStatus.includes('return') || 
     rawStatus.includes('iade') || 
-    rawStatus.includes('unpacked');
+    rawStatus.includes('unsupplied');
 
   if (isCancelledOrReturned) status = 'RETURNED';
-  else if (rawStatus.includes('shipped') || rawStatus.includes('kargo')) status = 'SHIPPED';
+  else if (rawStatus.includes('shipped') || rawStatus.includes('kargoda') || rawStatus.includes('in_transit')) status = 'SHIPPED';
   else if (rawStatus.includes('delivered') || rawStatus.includes('teslim')) status = 'DELIVERED';
-  else if (rawStatus.includes('picking') || rawStatus.includes('packing') || rawStatus.includes('hazır')) status = 'PREPARING';
+  else if (rawStatus.includes('packing') || rawStatus.includes('hazır')) status = 'PREPARING';
 
-  const commRate = Number(firstItem.commissionRate || 20.0);
+  const commRate = 20.0;
   const totalCommission = Number(((totalGrossPrice * commRate) / 100).toFixed(2));
 
-  // Katalogdan Maliyet Bul
+  const cargoSettings = getCustomCargoSettings();
+  const rawCargoFee = Number(raw.cargoFee || raw.cargoCost || 0);
+  const baseCargoCost = rawCargoFee > 0 ? rawCargoFee : (cargoSettings.hepsiburadaCargoCost || 43.50);
+
   let costPrice = 0;
+  const barcode = String(firstItem.barcode || raw.barcode || '').trim();
+  const sku = String(firstItem.merchantSku || raw.merchantSku || '').trim();
+  const prodName = String(firstItem.productName || raw.productName || '').trim();
+  const prodNameLower = prodName.toLowerCase();
+
   const matched = catalog.find(p => 
-    (firstItem.barcode && p.barcode === firstItem.barcode) ||
-    (firstItem.merchantSku && (p.sku === firstItem.merchantSku || p.id === firstItem.merchantSku))
+    (barcode && p.barcode === barcode) ||
+    (sku && (p.sku === sku || p.id === sku)) ||
+    (prodNameLower && p.name && p.name.toLowerCase() === prodNameLower)
   );
 
-  if (matched && matched.costPrice !== undefined) {
+  if (matched && matched.costPrice !== undefined && matched.costPrice > 0) {
     costPrice = Number(matched.costPrice);
   } else {
     costPrice = Number((totalGrossPrice * 0.40).toFixed(2));
   }
-
-  const cargoSettings = getCustomCargoSettings();
-  const rawCargoFee = Number(raw.cargoFee || raw.shipmentCost || raw.cargoCost || 0);
-  const baseCargoCost = rawCargoFee > 0 ? rawCargoFee : (cargoSettings.hepsiburadaCargoCost || 43.50);
 
   let cargoCost = baseCargoCost;
   let returnCargoCost = 0;
@@ -523,6 +735,9 @@ function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = []) {
   const profitMargin = totalGrossPrice > 0 ? Number(((netProfit / totalGrossPrice) * 100).toFixed(1)) : 0;
 
   const hbImage = 
+    (barcode && imageMap[barcode]) ||
+    (sku && imageMap[sku]) ||
+    (prodNameLower && imageMap[prodNameLower]) ||
     firstItem.productImage || 
     firstItem.imageUrl || 
     firstItem.image || 
@@ -536,10 +751,10 @@ function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = []) {
     id: `HB-${raw.orderNumber || raw.orderId || Date.now()}`,
     orderNumber: raw.orderNumber ? raw.orderNumber.toString() : `HB-${Date.now().toString().slice(-6)}`,
     marketplace: 'Hepsiburada',
-    productName: firstItem.productName || raw.productName || raw.title || 'Hepsiburada Sipariş Ürünü',
+    productName: firstItem.productName || raw.productName || 'Hepsiburada Sipariş Ürünü',
     variant: firstItem.merchantSku || raw.merchantSku || 'Standart',
-    barcode: firstItem.barcode || raw.barcode || '8680000000000',
-    sku: firstItem.merchantSku || raw.merchantSku || `HB-SKU-001`,
+    barcode: barcode || '8680000000000',
+    sku: sku || `HB-SKU-${raw.orderNumber || '001'}`,
     quantity: Number(firstItem.quantity || raw.quantity || 1),
     grossPrice: totalGrossPrice,
     costPrice: costPrice,
@@ -564,9 +779,9 @@ function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = []) {
     items: [
       {
         id: 'ITEM-HB-1',
-        title: firstItem.productName || raw.productName || 'Hepsiburada Ürünü',
-        sku: firstItem.merchantSku || raw.merchantSku || 'HB-SKU-1',
-        barcode: firstItem.barcode || raw.barcode || '8680000000',
+        title: prodName || 'Hepsiburada Ürünü',
+        sku: sku || 'HB-SKU-1',
+        barcode: barcode || '8680000000',
         quantity: Number(firstItem.quantity || raw.quantity || 1),
         unitPrice: totalGrossPrice,
         costPrice: costPrice,
@@ -593,9 +808,21 @@ export async function runAutoSyncAll({ onToast, onNewOrdersReceived }) {
   let allNewOrders = [];
   let syncLog = [];
 
+  const tySellerId = creds.trendyol?.sellerId || creds.tySellerId || creds.sellerId;
+  const tyApiKey = creds.trendyol?.apiKey || creds.tyApiKey || creds.apiKey;
+  const tyApiSecret = creds.trendyol?.apiSecret || creds.tyApiSecret || creds.apiSecret;
+
+  const hbMerchantId = creds.hepsiburada?.merchantId || creds.hbMerchantId || creds.merchantId;
+  const hbSecretKey = creds.hepsiburada?.secretKey || creds.hbSecretKey || creds.secretKey;
+  const hbUserAgent = creds.hepsiburada?.userAgent || creds.hbUserAgent || 'yumey_dev';
+
   // Trendyol Senkronizasyonu
-  if (creds.trendyol?.sellerId && creds.trendyol?.apiKey && creds.trendyol?.apiSecret) {
-    const tyRes = await fetchTrendyolLiveOrders(creds.trendyol);
+  if (tySellerId && tyApiKey && tyApiSecret) {
+    const tyRes = await fetchTrendyolLiveOrders({
+      sellerId: tySellerId,
+      apiKey: tyApiKey,
+      apiSecret: tyApiSecret
+    });
     if (tyRes.success && tyRes.orders?.length > 0) {
       allNewOrders = [...allNewOrders, ...tyRes.orders];
       syncLog.push(`Trendyol: ${tyRes.orders.length} sipariş`);
@@ -603,11 +830,11 @@ export async function runAutoSyncAll({ onToast, onNewOrdersReceived }) {
   }
 
   // Hepsiburada Senkronizasyonu
-  if (creds.hepsiburada?.merchantId && creds.hepsiburada?.secretKey) {
+  if (hbMerchantId && hbSecretKey) {
     const hbRes = await fetchHepsiburadaLiveOrders({
-      merchantId: creds.hepsiburada.merchantId,
-      secretKey: creds.hepsiburada.secretKey,
-      userAgent: creds.hepsiburada.userAgent || 'yumey_dev'
+      merchantId: hbMerchantId,
+      secretKey: hbSecretKey,
+      userAgent: hbUserAgent
     });
     if (hbRes.success && hbRes.orders?.length > 0) {
       allNewOrders = [...allNewOrders, ...hbRes.orders];
@@ -616,13 +843,16 @@ export async function runAutoSyncAll({ onToast, onNewOrdersReceived }) {
   }
 
   if (allNewOrders.length > 0) {
-    // Mevcut siparişlerle birleştir (mükerrer ID'leri filtrele)
     const existingOrdersRaw = localStorage.getItem(ORDERS_STORAGE_KEY);
     const existingOrders = existingOrdersRaw ? JSON.parse(existingOrdersRaw) : [];
     
     const existingIds = new Set(existingOrders.map(o => o.id));
     const newlyAdded = allNewOrders.filter(o => !existingIds.has(o.id));
-    const mergedOrders = [...newlyAdded, ...existingOrders];
+    
+    // Geriye dönük görselleri zenginleştir
+    const catalog = getCatalogProducts();
+    const imageCache = getStoredImageCache();
+    const mergedOrders = backfillOrderImages([...newlyAdded, ...existingOrders], catalog, imageCache);
 
     localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(mergedOrders));
 
@@ -631,7 +861,7 @@ export async function runAutoSyncAll({ onToast, onNewOrdersReceived }) {
     }
 
     if (onToast && newlyAdded.length > 0) {
-      onToast(`⚡ Otomatik Senkronizasyon: ${newlyAdded.length} yeni sipariş sisteme aktarıldı.`);
+      onToast(`⚡ Otomatik Senkronizasyon: ${newlyAdded.length} yeni sipariş ve ürün görselleri aktarıldı.`);
     }
 
     return {
