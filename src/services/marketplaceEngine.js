@@ -90,6 +90,13 @@ export function calculateOrderProfit(order, products = []) {
     const qty = it.quantity || 1;
     const unitSelling = Number(it.unitPrice || 0);
     
+    // Ürün kataloğundan (Barkod veya SKU ile) eşleşen ürünü bul
+    const matchedProd = products.find(p => 
+      (it.barcode && p.barcode === it.barcode) ||
+      (it.sku && (p.sku === it.sku || p.id === it.sku)) ||
+      (it.title && p.name && p.name.toLowerCase() === it.title.toLowerCase())
+    );
+
     // 1. Maliyet Bulma (Kalem -> Ürün Kataloğu Hafızası)
     let unitCost = 0;
     let isCostEntered = false;
@@ -97,22 +104,13 @@ export function calculateOrderProfit(order, products = []) {
     if (it.costPrice !== undefined && it.costPrice !== null && it.costPrice !== '') {
       unitCost = Number(it.costPrice);
       isCostEntered = true;
+    } else if (matchedProd && matchedProd.costPrice !== undefined && matchedProd.costPrice !== null) {
+      unitCost = Number(matchedProd.costPrice);
+      isCostEntered = true;
     } else {
-      // Ürün kataloğundan (Barkod veya SKU ile) hafızadaki maliyeti ara
-      const matchedProd = products.find(p => 
-        (it.barcode && p.barcode === it.barcode) ||
-        (it.sku && p.id === it.sku) ||
-        (it.title && p.name && p.name.toLowerCase() === it.title.toLowerCase())
-      );
-
-      if (matchedProd && matchedProd.costPrice !== undefined && matchedProd.costPrice !== null) {
-        unitCost = Number(matchedProd.costPrice);
-        isCostEntered = true;
-      } else {
-        unitCost = 0;
-        isCostEntered = false;
-        hasMissingCost = true;
-      }
+      unitCost = 0;
+      isCostEntered = false;
+      hasMissingCost = true;
     }
 
     // 2. Komisyon Oranı (Pazar yeri API, Ürün Özel Oranı veya Akıllı Kategori Matrisi)
