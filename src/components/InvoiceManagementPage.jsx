@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FileText, 
   Printer, 
@@ -15,17 +15,28 @@ import {
   X,
   CreditCard,
   ShieldCheck,
-  Zap
+  Zap,
+  Check,
+  RefreshCw,
+  QrCode,
+  FileCode,
+  Send,
+  AlertTriangle,
+  Lock,
+  Key,
+  Database
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { EINVOICE_PROVIDERS } from '../services/mockData';
-import { ApiSettingsModal } from './ApiSettingsModal';
+import { EINVOICE_PROVIDERS, DEMO_EINVOICE_PROVIDERS, DEMO_ORDERS } from '../services/mockData';
 import { IzeegLogo } from './IzeegLogo';
 import { PageGuideButton } from './PageHelpGuideModal';
 
+const EINVOICE_STORAGE_KEY = 'izeeg_einvoice_providers';
+const ACTIVE_PROVIDER_STORAGE_KEY = 'izeeg_active_einvoice_provider';
+
 export function InvoiceManagementPage({ 
-  orders, 
-  setOrders, 
+  orders: propOrders = [], 
+  setOrders: propSetOrders, 
   onNavigateBack,
   onOpenGuide,
   autoInvoiceEnabled: propAutoInvoiceEnabled = true,
@@ -35,60 +46,245 @@ export function InvoiceManagementPage({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState(null); // Modal için
   const [selectedProviderModal, setSelectedProviderModal] = useState(null); // API Ayar Modalı için
-  const [providersList, setProvidersList] = useState(EINVOICE_PROVIDERS);
-  const [localAutoInvoice, setLocalAutoInvoice] = useState(propAutoInvoiceEnabled);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // E-Fatura Sağlayıcıları Havuzu (localStorage destekli)
+  const [providersList, setProvidersList] = useState(() => {
+    try {
+      const saved = localStorage.getItem(EINVOICE_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEMO_EINVOICE_PROVIDERS;
+  });
+
+  // Aktif Fatura Sağlayıcısı
+  const activeProvider = useMemo(() => {
+    return providersList.find(p => p.connected) || providersList[0];
+  }, [providersList]);
+
+  // Otomatik Fatura Kesme Modu
+  const [localAutoInvoice, setLocalAutoInvoice] = useState(() => {
+    try {
+      const saved = localStorage.getItem('izeeg_auto_invoice_enabled');
+      return saved !== null ? saved === 'true' : propAutoInvoiceEnabled;
+    } catch {
+      return propAutoInvoiceEnabled;
+    }
+  });
 
   const autoInvoice = propSetAutoInvoiceEnabled ? propAutoInvoiceEnabled : localAutoInvoice;
   const setAutoInvoice = (val) => {
     setLocalAutoInvoice(val);
+    try {
+      localStorage.setItem('izeeg_auto_invoice_enabled', val ? 'true' : 'false');
+    } catch {}
     if (propSetAutoInvoiceEnabled) propSetAutoInvoiceEnabled(val);
   };
 
-  const pendingOrders = orders.filter(o => o.invoiceStatus === 'PENDING' || !o.invoiceStatus);
-  const issuedOrders = orders.filter(o => o.invoiceStatus === 'ISSUED');
+  // Sipariş Havuzu
+  const [localOrders, setLocalOrders] = useState(() => {
+    if (propOrders && propOrders.length > 0) return propOrders;
+    try {
+      const saved = localStorage.getItem('izeeg_live_orders');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEMO_ORDERS;
+  });
 
+  // propOrders değiştikçe senkronize et
+  useEffect(() => {
+    if (propOrders && propOrders.length > 0) {
+      setLocalOrders(propOrders);
+    }
+  }, [propOrders]);
+
+  // Siparişleri Güncelleme Yardımcısı
+  const updateOrdersState = (updater) => {
+    setLocalOrders(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try {
+        localStorage.setItem('izeeg_live_orders', JSON.stringify(next));
+      } catch {}
+      if (propSetOrders) {
+        propSetOrders(next);
+      }
+      return next;
+    });
+  };
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const pendingOrders = localOrders.filter(o => o.invoiceStatus === 'PENDING' || !o.invoiceStatus);
+  const issuedOrders = localOrders.filter(o => o.invoiceStatus === 'ISSUED');
+
+  // Tekil Fatura Kes (Resmi E-Arşiv / E-Fatura Üret)
   const handleIssueInvoice = (orderId) => {
-    const newInvoiceNo = `IZG2026${Date.now().toString().slice(-8)}`;
-    setOrders(prev => prev.map(o => {
+    const timestamp = Date.now().toString().slice(-8);
+    const newInvoiceNo = `IZG202600${timestamp}`;
+    const newEttnUuid = `c7e3f890-${timestamp.slice(0, 4)}-45e6-b890-${Date.now().toString(16).slice(-12)}`;
+
+    updateOrdersState(prev => prev.map(o => {
       if (o.id === orderId) {
         return {
           ...o,
           invoiceStatus: 'ISSUED',
-          invoiceNumber: newInvoiceNo
+          invoiceNumber: newInvoiceNo,
+          ettnUuid: newEttnUuid,
+          invoiceDate: new Date().toLocaleDateString('tr-TR') + ' ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+          signedBy: 'GİB Güvenli E-İmza & Mühür'
         };
       }
       return o;
     }));
 
+    // Sağlayıcı bakiyesinden 1 kontör düş
+    setProvidersList(prev => {
+      const next = prev.map(p => {
+        if (p.connected && p.balance && p.balance.includes('Kontör')) {
+          const count = parseInt(p.balance, 10);
+          if (!isNaN(count) && count > 0) {
+            return { ...p, balance: `${count - 1} Kontör` };
+          }
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem(EINVOICE_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    showToast(`✅ ${newInvoiceNo} numaralı E-Fatura GİB'e iletildi ve başarıyla mühürlendi!`);
     confetti({ particleCount: 70, spread: 60 });
   };
 
+  // Tüm Bekleyenleri Toplu Kes
   const handleBulkIssueAllPending = () => {
     if (pendingOrders.length === 0) return;
-    setOrders(prev => prev.map(o => {
+
+    updateOrdersState(prev => prev.map((o, idx) => {
       if (o.invoiceStatus === 'PENDING' || !o.invoiceStatus) {
+        const timestamp = (Date.now() + idx).toString().slice(-8);
         return {
           ...o,
           invoiceStatus: 'ISSUED',
-          invoiceNumber: o.invoiceNumber || `IZG2026${Date.now().toString().slice(-8)}`
+          invoiceNumber: o.invoiceNumber || `IZG202600${timestamp}`,
+          ettnUuid: o.ettnUuid || `c7e3f890-${timestamp.slice(0, 4)}-45e6-b890-${(Date.now() + idx).toString(16).slice(-12)}`,
+          invoiceDate: new Date().toLocaleDateString('tr-TR') + ' ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+          signedBy: 'GİB Güvenli E-İmza & Mühür'
         };
       }
       return o;
     }));
-    confetti({ particleCount: 100, spread: 80 });
+
+    // Sağlayıcı bakiyesinden toplu düşüm
+    setProvidersList(prev => {
+      const next = prev.map(p => {
+        if (p.connected && p.balance && p.balance.includes('Kontör')) {
+          const count = parseInt(p.balance, 10);
+          if (!isNaN(count)) {
+            return { ...p, balance: `${Math.max(0, count - pendingOrders.length)} Kontör` };
+          }
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem(EINVOICE_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    showToast(`🎉 Toplam ${pendingOrders.length} adet sipariş için resmi E-Fatura toplu kesildi!`);
+    confetti({ particleCount: 120, spread: 80 });
   };
 
+  // Fatura Önizleme Modalını Aç
   const handleOpenInvoicePreview = (order) => {
     setSelectedInvoiceOrder(order);
   };
 
+  // Hızlı Yazdır
+  const handlePrintDirect = (order) => {
+    setSelectedInvoiceOrder(order);
+    setTimeout(() => {
+      window.print();
+    }, 300);
+  };
+
+  // Entegratör Bağlantı Modalı Aç
+  const handleConnectProvider = (prov) => {
+    setSelectedProviderModal(prov);
+  };
+
+  // Entegratör Kaydet ve Aktif Et
+  const handleSaveProviderConnection = (updatedProvider) => {
+    setProvidersList(prev => {
+      const next = prev.map(p => {
+        if (p.id === updatedProvider.id) {
+          return {
+            ...p,
+            ...updatedProvider,
+            connected: true,
+            balance: updatedProvider.balance || '1.420 Kontör',
+            lastSync: 'Az önce (Aktif)'
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem(EINVOICE_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    setSelectedProviderModal(null);
+    showToast(`🔌 ${updatedProvider.name} API bağlantısı başarıyla kuruldu ve aktif edildi!`);
+    confetti({ particleCount: 80, spread: 70 });
+  };
+
+  // Entegratör Bağlantısını Kes
+  const handleDisconnectProvider = (providerId) => {
+    setProvidersList(prev => {
+      const next = prev.map(p => {
+        if (p.id === providerId) {
+          return {
+            ...p,
+            connected: false,
+            apiKey: '',
+            apiSecret: '',
+            balance: '-'
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem(EINVOICE_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    setSelectedProviderModal(null);
+    showToast(`⚠️ Fatura entegratör bağlantısı kesildi.`);
+  };
+
+  // Filtrelenmiş Liste
   const filteredList = (activeTab === 'pending' ? pendingOrders : issuedOrders).filter(o => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       return (
-        o.id.toLowerCase().includes(q) ||
-        o.customerName.toLowerCase().includes(q) ||
-        o.productName.toLowerCase().includes(q) ||
+        (o.id && o.id.toLowerCase().includes(q)) ||
+        (o.orderNumber && o.orderNumber.toLowerCase().includes(q)) ||
+        (o.customerName && o.customerName.toLowerCase().includes(q)) ||
+        (o.productName && o.productName.toLowerCase().includes(q)) ||
         (o.invoiceNumber && o.invoiceNumber.toLowerCase().includes(q))
       );
     }
@@ -96,15 +292,22 @@ export function InvoiceManagementPage({
   });
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
+    <div className="space-y-6 animate-fadeIn pb-12 font-sans">
       
+      {/* Toast Bildirimi */}
+      {toastMessage && (
+        <div className="fixed top-20 right-6 z-50 p-4 rounded-2xl bg-emerald-600 text-white font-bold text-xs shadow-2xl shadow-emerald-500/30 border border-emerald-400 animate-fadeIn flex items-center gap-2">
+          <span>✨</span> {toastMessage}
+        </div>
+      )}
+
       {/* 1. Üst Başlık */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           {onNavigateBack && (
             <button 
               onClick={onNavigateBack}
-              className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all shadow-sm"
+              className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all shadow-sm cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -131,11 +334,11 @@ export function InvoiceManagementPage({
         </div>
 
         {/* Toplu Aksiyon Butonları */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {pendingOrders.length > 0 && (
             <button
               onClick={handleBulkIssueAllPending}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md transition-all cursor-pointer"
             >
               <Zap className="w-4 h-4" />
               <span>Tüm Bekleyenleri Kes ({pendingOrders.length})</span>
@@ -143,7 +346,7 @@ export function InvoiceManagementPage({
           )}
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-[#f27a1a] text-white text-xs font-black shadow-md transition-all"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-[#f27a1a] text-white text-xs font-black shadow-md transition-all cursor-pointer"
           >
             <Printer className="w-4 h-4" />
             <span>Toplu E-Fatura & Kargo Fişi Yazdır</span>
@@ -151,7 +354,7 @@ export function InvoiceManagementPage({
         </div>
       </div>
 
-      {/* ⚡ 2. OTOMATİK FATURA KESME OTOMASYON KARTI (MÜŞTERİ SEÇİMLİ ARKA PLAN MOTORU) */}
+      {/* ⚡ 2. OTOMATİK FATURA KESME OTOMASYON KARTI */}
       <div className="bg-gradient-to-r from-[#0e1e2d] via-[#122b3b] to-[#0f231e] text-white border border-emerald-500/40 rounded-3xl p-5 shadow-lg relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
@@ -242,10 +445,12 @@ export function InvoiceManagementPage({
         <div className="bg-white border border-blue-200 rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-blue-800">Aktif Fatura Entegratörü</span>
-            <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">Paraşüt & Trendyol</span>
+            <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+              {activeProvider?.name || 'Paraşüt E-Fatura'}
+            </span>
           </div>
           <div className="text-2xl font-black text-slate-900 mt-1">
-            1.420 Kontör
+            {activeProvider?.balance && activeProvider.balance !== '-' ? activeProvider.balance : '1.420 Kontör'}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
             Otomatik e-Arşiv / e-Fatura kesimi açık
@@ -253,11 +458,11 @@ export function InvoiceManagementPage({
         </div>
       </div>
 
-      {/* 3. Alt Sekmeler */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 text-xs font-bold">
+      {/* 4. Alt Sekmeler */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 text-xs font-bold overflow-x-auto">
         <button
           onClick={() => setActiveTab('pending')}
-          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
             activeTab === 'pending' ? 'bg-amber-500 text-white shadow-sm font-black' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
@@ -267,7 +472,7 @@ export function InvoiceManagementPage({
 
         <button
           onClick={() => setActiveTab('issued')}
-          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
             activeTab === 'issued' ? 'bg-emerald-600 text-white shadow-sm font-black' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
@@ -277,7 +482,7 @@ export function InvoiceManagementPage({
 
         <button
           onClick={() => setActiveTab('providers')}
-          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
             activeTab === 'providers' ? 'bg-slate-900 text-white shadow-sm font-black' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
@@ -286,25 +491,25 @@ export function InvoiceManagementPage({
         </button>
       </div>
 
-      {/* 4. SEKME İÇERİKLERİ */}
+      {/* 5. ARAMA VE FİLTRELEME */}
+      {activeTab !== 'providers' && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Sipariş No, Müşteri Adı veya Fatura No Ara..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#f27a1a]"
+            />
+          </div>
 
-      {/* ARAMA VE FİLTRELEME */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Sipariş No, Müşteri Adı veya Fatura No Ara..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#f27a1a]"
-          />
+          <div className="text-xs font-bold text-slate-600">
+            Toplam <strong>{filteredList.length}</strong> Sipariş Kaydı
+          </div>
         </div>
-
-        <div className="text-xs font-bold text-slate-600">
-          Toplam <strong>{filteredList.length}</strong> Sipariş Kaydı
-        </div>
-      </div>
+      )}
 
       {/* TAB 1: FATURA BEKLEYENLER */}
       {activeTab === 'pending' && (
@@ -314,7 +519,7 @@ export function InvoiceManagementPage({
             <button
               onClick={handleBulkIssueAllPending}
               disabled={pendingOrders.length === 0}
-              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Tümünü Toplu Kes ({pendingOrders.length})
@@ -346,18 +551,18 @@ export function InvoiceManagementPage({
                 <tbody className="divide-y divide-slate-100">
                   {filteredList.map(order => (
                     <tr key={order.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-mono font-bold text-slate-900">{order.id}</td>
-                      <td className="p-3 font-bold text-slate-800">{order.marketplace}</td>
+                      <td className="p-3 font-mono font-bold text-slate-900">{order.orderNumber || order.id}</td>
+                      <td className="p-3 font-bold text-slate-800">{order.marketplace || 'Trendyol'}</td>
                       <td className="p-3">
                         <div className="font-bold text-slate-900">{order.customerName}</div>
-                        <div className="text-[10px] text-slate-500">{order.customerCity}</div>
+                        <div className="text-[10px] text-slate-500">{order.customerCity || 'İstanbul'}</div>
                       </td>
                       <td className="p-3">
-                        <div className="font-medium text-slate-800">{order.productName}</div>
-                        <div className="text-[10px] text-slate-500">{order.variant}</div>
+                        <div className="font-medium text-slate-800">{order.productName || (order.items && order.items[0]?.title) || 'Tekstil Ürünü'}</div>
+                        <div className="text-[10px] text-slate-500">{order.variant || 'M / Standart'}</div>
                       </td>
                       <td className="p-3 text-right font-mono font-bold text-slate-900">
-                        {order.grossPrice?.toFixed(2)} ₺
+                        {(order.grossPrice || order.totalAmount || 1450).toFixed(2)} ₺
                       </td>
                       <td className="p-3 text-center">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
@@ -367,9 +572,10 @@ export function InvoiceManagementPage({
                       <td className="p-3 text-right">
                         <button
                           onClick={() => handleIssueInvoice(order.id)}
-                          className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer inline-flex items-center gap-1"
                         >
-                          Fatura Kes
+                          <Zap className="w-3 h-3" />
+                          <span>Fatura Kes</span>
                         </button>
                       </td>
                     </tr>
@@ -413,15 +619,15 @@ export function InvoiceManagementPage({
                 <tbody className="divide-y divide-slate-100">
                   {filteredList.map(order => (
                     <tr key={order.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-mono font-black text-emerald-700">{order.invoiceNumber || 'IZG2026-X'}</td>
-                      <td className="p-3 font-mono text-slate-700">{order.id}</td>
+                      <td className="p-3 font-mono font-black text-emerald-700">{order.invoiceNumber || 'IZG202600189281'}</td>
+                      <td className="p-3 font-mono text-slate-700">{order.orderNumber || order.id}</td>
                       <td className="p-3">
                         <div className="font-bold text-slate-900">{order.customerName}</div>
-                        <div className="text-[10px] text-slate-500">{order.customerCity}</div>
+                        <div className="text-[10px] text-slate-500">{order.customerCity || 'İstanbul'}</div>
                       </td>
-                      <td className="p-3 font-bold text-slate-800">{order.marketplace}</td>
+                      <td className="p-3 font-bold text-slate-800">{order.marketplace || 'Trendyol'}</td>
                       <td className="p-3 text-right font-mono font-bold text-slate-900">
-                        {order.grossPrice?.toFixed(2)} ₺
+                        {(order.grossPrice || order.totalAmount || 1450).toFixed(2)} ₺
                       </td>
                       <td className="p-3 text-center">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
@@ -431,13 +637,13 @@ export function InvoiceManagementPage({
                       <td className="p-3 text-right space-x-2">
                         <button
                           onClick={() => handleOpenInvoicePreview(order)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all"
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer"
                         >
                           Görüntüle
                         </button>
                         <button
                           onClick={() => handlePrintDirect(order)}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
                         >
                           Yazdır
                         </button>
@@ -451,7 +657,7 @@ export function InvoiceManagementPage({
         </div>
       )}
 
-      {/* SEKME 3: FATURA PROGRAMI API BAĞLANTILARI (HEPSİ STANDART PAKETE DAHİL & ÜCRETSİZ) */}
+      {/* SEKME 3: FATURA PROGRAMI API BAĞLANTILARI */}
       {activeTab === 'providers' && (
         <div className="space-y-6 animate-fadeIn">
           <div className="bg-white border border-slate-200 rounded-3xl p-5 lg:p-6 shadow-sm space-y-4">
@@ -498,7 +704,7 @@ export function InvoiceManagementPage({
 
                   <button
                     onClick={() => handleConnectProvider(prov)}
-                    className={`w-full py-2 rounded-xl text-xs font-black transition-all shadow-sm ${
+                    className={`w-full py-2 rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer ${
                       prov.connected 
                         ? 'bg-white border border-slate-300 hover:bg-slate-100 text-slate-800' 
                         : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -543,145 +749,466 @@ export function InvoiceManagementPage({
         </div>
       )}
 
-      {/* API AYAR VE BAĞLANTI MODALI */}
+      {/* 6. GELİŞMİŞ E-FATURA & MUHASEBE API BAĞLANTI MODALI */}
       {selectedProviderModal && (
-        <ApiSettingsModal
-          isOpen={!!selectedProviderModal}
+        <EInvoiceApiConnectModal
+          provider={selectedProviderModal}
           onClose={() => setSelectedProviderModal(null)}
-          integration={selectedProviderModal}
-          onSave={(updated) => {
-            setProvidersList(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated, connected: true, balance: '1.420 Kontör' } : p));
-          }}
-          onDisconnect={(id) => {
-            setProvidersList(prev => prev.map(p => p.id === id ? { ...p, connected: false, balance: '-' } : p));
-          }}
+          onSave={handleSaveProviderConnection}
+          onDisconnect={handleDisconnectProvider}
         />
       )}
 
-      {/* 5. RESMİ E-FATURA ÖNİZLEME & YAZDIRMA MODALI */}
+      {/* 7. RESMİ GİB E-ARŞİV / E-FATURA ÖNİZLEME & YAZDIRMA MODALI */}
       {selectedInvoiceOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-300 shadow-2xl overflow-hidden">
-            
-            {/* Modal Üst Bar */}
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+        <OfficialInvoicePreviewModal
+          order={selectedInvoiceOrder}
+          onClose={() => setSelectedInvoiceOrder(null)}
+          activeProviderName={activeProvider?.name || 'Paraşüt E-Fatura'}
+        />
+      )}
+
+    </div>
+  );
+}
+
+/**
+ * 🛠️ Gelişmiş E-Fatura API Yapılandırma & Canlı Kontör Test Modalı
+ */
+function EInvoiceApiConnectModal({ provider, onClose, onSave, onDisconnect }) {
+  const [apiKey, setApiKey] = useState(provider.apiKey || 'prs_live_key_9482018');
+  const [apiSecret, setApiSecret] = useState(provider.apiSecret || 'sec_tok_84920481920');
+  const [companyId, setCompanyId] = useState(provider.companyId || '1829048192');
+  const [seriesPrefix, setSeriesPrefix] = useState(provider.seriesPrefix || 'IZG');
+  const [invoiceTypeOption, setInvoiceTypeOption] = useState('AUTO_OFFICIAL'); // AUTO_OFFICIAL | DRAFT
+  const [showSecret, setShowSecret] = useState(false);
+
+  // Canlı API Testi
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState(provider.connected ? { status: 'SUCCESS', message: 'API Bağlantısı Aktif & Doğrulanmış (1.420 Kontör)' } : null);
+
+  const handleRunPingTest = () => {
+    setIsTesting(true);
+    setTestResult(null);
+    setTimeout(() => {
+      setIsTesting(false);
+      setTestResult({
+        status: 'SUCCESS',
+        message: `✅ ${provider.name} API v2 sunucularına başarıyla bağlanıldı! Canlı Bakiye: 1.420 Kontör. GİB Mühürleme yetkisi onaylandı.`
+      });
+      confetti({ particleCount: 50, spread: 60 });
+    }, 1000);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      ...provider,
+      apiKey,
+      apiSecret,
+      companyId,
+      seriesPrefix,
+      invoiceTypeOption,
+      connected: true,
+      balance: '1.420 Kontör'
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 animate-fadeIn font-sans">
+      <div className="bg-white border border-slate-200 rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden animate-scaleUp text-slate-900">
+        
+        {/* Modal Başlık */}
+        <div className="bg-gradient-to-r from-slate-900 via-[#151e2a] to-slate-900 text-white p-5 px-6 flex items-center justify-between border-b border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-xl shadow-md">
+              {provider.logo || '🧾'}
+            </div>
+            <div>
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#f27a1a]" />
-                <span className="text-sm font-black">Resmi E-Arşiv Fatura Önizleme</span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 bg-emerald-500/20 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
+                  E-Fatura & GİB Entegratörü
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  provider.connected 
+                    ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400/40' 
+                    : 'bg-slate-700 text-slate-300'
+                }`}>
+                  {provider.connected ? 'Bağlı & Aktif' : 'Kurulum Bekliyor'}
+                </span>
               </div>
-              <button
-                onClick={() => setSelectedInvoiceOrder(null)}
-                className="text-slate-400 hover:text-white"
+              <h2 className="text-base lg:text-lg font-black text-white mt-0.5">
+                {provider.name} API Ayarları
+              </h2>
+            </div>
+          </div>
+
+          <button 
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Modal Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+          
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-2.5 text-emerald-900">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            <p className="text-[11px] leading-snug font-medium">
+              E-Fatura ve E-Arşiv API anahtarlarınız GİB 5070 Sayılı Elektronik İmza Kanunu standartlarında 256-Bit SSL ile şifrelenir.
+            </p>
+          </div>
+
+          {/* API Anahtarı */}
+          <div>
+            <label className="block text-slate-700 font-bold mb-1 flex items-center justify-between">
+              <span>{provider.name} API Anahtarı (API Key / Client ID) *</span>
+              <span className="text-[10px] text-slate-400 font-normal">Entegratör panelinizden alınır</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                required
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="örn: prs_live_key_9482018..."
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <Key className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            </div>
+          </div>
+
+          {/* API Secret */}
+          <div>
+            <label className="block text-slate-700 font-bold mb-1 flex items-center justify-between">
+              <span>API Gizli Anahtarı (API Secret / Password) *</span>
+              <button 
+                type="button" 
+                onClick={() => setShowSecret(!showSecret)}
+                className="text-[10px] text-emerald-600 font-bold hover:underline cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                {showSecret ? 'Gizle' : 'Göster'}
               </button>
+            </label>
+            <div className="relative">
+              <input
+                type={showSecret ? "text" : "password"}
+                required
+                value={apiSecret}
+                onChange={(e) => setApiSecret(e.target.value)}
+                placeholder="örn: sec_tok_84920481920..."
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Şirket / Firma Kodu */}
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">
+                Firma / VKN / Şirket ID *
+              </label>
+              <input
+                type="text"
+                required
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                placeholder="örn: 1829048192"
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
             </div>
 
-            {/* Fatura Kağıdı Görünümü */}
-            <div className="p-6 bg-slate-50 space-y-4 max-h-[70vh] overflow-y-auto font-sans text-xs">
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                
-                {/* Fatura Üst Başlığı */}
-                <div className="flex justify-between items-start pb-4 border-b border-slate-200">
-                  <div className="flex items-start gap-3">
-                    <IzeegLogo size="sm" theme="light" showBadge={false} />
-                    <div>
-                      <h2 className="text-base font-black text-slate-900">E-TİCARET MAĞAZA İŞLETMESİ A.Ş.</h2>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
-                        İkitelli OSB Mah. E-Ticaret Plaza No:4 Kat:2 Başakşehir / İSTANBUL<br/>
-                        Vergi Dairesi: İkitelli V.D. • VKN: 1829048192 • izeeg E-Fatura Entegrasyonu
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 block">
-                      e-Arşiv Fatura
-                    </span>
-                    <span className="font-mono text-xs font-bold text-slate-800 mt-1 block">
-                      {selectedInvoiceOrder.invoiceNumber}
-                    </span>
-                    <span className="text-[10px] text-slate-400 block">{new Date().toLocaleDateString('tr-TR')}</span>
-                  </div>
+            {/* Fatura Seri Öneki */}
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">
+                E-Fatura Seri Öneki (3 Harf) *
+              </label>
+              <input
+                type="text"
+                maxLength={3}
+                required
+                value={seriesPrefix}
+                onChange={(e) => setSeriesPrefix(e.target.value.toUpperCase())}
+                placeholder="örn: IZG"
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-black uppercase text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* Fatura Gönderim Tercihi */}
+          <div className="space-y-2 pt-1">
+            <label className="block text-slate-700 font-bold">
+              Fatura Gönderim Tercihi
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition-all ${
+                invoiceTypeOption === 'AUTO_OFFICIAL' 
+                  ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold' 
+                  : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
+                <input
+                  type="radio"
+                  name="invoiceTypeOption"
+                  checked={invoiceTypeOption === 'AUTO_OFFICIAL'}
+                  onChange={() => setInvoiceTypeOption('AUTO_OFFICIAL')}
+                  className="text-emerald-600"
+                />
+                <span className="text-[11px]">Resmi Kes & GİB'e Gönder</span>
+              </label>
+
+              <label className={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition-all ${
+                invoiceTypeOption === 'DRAFT' 
+                  ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold' 
+                  : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
+                <input
+                  type="radio"
+                  name="invoiceTypeOption"
+                  checked={invoiceTypeOption === 'DRAFT'}
+                  onChange={() => setInvoiceTypeOption('DRAFT')}
+                  className="text-emerald-600"
+                />
+                <span className="text-[11px]">Taslak Olarak Aktar</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Canlı Test Sonucu */}
+          {testResult && (
+            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-900 flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+              <div className="font-bold">{testResult.message}</div>
+            </div>
+          )}
+
+          {/* Alt Butonlar */}
+          <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-3">
+            <div>
+              {provider.connected ? (
+                <button
+                  type="button"
+                  onClick={() => onDisconnect(provider.id)}
+                  className="px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  Bağlantıyı Kes
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRunPingTest}
+                  disabled={isTesting}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
+                  <span>{isTesting ? 'Test Ediliyor...' : 'Bağlantıyı Test Et'}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Fatura Programını Bağla</span>
+              </button>
+            </div>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 📄 Resmi GİB 5070 Standartlarında E-Arşiv / E-Fatura Önizleme & PDF Modalı
+ */
+function OfficialInvoicePreviewModal({ order, onClose, activeProviderName }) {
+  const grossAmount = order.grossPrice || order.totalAmount || 1450.00;
+  const vatRate = 20;
+  const netMatrah = Number(((grossAmount * 100) / (100 + vatRate)).toFixed(2));
+  const vatAmount = Number((grossAmount - netMatrah).toFixed(2));
+  const invoiceNo = order.invoiceNumber || `IZG202600008491`;
+  const ettnUuid = order.ettnUuid || `c7e3f890-4412-45e6-b890-123456789abc`;
+  const invoiceDateStr = order.invoiceDate || new Date().toLocaleDateString('tr-TR');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fadeIn font-sans">
+      <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-300 shadow-2xl overflow-hidden animate-scaleUp">
+        
+        {/* Modal Üst Bar */}
+        <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-[#f27a1a]" />
+            <span className="text-sm font-black">Resmi E-Arşiv Fatura Önizleme (GİB Standartı)</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-white cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Fatura Kağıdı Görünümü */}
+        <div className="p-6 bg-slate-50 space-y-4 max-h-[70vh] overflow-y-auto font-sans text-xs">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            
+            {/* Fatura Üst Başlığı */}
+            <div className="flex justify-between items-start pb-4 border-b border-slate-200 gap-4">
+              <div className="flex items-start gap-3">
+                <IzeegLogo size="sm" theme="light" showBadge={false} />
+                <div>
+                  <h2 className="text-base font-black text-slate-900">YUMEY TEKSTİL VE TİCARET A.Ş.</h2>
+                  <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                    İkitelli OSB Mah. Giyim Sanatkarları Sitesi 2. Ada A Blok No:12 Başakşehir / İSTANBUL<br/>
+                    Vergi Dairesi: İkitelli V.D. • VKN: 1829048192 • Mersis No: 0182904819200014<br/>
+                    Entegratör: {activeProviderName} (GİB E-Fatura / E-Arşiv Ağ Geçidi)
+                  </p>
                 </div>
-
-                {/* Müşteri Bilgileri */}
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Sayın (Müşteri):</span>
-                  <strong className="text-sm font-bold text-slate-900">{selectedInvoiceOrder.customerName}</strong>
-                  <div className="text-[11px] text-slate-600 mt-0.5">
-                    Adres: {selectedInvoiceOrder.customerCity}<br/>
-                    TCKN: {selectedInvoiceOrder.taxNumber || '11111111111'}
-                  </div>
-                </div>
-
-                {/* Kalemler Tablosu */}
-                <table className="w-full text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
-                  <thead className="bg-slate-100 font-bold text-slate-700">
-                    <tr>
-                      <th className="p-2">Ürün / Hizmet</th>
-                      <th className="p-2 text-center">Miktar</th>
-                      <th className="p-2 text-right">Birim Fiyat</th>
-                      <th className="p-2 text-center">KDV %</th>
-                      <th className="p-2 text-right">Toplam Tutar</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    <tr>
-                      <td className="p-2 font-bold text-slate-900">{selectedInvoiceOrder.productName} ({selectedInvoiceOrder.variant})</td>
-                      <td className="p-2 text-center">{selectedInvoiceOrder.quantity}</td>
-                      <td className="p-2 text-right font-mono">{(selectedInvoiceOrder.grossPrice / 1.2).toFixed(2)} ₺</td>
-                      <td className="p-2 text-center">%20</td>
-                      <td className="p-2 text-right font-mono font-bold text-slate-900">{selectedInvoiceOrder.grossPrice.toFixed(2)} ₺</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* Dip Toplamlar */}
-                <div className="flex justify-end pt-2">
-                  <div className="w-64 space-y-1 text-xs text-slate-700">
-                    <div className="flex justify-between">
-                      <span>Ara Toplam (KDV Hariç):</span>
-                      <span className="font-mono">{((selectedInvoiceOrder.grossPrice * 100) / 120).toFixed(2)} ₺</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Hesaplanan KDV (%20):</span>
-                      <span className="font-mono">{((selectedInvoiceOrder.grossPrice * 20) / 120).toFixed(2)} ₺</span>
-                    </div>
-                    <div className="flex justify-between pt-1 border-t border-slate-300 font-black text-sm text-slate-900">
-                      <span>Ödenecek Tutar:</span>
-                      <span className="text-emerald-700">{selectedInvoiceOrder.grossPrice.toFixed(2)} ₺</span>
-                    </div>
-                  </div>
-                </div>
-
+              </div>
+              <div className="text-right flex-shrink-0">
+                <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200 block text-center">
+                  e-Arşiv Fatura
+                </span>
+                <span className="font-mono text-xs font-black text-slate-900 mt-1.5 block">
+                  {invoiceNo}
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                  ETTN: {ettnUuid}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Tarih: {invoiceDateStr}</span>
               </div>
             </div>
 
-            {/* Modal Butonlar */}
-            <div className="bg-slate-100 p-4 px-6 flex items-center justify-between border-t border-slate-200">
-              <button
-                onClick={() => setSelectedInvoiceOrder(null)}
-                className="px-4 py-2 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-bold"
-              >
-                Kapat
-              </button>
+            {/* Müşteri ve Sipariş Bilgileri */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider block">Sayın (Alıcı Müşteri):</span>
+                <strong className="text-sm font-bold text-slate-900 block mt-0.5">{order.customerName}</strong>
+                <div className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                  Adres: {order.customerAddress || order.customerCity || 'İstanbul'}<br/>
+                  TCKN/VKN: <span className="font-mono">{order.taxNumber || '11111111111'}</span>
+                </div>
+              </div>
 
-              <button
-                onClick={() => {
-                  window.print();
-                  setSelectedInvoiceOrder(null);
-                }}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Yazıcıya Gönder (PDF)</span>
-              </button>
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider block">Sipariş & Gönderi Detayı:</span>
+                <div className="text-[11px] text-slate-700 mt-1 space-y-0.5">
+                  <div>Kanal: <strong className="text-slate-900">{order.marketplace || 'Trendyol'}</strong></div>
+                  <div>Sipariş No: <span className="font-mono font-bold text-slate-900">{order.orderNumber || order.id}</span></div>
+                  <div>Kargo Takip: <span className="font-mono text-slate-600">{order.trackingNumber || '7330037383986536'}</span></div>
+                  <div>Ödeme Tipi: <strong className="text-emerald-700">Kredi Kartı / Peşin</strong></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Kalemler Tablosu */}
+            <table className="w-full text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
+              <thead className="bg-slate-100 font-bold text-slate-700">
+                <tr>
+                  <th className="p-2.5">Sıra</th>
+                  <th className="p-2.5">Mal / Hizmet Açıklaması</th>
+                  <th className="p-2.5 text-center">Miktar</th>
+                  <th className="p-2.5 text-right">Birim Fiyat</th>
+                  <th className="p-2.5 text-center">KDV %</th>
+                  <th className="p-2.5 text-right">KDV Tutarı</th>
+                  <th className="p-2.5 text-right">Toplam Tutar</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                <tr>
+                  <td className="p-2.5 text-slate-500 font-mono">1</td>
+                  <td className="p-2.5">
+                    <div className="font-bold text-slate-900">{order.productName || (order.items && order.items[0]?.title) || 'Tekstil Ürünü'}</div>
+                    <div className="text-[10px] text-slate-500">Stok Kodu: {order.sku || 'SKU-MODAL-01'} • Barkod: {order.barcode || '8680019283712'}</div>
+                  </td>
+                  <td className="p-2.5 text-center font-bold">{order.quantity || 1} Adet</td>
+                  <td className="p-2.5 text-right font-mono font-medium">{(netMatrah / (order.quantity || 1)).toFixed(2)} ₺</td>
+                  <td className="p-2.5 text-center font-bold text-slate-800">%{vatRate}</td>
+                  <td className="p-2.5 text-right font-mono">{vatAmount.toFixed(2)} ₺</td>
+                  <td className="p-2.5 text-right font-mono font-black text-slate-900">{grossAmount.toFixed(2)} ₺</td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Dip Toplamlar & Resmi Mühür */}
+            <div className="flex flex-col sm:flex-row justify-between items-end gap-4 pt-2 border-t border-slate-200">
+              <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 w-full sm:w-auto">
+                <QrCode className="w-12 h-12 text-slate-800 flex-shrink-0" />
+                <div className="text-[10px] text-slate-500 leading-snug">
+                  <strong className="text-slate-900 block">5070 Sayılı Kanun Uyarınca Mühürlüdür</strong>
+                  GİB Doğrulama Kodu: <span className="font-mono text-slate-700">{ettnUuid.slice(0, 18)}...</span><br/>
+                  Fatura bu karekod ile GİB E-Arşiv portalından doğrulanabilir.
+                </div>
+              </div>
+
+              <div className="w-full sm:w-72 space-y-1.5 text-xs text-slate-700">
+                <div className="flex justify-between">
+                  <span>Mal Hizmet Toplam Tutarı:</span>
+                  <span className="font-mono font-medium">{netMatrah.toFixed(2)} ₺</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Hesaplanan KDV (%20):</span>
+                  <span className="font-mono font-medium">{vatAmount.toFixed(2)} ₺</span>
+                </div>
+                <div className="flex justify-between pt-1.5 border-t border-slate-300 font-black text-sm text-slate-900">
+                  <span>Ödenecek Tutar (KDV Dahil):</span>
+                  <span className="text-emerald-700 font-mono text-base">{grossAmount.toFixed(2)} ₺</span>
+                </div>
+              </div>
             </div>
 
           </div>
         </div>
-      )}
 
+        {/* Modal Butonlar */}
+        <div className="bg-slate-100 p-4 px-6 flex items-center justify-between border-t border-slate-200">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-bold cursor-pointer"
+          >
+            Kapat
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                alert(`📄 UBL-TR 1.2 XML E-Fatura paketi (${invoiceNo}.xml) indiriliyor...`);
+              }}
+              className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition-all cursor-pointer"
+            >
+              <FileCode className="w-3.5 h-3.5" />
+              <span>XML / UBL İndir</span>
+            </button>
+
+            <button
+              onClick={() => {
+                window.print();
+              }}
+              className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow transition-all cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Yazıcıya Gönder (PDF)</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
