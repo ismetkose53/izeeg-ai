@@ -22,33 +22,169 @@ import {
 import confetti from 'canvas-confetti';
 import { jsPDF } from 'jspdf';
 import { PageGuideButton } from './PageHelpGuideModal';
+import { getCatalogProducts } from '../services/marketplaceSyncService';
+
+// Gerçek Mağaza Giyim Kataloğu Tedarik Sipariş Veri Havuzu
+function getDefaultReorderItems(products = []) {
+  const catalog = (products && products.length > 0) ? products : getCatalogProducts();
+
+  const fallbackItems = [
+    {
+      id: 'REO-101',
+      title: "Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım",
+      sku: 'Modalsiyah2',
+      supplierId: 'SUP-1',
+      supplierName: 'Güngören Tekstil & İmalat San.',
+      currentStock: 4,
+      dailyVelocity: 2.5, // Günde 2.5 takım satılıyor
+      daysLeft: 1.6, // ~1.5 gün sonra stok 0 olacak!
+      unitCost: 780.00,
+      suggestedQuantity: 50,
+      leadTimeDays: 3,
+      safetyBufferDays: 5,
+      status: 'CRITICAL',
+      selectedForPo: true
+    },
+    {
+      id: 'REO-102',
+      title: 'Yıldız Taş Aksesuarlı, Vatkalı Oversize Tshirt',
+      sku: 'T.T.12',
+      supplierId: 'SUP-1',
+      supplierName: 'Güngören Tekstil & İmalat San.',
+      currentStock: 6,
+      dailyVelocity: 1.8,
+      daysLeft: 3.3,
+      unitCost: 640.00,
+      suggestedQuantity: 40,
+      leadTimeDays: 3,
+      safetyBufferDays: 5,
+      status: 'WARNING',
+      selectedForPo: true
+    },
+    {
+      id: 'REO-103',
+      title: 'Yüksek Bel Palazzo Jean Pantolon',
+      sku: 'PNT-PLZ-01',
+      supplierId: 'SUP-2',
+      supplierName: 'Merter Moda & Örme San. Ltd.',
+      currentStock: 3,
+      dailyVelocity: 2.8,
+      daysLeft: 1.1,
+      unitCost: 700.00,
+      suggestedQuantity: 60,
+      leadTimeDays: 2,
+      safetyBufferDays: 4,
+      status: 'CRITICAL',
+      selectedForPo: true
+    },
+    {
+      id: 'REO-104',
+      title: 'Keten Karışımlı Oversize Blazer Ceket',
+      sku: 'CKT-BLZ-02',
+      supplierId: 'SUP-1',
+      supplierName: 'Güngören Tekstil & İmalat San.',
+      currentStock: 5,
+      dailyVelocity: 1.0,
+      daysLeft: 5.0,
+      unitCost: 980.00,
+      suggestedQuantity: 25,
+      leadTimeDays: 3,
+      safetyBufferDays: 5,
+      status: 'WARNING',
+      selectedForPo: true
+    },
+    {
+      id: 'REO-105',
+      title: 'V Yaka Düğmeli Triko Hırka Ekru',
+      sku: 'TRK-HRK-V01',
+      supplierId: 'SUP-3',
+      supplierName: 'Bursa Dokuma & Kumaş Tedarik',
+      currentStock: 14,
+      dailyVelocity: 1.2,
+      daysLeft: 11.6,
+      unitCost: 500.00,
+      suggestedQuantity: 30,
+      leadTimeDays: 4,
+      safetyBufferDays: 6,
+      status: 'HEALTHY',
+      selectedForPo: false
+    },
+    {
+      id: 'REO-106',
+      title: 'Dökümlü Saten Midi Elbise',
+      sku: 'ELB-SAT-03',
+      supplierId: 'SUP-2',
+      supplierName: 'Merter Moda & Örme San. Ltd.',
+      currentStock: 12,
+      dailyVelocity: 0.9,
+      daysLeft: 13.3,
+      unitCost: 750.00,
+      suggestedQuantity: 25,
+      leadTimeDays: 2,
+      safetyBufferDays: 5,
+      status: 'HEALTHY',
+      selectedForPo: false
+    }
+  ];
+
+  if (catalog && catalog.length > 0) {
+    return catalog.slice(0, 6).map((p, idx) => {
+      const stock = Number(p.stock !== undefined ? p.stock : (idx === 0 ? 4 : (idx === 1 ? 6 : 14)));
+      const cost = Number(p.costPrice || 700);
+      const velocity = Number((1.2 + (idx * 0.4)).toFixed(1));
+      const days = velocity > 0 ? Number((stock / velocity).toFixed(1)) : 10;
+      const supplierId = idx % 2 === 0 ? 'SUP-1' : 'SUP-2';
+      const supplierName = supplierId === 'SUP-1' ? 'Güngören Tekstil & İmalat San.' : 'Merter Moda & Örme San. Ltd.';
+      const status = days < 2.5 ? 'CRITICAL' : (days < 6.0 ? 'WARNING' : 'HEALTHY');
+
+      return {
+        id: `REO-${100 + idx}`,
+        title: p.name || p.title || `Ürün #${idx + 1}`,
+        sku: p.sku || p.id || `SKU-${idx + 1}`,
+        supplierId,
+        supplierName,
+        currentStock: stock,
+        dailyVelocity: velocity,
+        daysLeft: days,
+        unitCost: cost,
+        suggestedQuantity: status === 'CRITICAL' ? 50 : 30,
+        leadTimeDays: 3,
+        safetyBufferDays: 5,
+        status,
+        selectedForPo: status !== 'HEALTHY'
+      };
+    });
+  }
+
+  return fallbackItems;
+}
 
 export function SupplierReorderPage({ onNavigateBack, onOpenGuide, products = [] }) {
   // Tedarikçi Listesi
   const [suppliers, setSuppliers] = useState([
     {
       id: 'SUP-1',
-      name: 'Merter Tekstil San. A.Ş.',
+      name: 'Güngören Tekstil & İmalat San.',
       contactPerson: 'Mehmet Bey',
       phone: '0532 444 33 22',
-      category: 'Tekstil & Giyim',
+      category: 'Tekstil & Konfeksiyon',
       leadTimeDays: 3
     },
     {
       id: 'SUP-2',
-      name: 'İstoç Toptan İthalat & Deri Ltd.',
+      name: 'Merter Moda & Örme San. Ltd.',
       contactPerson: 'Ahmet Usta',
       phone: '0542 555 66 77',
-      category: 'Deri & Çanta',
-      leadTimeDays: 4
+      category: 'Örme & Jean İmalat',
+      leadTimeDays: 2
     },
     {
       id: 'SUP-3',
-      name: 'Karaköy Elektronik Dağıtım',
+      name: 'Bursa Dokuma & Kumaş Tedarik',
       contactPerson: 'Selim Bey',
       phone: '0555 888 99 00',
-      category: 'Elektronik',
-      leadTimeDays: 2
+      category: 'Triko & Dokuma',
+      leadTimeDays: 4
     }
   ]);
 
@@ -57,72 +193,7 @@ export function SupplierReorderPage({ onNavigateBack, onOpenGuide, products = []
   const [customPoNote, setCustomPoNote] = useState('Acil sevkiyat rica olunur. Faturayı şirket adına düzenleyiniz.');
 
   // Stok Bitiş Tahminli Ürün Listesi
-  const [reorderItems, setReorderItems] = useState([
-    {
-      id: 'REO-101',
-      title: 'Oversize Keten Gömlek - Bej / L',
-      sku: 'TY-GMLK-01',
-      supplierId: 'SUP-1',
-      supplierName: 'Merter Tekstil San. A.Ş.',
-      currentStock: 4,
-      dailyVelocity: 1.8, // Günde 1.8 adet satılıyor
-      daysLeft: 2.2, // ~2 gün sonra stok 0 olacak!
-      unitCost: 110.00,
-      suggestedQuantity: 50,
-      leadTimeDays: 3,
-      safetyBufferDays: 5,
-      status: 'CRITICAL', // 'CRITICAL' | 'WARNING' | 'HEALTHY'
-      selectedForPo: true
-    },
-    {
-      id: 'REO-102',
-      title: 'Deri Cüzdan & Kartlık - Siyah',
-      sku: 'TY-CZDN-BLK',
-      supplierId: 'SUP-2',
-      supplierName: 'İstoç Toptan İthalat & Deri Ltd.',
-      currentStock: 7,
-      dailyVelocity: 1.2,
-      daysLeft: 5.8,
-      unitCost: 65.00,
-      suggestedQuantity: 40,
-      leadTimeDays: 4,
-      safetyBufferDays: 5,
-      status: 'WARNING',
-      selectedForPo: true
-    },
-    {
-      id: 'REO-103',
-      title: 'Kablosuz TWS Bluetooth Kulaklık v5.3',
-      sku: 'HB-TWS-53',
-      supplierId: 'SUP-3',
-      supplierName: 'Karaköy Elektronik Dağıtım',
-      currentStock: 2,
-      dailyVelocity: 2.1,
-      daysLeft: 0.9,
-      unitCost: 240.00,
-      suggestedQuantity: 30,
-      leadTimeDays: 2,
-      safetyBufferDays: 4,
-      status: 'CRITICAL',
-      selectedForPo: true
-    },
-    {
-      id: 'REO-104',
-      title: 'Hakiki Deri Erkek Bot - Taba 42',
-      sku: 'AMZ-BOT-42',
-      supplierId: 'SUP-2',
-      supplierName: 'İstoç Toptan İthalat & Deri Ltd.',
-      currentStock: 18,
-      dailyVelocity: 0.6,
-      daysLeft: 30.0,
-      unitCost: 420.00,
-      suggestedQuantity: 20,
-      leadTimeDays: 5,
-      safetyBufferDays: 7,
-      status: 'HEALTHY',
-      selectedForPo: false
-    }
-  ]);
+  const [reorderItems, setReorderItems] = useState(() => getDefaultReorderItems(products));
 
   const activeSupplier = suppliers.find(s => s.id === selectedSupplierId) || suppliers[0];
   const supplierItems = reorderItems.filter(item => item.supplierId === selectedSupplierId);

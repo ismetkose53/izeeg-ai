@@ -303,14 +303,14 @@ export function Dashboard({
               {/* Kaçak 1: Yüksek Reklam & İade Zararı */}
               <div className="p-3 rounded-xl bg-dark-surface/90 border border-rose-500/30">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="text-xs font-bold text-white">Kablosuz Kulaklık (SKU-002)</div>
+                  <div className="text-xs font-bold text-white">Dökümlü Saten Midi Elbise (ELB-SAT-03)</div>
                   <span className="text-[10px] font-extrabold text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded">ZARAR YAZIYOR</span>
                 </div>
                 <p className="text-[11px] text-slate-300 mt-1">
-                  11.500 TL reklam + %19.5 iade oranı kârı sildi süpürdü.
+                  3.400 TL reklam + %18 iade oranı kârı sildi süpürdü.
                 </p>
                 <div className="mt-2.5 flex items-center justify-between">
-                  <span className="text-[11px] text-rose-400 font-bold">-2.180 TL/Aylık</span>
+                  <span className="text-[11px] text-rose-400 font-bold">-1.059 TL/Hafta</span>
                   <button 
                     onClick={(e) => handleFixAlert('leak1', e)}
                     disabled={fixedAlerts['leak1']}
@@ -320,22 +320,22 @@ export function Dashboard({
                         : 'bg-rose-600 hover:bg-rose-500 text-white'
                     }`}
                   >
-                    {fixedAlerts['leak1'] ? '✓ Reklam Kısıldı' : 'Reklamı %30 Kıs'}
+                    {fixedAlerts['leak1'] ? '✓ Reklam Kısıldı' : 'Reklamı %35 Kıs'}
                   </button>
                 </div>
               </div>
 
-              {/* Kaçak 2: Bel Minderi Kargo Desi Hataları */}
+              {/* Kaçak 2: Kargo Desi Hataları */}
               <div className="p-3 rounded-xl bg-dark-surface/90 border border-amber-500/30">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="text-xs font-bold text-white">Bel Minderi (SKU-006)</div>
+                  <div className="text-xs font-bold text-white">Siyah Modal Takım (Modalsiyah2)</div>
                   <span className="text-[10px] font-extrabold text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded">DESİ CEZASI</span>
                 </div>
                 <p className="text-[11px] text-slate-300 mt-1">
-                  2 desi ürün 5 desi faturalandırılmış. Toplam 27 TL fazla kesinti.
+                  2 desi ürün 4 desi faturalandırılmış. Toplam 24 TL fazla kesinti.
                 </p>
                 <div className="mt-2.5 flex items-center justify-between">
-                  <span className="text-[11px] text-amber-400 font-bold">+27 TL İade Al</span>
+                  <span className="text-[11px] text-amber-400 font-bold">+24 TL İade Al</span>
                   <button 
                     onClick={() => onNavigateTab('cargo-audit')}
                     className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 transition-all"

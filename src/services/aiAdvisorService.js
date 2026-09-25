@@ -19,20 +19,20 @@ export function generateMorningBrief(metrics, products, leaks) {
     priorities: [
       {
         type: 'danger',
-        title: `Aşırı Reklam & İade Kaçağı: ${losingProducts[0]?.name || 'Kablosuz Kulaklık'}`,
-        description: `Bu üründe reklam harcaman 3.400 TL'ye ulaştı ve iade oranı %22.3. Net kârı eksiye çekiyor.`,
+        title: `Aşırı Reklam & İade Kaçağı: ${losingProducts[0]?.name || 'Dökümlü Saten Midi Elbise'}`,
+        description: `Bu üründe reklam harcaman 3.400 TL'ye ulaştı ve iade oranı %18. Net kârı eksiye çekiyor.`,
         action: `Reklam bütçesini %35 kıs ve beden tablosu uyarısı ekle.`
       },
       {
         type: 'warning',
         title: `Kargo Desi Fazla Kesintisi: ${pendingCargoLeak.length} Siparişte Hata`,
-        description: `Kargo firmaları 2 desi yerine 4-5 desi fatura kesmiş. Toplam ${metrics.totalRecoverableCargo || 67} TL fazladan para alındı.`,
+        description: `Kargo firmaları 1-2 desi yerine 4-5 desi fatura kesmiş. Toplam ${metrics.totalRecoverableCargo || 124} TL fazladan para alındı.`,
         action: `Kargo Denetçisi sekmesinden tek tıkla itiraz dilekçesi oluştur.`
       },
       {
         type: 'info',
-        title: `Kritik Stok Uyarısı: ${lowStockProducts[0]?.name || 'Fitness Direnç Bandı'}`,
-        description: `Kalan stok: ${lowStockProducts[0]?.stock || 0} adet. Bu satış hızıyla liste kapalı kalıyor.`,
+        title: `Kritik Stok Uyarısı: ${lowStockProducts[0]?.name || 'Keten Blazer Ceket'}`,
+        description: `Kalan stok: ${lowStockProducts[0]?.stock || 0} adet. Bu satış hızıyla liste 2 günde tükenebilir.`,
         action: `Tedarikçiye acil sipariş geçerek Buybox kaybını önle.`
       }
     ]
@@ -58,8 +58,8 @@ export function askAIAssistant(question, storeContext) {
 Son 7 günde net kâr marjınız %27.4'ten %20.9'a geriledi (Haftalık kayıp: ~2.450 TL).
 
 🧠 **Neden Oldu?**
-1. **Erkek Koşu Şortu** ürününün reklam bütçesi 3.400 TL'ye çıkarken ROAS 1.6'ya düştü. Üstelik müşteriler "Kalıp dar" diye %22.3 iade açtı.
-2. Trendyol Express ve Aras Kargo 3 siparişte 2 desi yerine 5 desi fatura tahsil etti.
+1. **Dökümlü Saten Midi Elbise** ürününün reklam bütçesi 3.400 TL'ye çıkarken ROAS 1.6'ya düştü. Üstelik müşteriler "Kalıp dar" diye %18 iade açtı.
+2. Trendyol Express 3 siparişte 1-2 desi yerine 4-5 desi fatura tahsil etti.
 
 💸 **Finansal Etkisi Ne?**
 Reklam ve iade çarkı yüzünden bu üründen net **-1.059,10 TL zarar** ettiniz.
@@ -74,19 +74,19 @@ AI Çalışanı onayınızla reklam bütçesini %35 kısabilir ve pazar yeri kar
   if (q.includes('en karlı') || q.includes('en çok kazandıran') || q.includes('şampiyon')) {
     return {
       text: `🔍 **Ne Oldu?**
-En yüksek net nakit üreten şampiyon ürününüz: **Kadın Spor Ayakkabı (Beyaz / 38)**.
+En yüksek net nakit üreten şampiyon ürününüz: **Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım**.
 
 🧠 **Neden Oldu?**
-• Satış Fiyatı: 399,90 TL
-• Ürün Başı Net Kâr: 89,24 TL (%22.3 Net Marj)
-• İade Oranı: Yalnızca %4.3 (Sektör ortalaması %14)
+• Satış Fiyatı: 1.950,00 TL (Alış: 780,00 TL, Kargo: 87,00 TL)
+• Ürün Başı Net Kâr: 663,75 TL (%34.0 Net Marj)
+• İade Oranı: Yalnızca %2.8 (Sektör ortalaması %18)
 • Buybox Rekabeti: %100 sizde.
 
 💸 **Finansal Etkisi Ne?**
-Bu ay tek başına kasanıza **28.556 TL net kâr** sağladı.
+Bu ay tek başına kasanıza **92.925 TL net nakit kâr** sağladı.
 
 ⚡ **Ne Yapılabilir?**
-Fiyatı 439,90 TL (+40 TL) yaparak aylık net kârınızı +10.240 TL artırabilirsiniz.`,
+Fiyatı 2.090,00 TL (+140 TL) yaparak aylık net kârınızı +14.200 TL artırabilirsiniz.`,
       suggestedAction: 'Fiyatı Güncelle',
       actionTab: 'pro-table'
     };
@@ -98,10 +98,10 @@ Fiyatı 439,90 TL (+40 TL) yaparak aylık net kârınızı +10.240 TL artırabil
 Toplam reklam harcamanız 8.950 TL, toplam reklam kaynaklı ciro 51.534 TL (Ortalama ROAS: 5.75).
 
 🧠 **Neden Oldu?**
-Kadın Spor Ayakkabı (ROAS: 18.75) ve Yoga Matı (ROAS: 9.54) çok iyi çalışırken, Erkek Koşu Şortu (ROAS: 1.64) reklam bütçesini yakıyor.
+Modal Takım (ROAS: 18.75) ve Yıldız Taş Tişört (ROAS: 9.54) çok iyi çalışırken, Saten Elbise (ROAS: 1.64) reklam bütçesini yakıyor.
 
 💸 **Finansal Etkisi Ne?**
-Erkek şortundaki kötü reklam kampanyası cebinizden 1.059 TL net zarar çıkardı.
+Saten elbisedeki aşırı reklam harcaması cebinizden 1.059 TL net zarar çıkardı.
 
 ⚡ **Ne Yapılabilir?**
 'Reklam & ROAS' sekmesinden ilgili kampanyayı tek tıkla durdurabilir veya %35 bütçe kısma onayını verebilirsiniz.`,

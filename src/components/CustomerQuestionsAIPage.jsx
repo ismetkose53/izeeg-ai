@@ -30,38 +30,38 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide }) {
   const [questions, setQuestions] = useState([
     {
       id: 'Q-101',
-      customerName: 'Ahmet K.',
+      customerName: 'Zeynep K.',
       marketplace: 'Trendyol',
-      productTitle: 'Oversize Keten Gömlek - Bej / L',
-      productSku: 'TY-GMLK-01',
-      questionText: 'Merhabalar, 1.78 boy 76 kilo için hangi beden uygun olur? Kalıbı dar mı geniş mi, bir de kumaşı yazın terletir mi?',
+      productTitle: "Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım",
+      productSku: 'Modalsiyah2',
+      questionText: 'Merhabalar, kumaşı modal mı pamuk mu? 1.68 boy 58 kilo için hangi beden uygun olur? Kumaş iç gösterir mi?',
       timeAgo: '14 dk önce',
       status: 'PENDING', // 'PENDING' | 'ANSWERED'
-      aiSuggestedAnswer: 'Merhabalar efendim! 🌟 1.78 boy ve 76 kilo için L beden tam ve dökümlü bir oversize duruş sağlayacaktır; eğer daha oturmasını isterseniz M bedeni de tercih edebilirsiniz. Ürünümüz %100 doğal nefes alan keten dokumadır, yaz sıcaklarında kesinlikle terletmez ve serin tutar. Keyifli alışverişler dileriz! 🌿',
+      aiSuggestedAnswer: 'Merhabalar efendim! ✨ Takımımız %100 birinci sınıf nefes alan yumuşacık modal kumaştan üretilmiştir. Tok ve dökümlü yapısı sayesinde kesinlikle iç göstermez. 1.68 boy ve 58 kilo için Standart bedenimiz (S-M uyumlu) tam ve dökümlü olarak üzerinize çok yakışacaktır. Keyifli alışverişler dileriz! 🌿',
       sellerAnswer: ''
     },
     {
       id: 'Q-102',
-      customerName: 'Selin Y.',
-      marketplace: 'Hepsiburada',
-      productTitle: 'Kablosuz TWS Bluetooth Kulaklık v5.3',
-      productSku: 'HB-TWS-53',
-      questionText: 'Bugün saat 16:00 ya kadar alsam bugün kargoya verilir mi? Cuma gününe doğum günü hediyesi olarak yetişmesi gerekiyor.',
+      customerName: 'Ayşe M.',
+      marketplace: 'Trendyol',
+      productTitle: 'Yıldız Taş Aksesuarlı, Vatkalı Oversize Tshirt',
+      productSku: 'T.T.12',
+      questionText: 'Yıldız taşları makinede yıkamada dökülür mü? Bir de vatkaları sabit mi çıkıyor mu?',
       timeAgo: '42 dk önce',
       status: 'PENDING',
-      aiSuggestedAnswer: 'Merhaba Selin Hanım! 🎁 Saat 16:00\'ya kadar verilen tüm siparişler aynı gün saat 17:00 teslimatında HepsiJET kargoya verilmektedir. Bulunduğunuz şehre göre ortalama 1-2 iş gününde teslim edilir, hediyenizin Cuma gününe güvenle yetişeceğini öngörüyoruz. Şimdiden mutlu yaşlar dileriz! 🎈',
+      aiSuggestedAnswer: 'Merhaba efendim! 🌟 Taş işlemelerimiz endüstriyel yüksek ısı baskısıyla sabitlenmiştir; 30 derecede tersten hassas programda yıkandığında kesinlikle dökülme yapmaz. Omuz vatkaları formunu koruması için gizli dikişle sabittir. İlginiz için teşekkür eder, harika günlerde kullanmanızı dileriz! 💫',
       sellerAnswer: ''
     },
     {
       id: 'Q-103',
-      customerName: 'Murat B.',
-      marketplace: 'Amazon TR',
-      productTitle: 'Deri Cüzdan & Kartlık - Siyah',
-      productSku: 'TY-CZDN-BLK',
-      questionText: 'Hakiki dana derisi mi yoksa suni deri mi? Kart gözlerine yeni kimlik ve ehliyet rahat sığıyor mu?',
+      customerName: 'Büşra S.',
+      marketplace: 'Trendyol',
+      productTitle: 'Yüksek Bel Palazzo Jean Pantolon',
+      productSku: 'PNT-PLZ-01',
+      questionText: 'Bel yüksekliği tam göbek hizasında mı? 1.72 boy için paça boyu kısa kalır mı, kumaşı esnek mi?',
       timeAgo: '2 saat önce',
       status: 'PENDING',
-      aiSuggestedAnswer: 'Merhaba Murat Bey, ürünümüz %100 1. sınıf hakiki dana derisinden el işçiliği ile üretilmiştir; zamanla yıpranmaz, şık bir patina kazanır. Kart yuvaları yeni çipli kimlik ve ehliyet standartlarına birebir uyumludur, rahatlıkla sığar. İlginiz için teşekkür ederiz.',
+      aiSuggestedAnswer: 'Merhaba Büşra Hanım! 👖 Jean pantolonumuz ekstra yüksek bel kesimdir ve göbek deliğinin üzerinde toparlayıcı oturur. 1.72 boy için paça boyu topuklu veya sneaker ile tam dökümlü duracak şekilde 108 cm olarak tasarlanmıştır, kesinlikle kısa kalmaz. %98 pamuk %2 elastan içeriğiyle rahat bir esnekliğe sahiptir. Keyifli alışverişler! ✨',
       sellerAnswer: ''
     }
   ]);
@@ -73,33 +73,33 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide }) {
       customerName: 'Merve T.',
       rating: 5,
       marketplace: 'Trendyol',
-      productTitle: 'Oversize Keten Gömlek - Bej / L',
-      reviewText: 'Kumaş kalitesi harika! Tam bir yazlık kurtarıcı parça. Keten dokusu tok ve kaliteli. Kesinlikle tavsiye ederim.',
+      productTitle: "Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım",
+      reviewText: 'Kumaş kalitesi tek kelimeyle muazzam! Modal dokusu ipek gibi yumuşacık ve dökümü çok asil duruyor. Kesinlikle tavsiye ederim.',
       timeAgo: 'Dün',
       status: 'PENDING',
-      aiSuggestedAnswer: 'Değerli müşterimiz, güzel yorumunuz ve bizi tercih ettiğiniz için çok teşekkür ederiz! ✨ Gömleğinizi güzel ve mutlu günlerde kullanmanızı dileriz. Yeni sezon renklerimize de göz atmayı unutmayın! 🌸'
+      aiSuggestedAnswer: 'Değerli müşterimiz, güzel yorumunuz ve bizi tercih ettiğiniz için çok teşekkür ederiz! ✨ Modal takımınızı en güzel ve mutlu günlerinizde keyifle kullanmanızı dileriz. Yeni sezon renklerimize de göz atmayı unutmayın! 🌸'
     },
     {
       id: 'REV-202',
       customerName: 'Caner D.',
-      rating: 3,
+      rating: 5,
       marketplace: 'Trendyol',
-      productTitle: 'Deri Cüzdan & Kartlık - Siyah',
-      reviewText: 'Ürün güzel ve kaliteli ama kargo 4 günde geldi, dış ambalaj biraz ezilmişti.',
+      productTitle: 'Yıldız Taş Aksesuarlı, Vatkalı Oversize Tshirt',
+      reviewText: 'Taşları ışıl ışıl ve kaliteli, vatkası duruşa harika bir hava katıyor. Siyah rengi tam tok siyah.',
       timeAgo: '2 gün önce',
       status: 'PENDING',
-      aiSuggestedAnswer: 'Merhaba Caner Bey, ürünümüzü beğenmenize çok sevindik. Kargo taşıma aşamasında yaşanan gecikme ve paket ezilmesi adına kargo firması adına özür dileriz. İlgili kargo şubesine gerekli uyarıları ilettik. Cüzdanınızı keyifle kullanmanızı dileriz!'
+      aiSuggestedAnswer: 'Harika geri bildiriminiz için çok teşekkür ederiz! 🌟 Şıklığınızı tamamlamaktan mutluluk duyuyoruz. Yeni sezon modellerimizde tekrar görüşmek üzere! ✨'
     },
     {
       id: 'REV-203',
       customerName: 'Oğuzhan K.',
-      rating: 1,
-      marketplace: 'Hepsiburada',
-      productTitle: 'Kablosuz TWS Bluetooth Kulaklık v5.3',
-      reviewText: 'Sol kulaklıktan ses gelmiyordu, iade talebi oluşturdum.',
+      rating: 4,
+      marketplace: 'Trendyol',
+      productTitle: 'Yüksek Bel Palazzo Jean Pantolon',
+      reviewText: 'Kalıbı ve kumaşı çok iyi ama kargo poşeti biraz tozlu gelmişti, pantolonda sorun yok.',
       timeAgo: '3 gün önce',
       status: 'PENDING',
-      aiSuggestedAnswer: 'Merhaba Oğuzhan Bey, yaşadığınız bu aksilik adına çok üzgünüz. Kulaklık kutu eşleştirmesi bazen ilk şarjda sıfırlama gerektirebilmektedir (kutudaki düğmeye 10 sn basılı tutunuz). İade veya anında birebir sıfır değişim talebiniz derhal onaylanacaktır, memnuniyetiniz bizim için esastır.'
+      aiSuggestedAnswer: 'Merhaba, pantolonumuzu beğenmenize çok sevindik! Kargo taşıma poşetindeki tozlanma için kargo firması adına özür dileriz. İlgili kargo şubesine taşıma titizliği uyarısı yapılmıştır. Güzel günlerde kullanınız! 🌿'
     }
   ]);
 

@@ -26,10 +26,10 @@ import confetti from 'canvas-confetti';
 import { 
   WAREHOUSES_LIST, 
   XML_SUPPLIER_FEEDS, 
-  STOCK_MOVEMENTS, 
-  INITIAL_PRODUCTS,
+  DEMO_STOCK_MOVEMENTS, 
   DEMO_PRODUCTS
 } from '../services/mockData';
+import { getCatalogProducts } from '../services/marketplaceSyncService';
 import { 
   generateTrendyolOfficialCsvContent, 
   generateIzeegMasterCsvContent, 
@@ -43,12 +43,15 @@ export function WarehouseInventoryPage({
   setProducts: setParentProducts
 }) {
   const [subTab, setSubTab] = useState('inventory'); // inventory | xml_feeds | excel_import | movements | warehouses
-  const [localProducts, setLocalProducts] = useState(DEMO_PRODUCTS);
-  const products = parentProducts || localProducts;
+  const [localProducts, setLocalProducts] = useState(() => {
+    const cat = getCatalogProducts();
+    return (cat && cat.length > 0) ? cat : DEMO_PRODUCTS;
+  });
+  const products = (parentProducts && parentProducts.length > 0) ? parentProducts : localProducts;
   const setProducts = setParentProducts || setLocalProducts;
 
   const [xmlFeeds, setXmlFeeds] = useState(XML_SUPPLIER_FEEDS);
-  const [movements, setMovements] = useState(STOCK_MOVEMENTS);
+  const [movements, setMovements] = useState(DEMO_STOCK_MOVEMENTS);
   const [selectedWarehouse, setSelectedWarehouse] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);

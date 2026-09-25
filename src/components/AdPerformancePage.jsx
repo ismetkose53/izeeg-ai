@@ -145,20 +145,20 @@ export function AdPerformancePage({ onNavigateBack, onTriggerActionApproval, onO
             </div>
 
             <h3 className="text-base font-black text-white">
-              “Erkek Koşu Şortu” reklamı kasanıza -1.059,10 ₺ zarar ettiriyor.
+              “Dökümlü Saten Midi Elbise” reklamı kasanıza -1.059,10 ₺ zarar ettiriyor.
             </h3>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Bu kampanya 5.598 ₺ ciro getirdiği için başarılı gibi görünebilir. Ancak 3.400 ₺ reklam harcaması, komisyonlar ve yüksek iade oranı düşüldüğünde <strong>ürün başına kâr eksiye düşmektedir</strong>. Bu bütçe %35 kısılarak daha karlı olan Kadın Spor Ayakkabı kampanyasına kaydırılmalıdır.
+              Bu kampanya 5.598 ₺ ciro getirdiği için başarılı gibi görünebilir. Ancak 3.400 ₺ reklam harcaması, komisyonlar ve yüksek iade oranı düşüldüğünde <strong>ürün başına kâr eksiye düşmektedir</strong>. Bu bütçe %35 kısılarak daha kârlı olan Siyah Modal Takım kampanyasına kaydırılmalıdır.
             </p>
           </div>
 
           <button
             onClick={() => onTriggerActionApproval({
               id: 'AI-AD-ACTION-01',
-              title: 'Erkek Şortu Reklam Bütçesini %35 Kıs',
+              title: 'Saten Elbise Reklam Bütçesini %35 Kıs',
               marketplace: 'Trendyol Sponsorlu Ürünler',
-              product: 'Erkek Koşu Şortu (Lacivert / M)',
+              product: 'Dökümlü Saten Midi Elbise (Zümrüt Yeşili / 38)',
               q3_financialImpact: 'Haftalık 1.190 ₺ Boşa Reklam Zararı Kurtarılacaktır',
               action: {
                 type: 'AD_BUDGET_REDUCE',

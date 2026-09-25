@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Zap, 
   Crown, 
@@ -22,6 +22,172 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { PageGuideButton } from './PageHelpGuideModal';
+import { getCatalogProducts, getCustomCargoSettings } from '../services/marketplaceSyncService';
+
+// Gerçek Mağaza Giyim Kataloğu Başlangıç Reprice Veri Havuzu
+function getDefaultRepricerItems(products = []) {
+  const catalog = (products && products.length > 0) ? products : getCatalogProducts();
+  const cargoSettings = getCustomCargoSettings();
+  const tyCargo = Number(cargoSettings.trendyolCargoCost || 87.00);
+
+  const fallbackItems = [
+    {
+      id: 'REP-101',
+      title: "Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım",
+      marketplace: 'Trendyol',
+      sku: 'Modalsiyah2',
+      costPrice: 780.00,
+      commissionRate: 21.5,
+      shippingCost: tyCargo,
+      myCurrentPrice: 1950.00,
+      competitorPrice: 1940.00,
+      competitorName: 'ModaTrend Store',
+      hasBuybox: false,
+      recommendedPrice: 1939.00,
+      minPriceFloor: 1250.00,
+      status: 'UNDER_CUT_READY',
+      currentNetProfit: 663.75, // 1950 - 780 - (1950*0.215 = 419.25) - 87 = 663.75
+      projectedNetProfit: 655.12, // 1939 - 780 - (1939*0.215 = 416.88) - 87 = 655.12
+      projectedMargin: 33.8
+    },
+    {
+      id: 'REP-102',
+      title: 'Yıldız Taş Aksesuarlı, Vatkalı Oversize Tshirt',
+      marketplace: 'Trendyol',
+      sku: 'T.T.12',
+      costPrice: 640.00,
+      commissionRate: 21.5,
+      shippingCost: tyCargo,
+      myCurrentPrice: 1599.00,
+      competitorPrice: 1650.00,
+      competitorName: 'Aksesuar Deposu',
+      hasBuybox: true,
+      recommendedPrice: 1599.00,
+      minPriceFloor: 1050.00,
+      status: 'BUYBOX_WON',
+      currentNetProfit: 528.22,
+      projectedNetProfit: 528.22,
+      projectedMargin: 33.0
+    },
+    {
+      id: 'REP-103',
+      title: 'V Yaka Düğmeli Triko Hırka Ekru',
+      marketplace: 'Trendyol',
+      sku: 'TRK-HRK-V01',
+      costPrice: 500.00,
+      commissionRate: 21.5,
+      shippingCost: tyCargo,
+      myCurrentPrice: 1250.00,
+      competitorPrice: 1240.00,
+      competitorName: 'Giyim Trend',
+      hasBuybox: false,
+      recommendedPrice: 1239.00,
+      minPriceFloor: 850.00,
+      status: 'UNDER_CUT_READY',
+      currentNetProfit: 394.25,
+      projectedNetProfit: 385.61,
+      projectedMargin: 31.1
+    },
+    {
+      id: 'REP-104',
+      title: 'Yüksek Bel Palazzo Jean Pantolon',
+      marketplace: 'Trendyol',
+      sku: 'PNT-PLZ-01',
+      costPrice: 700.00,
+      commissionRate: 21.5,
+      shippingCost: tyCargo,
+      myCurrentPrice: 1750.00,
+      competitorPrice: 1750.00,
+      competitorName: 'Denim Club',
+      hasBuybox: true,
+      recommendedPrice: 1750.00,
+      minPriceFloor: 1150.00,
+      status: 'BUYBOX_WON',
+      currentNetProfit: 586.75,
+      projectedNetProfit: 586.75,
+      projectedMargin: 33.5
+    },
+    {
+      id: 'REP-105',
+      title: 'Keten Karışımlı Oversize Blazer Ceket',
+      marketplace: 'Trendyol',
+      sku: 'CKT-BLZ-02',
+      costPrice: 980.00,
+      commissionRate: 21.5,
+      shippingCost: tyCargo,
+      myCurrentPrice: 2450.00,
+      competitorPrice: 2420.00,
+      competitorName: 'Elite Butik',
+      hasBuybox: false,
+      recommendedPrice: 2419.00,
+      minPriceFloor: 1600.00,
+      status: 'UNDER_CUT_READY',
+      currentNetProfit: 856.25,
+      projectedNetProfit: 831.92,
+      projectedMargin: 34.4
+    },
+    {
+      id: 'REP-106',
+      title: 'Dökümlü Saten Midi Elbise',
+      marketplace: 'Trendyol',
+      sku: 'ELB-SAT-03',
+      costPrice: 750.00,
+      commissionRate: 21.5,
+      shippingCost: tyCargo,
+      myCurrentPrice: 1890.00,
+      competitorPrice: 1890.00,
+      competitorName: 'Saten Butik',
+      hasBuybox: true,
+      recommendedPrice: 1890.00,
+      minPriceFloor: 1250.00,
+      status: 'BUYBOX_WON',
+      currentNetProfit: 646.65,
+      projectedNetProfit: 646.65,
+      projectedMargin: 34.2
+    }
+  ];
+
+  if (catalog && catalog.length > 0) {
+    return catalog.slice(0, 6).map((prod, idx) => {
+      const cost = Number(prod.costPrice || 700);
+      const currentPrice = Number(prod.sellingPrice || 1750);
+      const commRate = Number(prod.commissionRate || 21.5);
+      const cargo = Number(prod.cargoCost || tyCargo);
+      const hasBuybox = idx % 2 === 1;
+      const compPrice = hasBuybox ? currentPrice : currentPrice - 10.00;
+      const recPrice = hasBuybox ? currentPrice : compPrice - 1.00;
+      
+      const currentComm = (currentPrice * commRate) / 100;
+      const currentProfit = currentPrice - cost - currentComm - cargo;
+      
+      const recComm = (recPrice * commRate) / 100;
+      const recProfit = recPrice - cost - recComm - cargo;
+      const recMargin = recPrice > 0 ? (recProfit / recPrice) * 100 : 0;
+
+      return {
+        id: `REP-${100 + idx}`,
+        title: prod.name || prod.title || `Ürün #${idx + 1}`,
+        marketplace: prod.marketplace || 'Trendyol',
+        sku: prod.sku || prod.id || `SKU-${idx + 1}`,
+        costPrice: cost,
+        commissionRate: commRate,
+        shippingCost: cargo,
+        myCurrentPrice: currentPrice,
+        competitorPrice: compPrice,
+        competitorName: hasBuybox ? 'Aksesuar Deposu' : 'ModaTrend Store',
+        hasBuybox,
+        recommendedPrice: recPrice,
+        minPriceFloor: cost * 1.35,
+        status: hasBuybox ? 'BUYBOX_WON' : 'UNDER_CUT_READY',
+        currentNetProfit: currentProfit,
+        projectedNetProfit: recProfit,
+        projectedMargin: Number(recMargin.toFixed(1))
+      };
+    });
+  }
+
+  return fallbackItems;
+}
 
 export function SmartRepricerPage({ onNavigateBack, onOpenGuide, products = [] }) {
   const [botActive, setBotActive] = useState(true);
@@ -29,90 +195,13 @@ export function SmartRepricerPage({ onNavigateBack, onOpenGuide, products = [] }
   const [minMarginPercent, setMinMarginPercent] = useState(18); // Minimum %18 kâr marjı tabanı
   const [activeTab, setActiveTab] = useState('rules'); // 'rules' | 'logs' | 'simulator'
 
+  // Canlı Buybox & Rakip Fiyat Takip Listesi
+  const [repricerItems, setRepricerItems] = useState(() => getDefaultRepricerItems(products));
+
   // Simülatör Test Alanı State
   const [simProductIndex, setSimProductIndex] = useState(0);
-  const [simCompetitorPrice, setSimCompetitorPrice] = useState('329.90');
+  const [simCompetitorPrice, setSimCompetitorPrice] = useState('1940.00');
   const [simResult, setSimResult] = useState(null);
-
-  // Örnek Canlı Buybox & Rakip Fiyat Takip Listesi
-  const [repricerItems, setRepricerItems] = useState([
-    {
-      id: 'REP-101',
-      title: 'Oversize Keten Gömlek - Bej / L',
-      marketplace: 'Trendyol',
-      sku: 'TY-GMLK-01',
-      costPrice: 110.00,
-      commissionRate: 21,
-      shippingCost: 38.50,
-      myCurrentPrice: 349.00,
-      competitorPrice: 339.90,
-      competitorName: 'ModaTrend Store',
-      hasBuybox: false,
-      recommendedPrice: 338.90,
-      minPriceFloor: 210.00, // Zarar koruma alt limiti
-      status: 'UNDER_CUT_READY',
-      currentNetProfit: 127.21,
-      projectedNetProfit: 119.23,
-      projectedMargin: 35.2
-    },
-    {
-      id: 'REP-102',
-      title: 'Deri Cüzdan & Kartlık - Siyah',
-      marketplace: 'Trendyol',
-      sku: 'TY-CZDN-BLK',
-      costPrice: 65.00,
-      commissionRate: 18,
-      shippingCost: 38.50,
-      myCurrentPrice: 229.00,
-      competitorPrice: 235.00,
-      competitorName: 'Aksesuar Deposu',
-      hasBuybox: true,
-      recommendedPrice: 229.00,
-      minPriceFloor: 135.00,
-      status: 'BUYBOX_WON',
-      currentNetProfit: 84.28,
-      projectedNetProfit: 84.28,
-      projectedMargin: 36.8
-    },
-    {
-      id: 'REP-103',
-      title: 'Kablosuz TWS Bluetooth Kulaklık v5.3',
-      marketplace: 'Hepsiburada',
-      sku: 'HB-TWS-53',
-      costPrice: 240.00,
-      commissionRate: 15,
-      shippingCost: 44.00,
-      myCurrentPrice: 589.00,
-      competitorPrice: 549.00,
-      competitorName: 'Teknoloji Market',
-      hasBuybox: false,
-      recommendedPrice: 548.00,
-      minPriceFloor: 380.00,
-      status: 'UNDER_CUT_READY',
-      currentNetProfit: 216.65,
-      projectedNetProfit: 181.80,
-      projectedMargin: 33.1
-    },
-    {
-      id: 'REP-104',
-      title: 'Hakiki Deri Erkek Bot - Taba 42',
-      marketplace: 'Amazon TR',
-      sku: 'AMZ-BOT-42',
-      costPrice: 420.00,
-      commissionRate: 14,
-      shippingCost: 52.00,
-      myCurrentPrice: 890.00,
-      competitorPrice: 890.00,
-      competitorName: 'Prime Ayakkabı',
-      hasBuybox: true,
-      recommendedPrice: 890.00,
-      minPriceFloor: 610.00,
-      status: 'BUYBOX_WON',
-      currentNetProfit: 293.40,
-      projectedNetProfit: 293.40,
-      projectedMargin: 32.9
-    }
-  ]);
 
   // Canlı Log Kayıtları
   const [logs, setLogs] = useState([
@@ -120,33 +209,33 @@ export function SmartRepricerPage({ onNavigateBack, onOpenGuide, products = [] }
       id: 'LOG-501',
       time: '6 dk önce',
       type: 'REPRICE_SUCCESS',
-      product: 'Oversize Keten Gömlek - Bej / L',
-      oldPrice: '359.00 ₺',
-      newPrice: '349.00 ₺',
+      product: "Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım",
+      oldPrice: '1.950,00 ₺',
+      newPrice: '1.939,00 ₺',
       marketplace: 'Trendyol',
-      reason: 'Rakip "ModaTrend" fiyatı 350 ₺ yaptı. 1 TL altı ile Buybox korundu.',
-      profitGuard: '✅ Kâr Marjı: %36.2 (Güvenli)'
+      reason: 'Rakip "ModaTrend" fiyatı 1.940 ₺ yaptı. 1 TL altı ile Buybox korundu.',
+      profitGuard: '✅ Net Kâr: 655,12 ₺ (%33.8 Güvenli)'
     },
     {
       id: 'LOG-502',
       time: '24 dk önce',
       type: 'FLOOR_PROTECTION',
-      product: 'Deri Cüzdan & Kartlık - Siyah',
-      oldPrice: '229.00 ₺',
-      newPrice: '229.00 ₺ (Değişmedi)',
+      product: 'Yıldız Taş Aksesuarlı, Vatkalı Oversize Tshirt',
+      oldPrice: '1.599,00 ₺',
+      newPrice: '1.599,00 ₺ (Değişmedi)',
       marketplace: 'Trendyol',
-      reason: 'Rakip zararına 120 ₺ yaptı. Asgari Kâr Marjı Tabanı (%18) devreye girdi, fiyat düşürülmedi!',
-      profitGuard: '🛡️ Zarar Engellendi: +45.00 ₺ Kurtarıldı'
+      reason: 'Rakip zararına 850 ₺ yaptı. Asgari Kâr Marjı Tabanı (%18) devreye girdi, fiyat düşürülmedi!',
+      profitGuard: '🛡️ Zarar Engellendi: +420,00 ₺ Kurtarıldı'
     },
     {
       id: 'LOG-503',
       time: '1 saat önce',
       type: 'BUYBOX_WON',
-      product: 'Hakiki Deri Erkek Bot - Taba 42',
-      oldPrice: '899.00 ₺',
-      newPrice: '890.00 ₺',
-      marketplace: 'Amazon TR',
-      reason: 'Amazon FBA Buybox kutusu %100 oranla mağazamıza geçti.',
+      product: 'Yüksek Bel Palazzo Jean Pantolon',
+      oldPrice: '1.750,00 ₺',
+      newPrice: '1.750,00 ₺',
+      marketplace: 'Trendyol',
+      reason: 'Trendyol Buybox kutusu %100 oranla mağazamıza geçti.',
       profitGuard: '👑 Buybox Sahibi: Sizsiniz'
     }
   ]);

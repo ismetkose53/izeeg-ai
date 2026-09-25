@@ -69,9 +69,9 @@ export function LiveMobileNotificationCenter({
     {
       id: 'NOTIF-01',
       type: 'ORDER_PROFIT',
-      title: 'Yeni Sipariş: +148.50 ₺ Net Kâr!',
+      title: 'Yeni Sipariş: +663.75 ₺ Net Kâr!',
       marketplace: 'Trendyol',
-      description: '1x Oversize Keten Gömlek - Bej / L siparişi geldi. Tüm komisyon ve kargo düşüldükten sonra net kârınız kasada.',
+      description: "1x Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım siparişi geldi. Tüm komisyon ve kargo düşüldükten sonra net kârınız kasada.",
       timeAgo: '2 dk önce',
       isUnread: true,
       targetTab: 'orders',
@@ -80,7 +80,7 @@ export function LiveMobileNotificationCenter({
     {
       id: 'NOTIF-02',
       type: 'BUYBOX_WON',
-      title: 'Buybox Korundu (Fiyat: 338.90 ₺)',
+      title: 'Buybox Korundu (Fiyat: 1.599,00 ₺)',
       marketplace: 'Trendyol',
       description: 'Rakip "ModaTrend" fiyat kırdı. Akıllı Repricer anında 1 TL alta çekerek Buybox kutusunu %100 korudu.',
       timeAgo: '15 dk önce',
@@ -91,9 +91,9 @@ export function LiveMobileNotificationCenter({
     {
       id: 'NOTIF-03',
       type: 'LOW_STOCK',
-      title: 'Stok Uyarısı: 2 Gün Kaldı',
-      marketplace: 'Hepsiburada',
-      description: 'Kablosuz TWS Kulaklık stoğunuz 2 adede düştü. Tedarikçi sipariş fişi tek tıkla hazırlandı.',
+      title: 'Stok Uyarısı: 1.6 Gün Kaldı',
+      marketplace: 'Trendyol',
+      description: 'Siyah Modal Takım stoğunuz 4 adede düştü. Güngören Tekstil sipariş fişi tek tıkla hazırlandı.',
       timeAgo: '45 dk önce',
       isUnread: true,
       targetTab: 'supplier-reorder',
@@ -102,9 +102,9 @@ export function LiveMobileNotificationCenter({
     {
       id: 'NOTIF-04',
       type: 'CARGO_DISPUTE',
-      title: 'Kargo İtirazı Kabul: +180.00 ₺ İade',
+      title: 'Kargo İtirazı Kabul: +124.50 ₺ İade',
       marketplace: 'Trendyol Express',
-      description: 'Geçen ayki 4 siparişin fazla desi itiraz dilekçesi onaylandı, cari hesabınıza alacak kaydedildi.',
+      description: 'Geçen ayki 3 siparişin fazla desi itiraz dilekçesi onaylandı, cari hesabınıza alacak kaydedildi.',
       timeAgo: '3 saat önce',
       isUnread: false,
       targetTab: 'cargo-audit',
@@ -124,9 +124,9 @@ export function LiveMobileNotificationCenter({
     if (soundEnabled) playNotificationChime();
 
     const sampleOrders = [
-      { name: 'Deri Cüzdan & Kartlık', profit: '84.28 ₺', market: 'Trendyol' },
-      { name: 'Hakiki Deri Erkek Bot', profit: '293.40 ₺', market: 'Amazon TR' },
-      { name: 'TWS Kablosuz Kulaklık', profit: '181.80 ₺', market: 'Hepsiburada' }
+      { name: "Siyah Modal Tshirt 2'li Takım", profit: '663.75 ₺', market: 'Trendyol' },
+      { name: 'Yıldız Taşlı Vatkalı Tişört', profit: '528.22 ₺', market: 'Trendyol' },
+      { name: 'Palazzo Jean Pantolon', profit: '586.75 ₺', market: 'Trendyol' }
     ];
     const picked = sampleOrders[Math.floor(Math.random() * sampleOrders.length)];
 
