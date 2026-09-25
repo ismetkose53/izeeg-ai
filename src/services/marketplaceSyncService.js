@@ -350,6 +350,21 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
     totalCommission += (unitComm * qty);
     totalCost += (unitCost * qty);
 
+    const itemImg = 
+      l.productImage || 
+      l.imageUrl || 
+      l.image || 
+      (l.images && l.images[0]) || 
+      (l.content && l.content[0]?.images?.[0]) || 
+      raw.imageUrl || 
+      raw.productImage || 
+      matched?.image || 
+      matched?.imageUrl || 
+      '';
+
+    const itemColor = l.productColor || l.color || matched?.color || 'Standart';
+    const itemSize = l.productSize || l.size || l.variant || matched?.size || 'Standart';
+
     return {
       id: `ITEM-${l.id || idx + 1}`,
       title: l.productName || 'Ürün',
@@ -360,6 +375,9 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
       costPrice: unitCost,
       commission: Number((unitComm * qty).toFixed(2)),
       commissionRate: commRate,
+      color: itemColor,
+      size: itemSize,
+      image: itemImg,
       netProfit: itemNetProfit,
       profitMargin: unitPrice > 0 ? Number(((itemNetProfit / unitPrice) * 100).toFixed(1)) : 0
     };
@@ -390,6 +408,7 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
 
   const profitMargin = totalGrossPrice > 0 ? Number(((netProfit / totalGrossPrice) * 100).toFixed(1)) : 0;
   const avgCommRate = totalGrossPrice > 0 ? Number(((totalCommission / totalGrossPrice) * 100).toFixed(1)) : 18.0;
+  const mainImage = items[0]?.image || firstLine.productImage || firstLine.imageUrl || '';
 
   return {
     id: `TY-${raw.orderNumber || raw.id || Date.now()}`,
@@ -412,6 +431,7 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
     cargoTrackingNumber: raw.cargoTrackingNumber ? raw.cargoTrackingNumber.toString() : `TYP-${Date.now().toString().slice(-8)}`,
     netProfit: netProfit,
     profitMargin: profitMargin,
+    image: mainImage,
     customerName: raw.shipmentAddress ? `${raw.shipmentAddress.firstName || ''} ${raw.shipmentAddress.lastName || ''}`.trim() : (raw.customerFirstName ? `${raw.customerFirstName} ${raw.customerLastName}` : 'Trendyol Müşterisi'),
     customerCity: raw.shipmentAddress?.city || 'İstanbul',
     customerAddress: raw.shipmentAddress?.address1 || 'Teslimat Adresi',
@@ -431,7 +451,8 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
         commission: Number(totalCommission.toFixed(2)),
         commissionRate: avgCommRate,
         netProfit: netProfit,
-        profitMargin: profitMargin
+        profitMargin: profitMargin,
+        image: mainImage
       }
     ]
   };
@@ -501,6 +522,16 @@ function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = []) {
 
   const profitMargin = totalGrossPrice > 0 ? Number(((netProfit / totalGrossPrice) * 100).toFixed(1)) : 0;
 
+  const hbImage = 
+    firstItem.productImage || 
+    firstItem.imageUrl || 
+    firstItem.image || 
+    raw.imageUrl || 
+    raw.productImage || 
+    matched?.image || 
+    matched?.imageUrl || 
+    '';
+
   return {
     id: `HB-${raw.orderNumber || raw.orderId || Date.now()}`,
     orderNumber: raw.orderNumber ? raw.orderNumber.toString() : `HB-${Date.now().toString().slice(-6)}`,
@@ -522,6 +553,7 @@ function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = []) {
     cargoTrackingNumber: raw.cargoTrackingNumber ? raw.cargoTrackingNumber.toString() : `HJ-${Date.now().toString().slice(-8)}`,
     netProfit: netProfit,
     profitMargin: profitMargin,
+    image: hbImage,
     customerName: raw.customerName || (raw.shippingAddress ? `${raw.shippingAddress.name || ''}` : 'Hepsiburada Müşterisi'),
     customerCity: raw.shippingAddress?.city || raw.city || 'İstanbul',
     customerAddress: raw.shippingAddress?.address || raw.address || 'Teslimat Adresi',
@@ -541,7 +573,8 @@ function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = []) {
         commission: totalCommission,
         commissionRate: commRate,
         netProfit: netProfit,
-        profitMargin: profitMargin
+        profitMargin: profitMargin,
+        image: hbImage
       }
     ]
   };

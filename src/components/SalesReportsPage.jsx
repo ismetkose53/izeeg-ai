@@ -429,7 +429,23 @@ export function SalesReportsPage({ products = [], onNavigateBack }) {
                     <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-3">
-                          <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover border border-slate-200 flex-shrink-0" />
+                          <div className="relative w-10 h-10 flex-shrink-0">
+                            {p.image ? (
+                              <img 
+                                src={p.image} 
+                                alt={p.name} 
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  const fb = e.currentTarget.parentElement?.querySelector('.img-fallback-box');
+                                  if (fb) fb.style.display = 'flex';
+                                }}
+                                className="w-10 h-10 rounded-lg object-cover border border-slate-200" 
+                              />
+                            ) : null}
+                            <div className={`img-fallback-box w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 items-center justify-center text-slate-400 ${p.image ? 'hidden' : 'flex'}`}>
+                              <ShoppingBag className="w-4 h-4 text-orange-500" />
+                            </div>
+                          </div>
                           <div>
                             <div className="font-bold text-slate-900 text-xs">{p.name}</div>
                             <div className="text-[11px] text-slate-500 font-mono">{p.barcode} • {p.variant}</div>
