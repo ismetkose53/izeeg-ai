@@ -59,7 +59,8 @@ export default async function handler(req, res) {
   const cleanSellerId = String(sellerId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
   const cleanKey = String(apiKey).trim();
   const cleanSecret = String(apiSecret).trim();
-  const cleanAction = action === 'products' ? 'products' : (action === 'claims' ? 'claims' : 'orders');
+  const allowedActions = ['orders', 'products', 'claims', 'claims-approve', 'claims-reject'];
+  const cleanAction = allowedActions.includes(action) ? action : 'orders';
   const cleanSize = Math.min(Math.max(1, parseInt(size) || 50), 100);
   const cleanPage = Math.max(0, parseInt(page) || 0);
   const cleanBarcode = barcode ? String(barcode).trim() : '';
@@ -77,8 +78,26 @@ export default async function handler(req, res) {
 
   try {
     let targetUrl = '';
+    let method = 'GET';
+    let requestPayload = null;
+
     if (cleanAction === 'products') {
       targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/products?page=${cleanPage}&size=${cleanSize}${cleanBarcode ? `&barcode=${encodeURIComponent(cleanBarcode)}` : ''}`;
+    } else if (cleanAction === 'claims-approve') {
+      const claimId = body.claimId || '';
+      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/claims/${claimId}/items/accept`;
+      method = 'PUT';
+      requestPayload = JSON.stringify({
+        claimLineItemIdList: body.claimLineItemIdList || [body.claimItemId || claimId]
+      });
+    } else if (cleanAction === 'claims-reject') {
+      const claimId = body.claimId || '';
+      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/claims/${claimId}/items/reject`;
+      method = 'PUT';
+      requestPayload = JSON.stringify({
+        claimIssueReasonId: body.reasonId || 1,
+        description: body.description || 'Satıcı tarafından ret talebi oluşturuldu.'
+      });
     } else if (cleanAction === 'claims') {
       targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/claims?page=${cleanPage}&size=${cleanSize}`;
     } else {
@@ -88,15 +107,32 @@ export default async function handler(req, res) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
 
-    const response = await fetch(targetUrl, {
-      method: 'GET',
+    const fetchOptions = {
+      method: method,
       headers: {
         'Authorization': authHeader,
         'User-Agent': userAgent,
         'Content-Type': 'application/json'
       },
       signal: controller.signal
-    });
+    };
+
+    if (requestPayload) {
+      fetchOptions.body = requestPayload;
+    }
+
+    let response = await fetch(targetUrl, fetchOptions);
+
+    // Eğer claims boş veya 400 döndüyse query parametreli varyantı dene
+    if (!response.ok && cleanAction === 'claims') {
+      const fallbackUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/claims?page=${cleanPage}&size=${cleanSize}&claimItemStatus=WaitingInAction&claimItemStatus=Created&claimItemStatus=InAnalysis&claimItemStatus=Accepted&claimItemStatus=Rejected`;
+      try {
+        const fallbackRes = await fetch(fallbackUrl, fetchOptions);
+        if (fallbackRes.ok) {
+          response = fallbackRes;
+        }
+      } catch {}
+    }
 
     clearTimeout(timeoutId);
 

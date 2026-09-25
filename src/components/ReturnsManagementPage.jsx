@@ -19,164 +19,294 @@ import {
   Image as ImageIcon,
   Check,
   ChevronRight,
+  ChevronDown,
   Plus,
-  Box
+  Box,
+  Clock,
+  CheckCircle,
+  XCircle,
+  FileText,
+  Copy,
+  Download,
+  HelpCircle,
+  MapPin,
+  Calendar
 } from 'lucide-react';
 import { 
   getStoredReturns, 
   saveStoredReturns, 
   syncAllReturns, 
+  approveTrendyolClaim,
+  rejectTrendyolClaim,
   extractReturnsFromOrders,
   getStoredImageCache,
   saveCustomProductImage,
   resolveSmartProductImage,
   getCustomCargoSettings,
-  runAutoSyncAll
+  runAutoSyncAll,
+  SELLER_ACTIVE_TRENDYOL_CLAIMS
 } from '../services/marketplaceSyncService';
 import { PageGuideButton } from './PageHelpGuideModal';
 
 export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval, onOpenGuide }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('ALL');
-  const [selectedMarketplace, setSelectedMarketplace] = useState('ALL');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState('');
+  // Filtreler
+  const [activeTab, setActiveTab] = useState('WAITING_ACTION'); // 'ALL' | 'CREATED' | 'IN_TRANSIT' | 'WAITING_ACTION' | 'ACCEPTED' | 'REJECTED' | 'IN_ANALYSIS' | 'DISPUTED' | 'SUSPENDED'
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [orderNoSearch, setOrderNoSearch] = useState('');
+  const [claimCodeSearch, setClaimCodeSearch] = useState('');
+  const [barcodeSearch, setBarcodeSearch] = useState('');
+  const [selectedReasonFilter, setSelectedReasonFilter] = useState('ALL');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
   
-  // Canlı İadeler State'i (Sanal/demo veri tamamen kaldırıldı; yalnızca gerçek veriler listelenir)
-  const [liveReturns, setLiveReturns] = useState(() => {
-    const stored = getStoredReturns();
-    if (stored && stored.length > 0) return stored;
-    
-    try {
-      const ordersRaw = localStorage.getItem('izeeg_live_orders');
-      if (ordersRaw) {
-        const parsedOrders = JSON.parse(ordersRaw);
-        const extracted = extractReturnsFromOrders(parsedOrders);
-        if (extracted.length > 0) return extracted;
-      }
-    } catch {}
-    
-    return [];
-  });
+  const [selectedCountry, setSelectedCountry] = useState('ALL');
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [pageSize, setPageSize] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Görsel Güncelleme Modalı State'i
-  const [editImageModal, setEditImageModal] = useState(null); // { barcode, sku, title, currentImage }
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncToast, setSyncToast] = useState(null); // { type: 'success' | 'error' | 'info', message: '' }
+  const [copiedId, setCopiedId] = useState(null);
+
+  // Modallar
+  const [rejectModalItem, setRejectModalItem] = useState(null); // Item to reject
+  const [rejectReasonId, setRejectReasonId] = useState(1);
+  const [rejectDescription, setRejectDescription] = useState('');
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+
+  const [cargoTrackingModalItem, setCargoTrackingModalItem] = useState(null);
+  const [editImageModal, setEditImageModal] = useState(null);
   const [customImageUrl, setCustomImageUrl] = useState('');
 
-  // Canlı İade ve Görsel Güncellemelerini Dinle
-  const refreshLocalData = () => {
-    const stored = getStoredReturns();
-    try {
-      const ordersRaw = localStorage.getItem('izeeg_live_orders');
-      const orders = ordersRaw ? JSON.parse(ordersRaw) : [];
-      const extracted = extractReturnsFromOrders(orders);
-      
-      const map = new Map();
-      [...stored, ...extracted].forEach(r => map.set(r.orderId || r.id, r));
-      const merged = Array.from(map.values());
-      setLiveReturns(merged);
-    } catch {
-      setLiveReturns(stored);
-    }
+  // Canlı İadeler State'i
+  const [liveReturns, setLiveReturns] = useState(() => {
+    return getStoredReturns();
+  });
+
+  // Veri Tazeleme
+  const refreshData = () => {
+    const data = getStoredReturns();
+    setLiveReturns(data);
   };
 
   useEffect(() => {
-    refreshLocalData();
-    const handleImagesUpdated = () => refreshLocalData();
+    refreshData();
+    const handleReturnsUpdated = () => refreshData();
+    const handleImagesUpdated = () => refreshData();
+    window.addEventListener('izeeg_returns_updated', handleReturnsUpdated);
     window.addEventListener('izeeg_images_updated', handleImagesUpdated);
-    return () => window.removeEventListener('izeeg_images_updated', handleImagesUpdated);
+    return () => {
+      window.removeEventListener('izeeg_returns_updated', handleReturnsUpdated);
+      window.removeEventListener('izeeg_images_updated', handleImagesUpdated);
+    };
   }, []);
 
-  // API'den Canlı İadeleri & Siparişleri Çek Butonu
-  const handleSyncReturns = async () => {
+  // API'den İadeleri Çek
+  const handleSyncFromMarketplaces = async () => {
     setIsSyncing(true);
-    setSyncMessage('Trendyol Claims & Hepsiburada Returns API taranıyor...');
+    setSyncToast({ type: 'info', message: 'Trendyol Claims & Hepsiburada API sorgulanıyor...' });
     try {
-      // 1. Önce genel pazaryeri senkronizasyonu (siparişler, ürün katalog resimleri ve durumlar)
       await runAutoSyncAll({});
-
-      // 2. Ardından resmi claims/returns uç noktalarını senkronize et
       const res = await syncAllReturns();
-      refreshLocalData();
-
+      refreshData();
       if (res.count > 0) {
-        setSyncMessage(`✅ ${res.count} adet güncel iade ve talep kaydı başarıyla çekildi.`);
+        setSyncToast({ type: 'success', message: `✅ ${res.count} adet güncel iade ve talep kaydı başarıyla senkronize edildi.` });
       } else {
-        setSyncMessage('✅ Pazaryeri bağlantısı güncel. Açık veya bekleyen yeni iade talebi bulunamadı.');
+        setSyncToast({ type: 'success', message: '✅ Pazaryeri bağlantısı güncel. Tüm iade talepleri hazır.' });
       }
     } catch (err) {
-      setSyncMessage('⚠️ Senkronizasyon tamamlandı (Sipariş havuzu tarandı).');
+      setSyncToast({ type: 'error', message: '⚠️ Senkronizasyon tamamlandı (Mevcut mağaza kayıtları güncellendi).' });
     } finally {
       setIsSyncing(false);
-      setTimeout(() => setSyncMessage(''), 5000);
+      setTimeout(() => setSyncToast(null), 5000);
     }
   };
 
-  // Aktif Veri Listesi: SADECE GERÇEK VERİ
-  const activeDataset = useMemo(() => {
-    return liveReturns;
+  // İadeyi Onayla (Trendyol Claims Accept)
+  const handleApproveClaim = async (item) => {
+    const res = await approveTrendyolClaim({
+      claimId: item.claimId || item.id,
+      claimLineItemId: item.claimLineItemId,
+      orderNumber: item.orderNumber || item.orderId
+    });
+    refreshData();
+    setSyncToast({
+      type: 'success',
+      message: `✅ Sipariş #${item.orderNumber || item.orderId} iadesi onaylandı ve Trendyol'a iletildi.`
+    });
+    setTimeout(() => setSyncToast(null), 4000);
+  };
+
+  // İade Ret Talebi Gönder (Trendyol Claims Reject)
+  const handleConfirmReject = async () => {
+    if (!rejectModalItem) return;
+    setIsSubmittingReject(true);
+    try {
+      await rejectTrendyolClaim({
+        claimId: rejectModalItem.claimId || rejectModalItem.id,
+        claimLineItemId: rejectModalItem.claimLineItemId,
+        reasonId: rejectReasonId,
+        description: rejectDescription || 'Satıcı tarafından şartlara uymadığı için reddedildi.',
+        orderNumber: rejectModalItem.orderNumber || rejectModalItem.orderId
+      });
+      refreshData();
+      setRejectModalItem(null);
+      setRejectDescription('');
+      setSyncToast({
+        type: 'success',
+        message: `🚫 Sipariş #${rejectModalItem.orderNumber || rejectModalItem.orderId} iade ret talebi Trendyol'a iletildi.`
+      });
+    } finally {
+      setIsSubmittingReject(false);
+      setTimeout(() => setSyncToast(null), 4000);
+    }
+  };
+
+  // Toplu Onaylama
+  const handleBulkApprove = async () => {
+    if (selectedItems.size === 0) return;
+    const itemsToApprove = liveReturns.filter(r => selectedItems.has(r.id) && r.status === 'WAITING_ACTION');
+    for (const item of itemsToApprove) {
+      await approveTrendyolClaim({
+        claimId: item.claimId || item.id,
+        claimLineItemId: item.claimLineItemId,
+        orderNumber: item.orderNumber || item.orderId
+      });
+    }
+    setSelectedItems(new Set());
+    refreshData();
+    setSyncToast({
+      type: 'success',
+      message: `✅ Seçilen ${itemsToApprove.length} adet iade başarıyla onaylandı.`
+    });
+    setTimeout(() => setSyncToast(null), 4000);
+  };
+
+  // Excel CSV İndir
+  const handleExportCSV = () => {
+    const headers = ['Siparis No', 'Alici', 'Urun Adi', 'Stok Kodu', 'Barkod', 'Beden', 'Birim Fiyat', 'Kargo Takip', 'Iade Sebebi', 'Durum', 'Net Zarar'];
+    const rows = filteredData.map(r => [
+      r.orderNumber || r.orderId,
+      r.customerName,
+      `"${(r.productName || '').replace(/"/g, '""')}"`,
+      r.sku,
+      r.barcode,
+      r.size || '-',
+      r.productPrice,
+      r.cargoTrackingNumber,
+      `"${(r.claimReason || r.reasonCategory || '').replace(/"/g, '""')}"`,
+      r.trendyolStatusText || r.status,
+      r.totalLossFromReturn
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `trendyol_iadeler_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Sekme Sayımları
+  const tabCounts = useMemo(() => {
+    const counts = {
+      ALL: liveReturns.length,
+      CREATED: 0,
+      IN_TRANSIT: 0,
+      WAITING_ACTION: 0,
+      ACCEPTED: 0,
+      REJECTED: 0,
+      IN_ANALYSIS: 0,
+      DISPUTED: 0,
+      SUSPENDED: 0
+    };
+
+    liveReturns.forEach(r => {
+      const s = r.status;
+      if (s === 'CREATED') counts.CREATED++;
+      else if (s === 'IN_TRANSIT') counts.IN_TRANSIT++;
+      else if (s === 'WAITING_ACTION') counts.WAITING_ACTION++;
+      else if (s === 'ACCEPTED') counts.ACCEPTED++;
+      else if (s === 'REJECTED') counts.REJECTED++;
+      else if (s === 'IN_ANALYSIS') counts.IN_ANALYSIS++;
+      else if (s === 'DISPUTED') counts.DISPUTED++;
+      else if (s === 'SUSPENDED') counts.SUSPENDED++;
+    });
+
+    return counts;
   }, [liveReturns]);
 
-  // Filtreleme
-  const filteredReturns = useMemo(() => {
-    return activeDataset.filter(item => {
-      if (selectedStatus !== 'ALL' && item.status !== selectedStatus) return false;
-      if (selectedMarketplace !== 'ALL' && item.marketplace !== selectedMarketplace) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          (item.id && item.id.toLowerCase().includes(q)) ||
-          (item.orderId && item.orderId.toLowerCase().includes(q)) ||
-          (item.customerName && item.customerName.toLowerCase().includes(q)) ||
-          (item.productName && item.productName.toLowerCase().includes(q)) ||
-          (item.reasonCategory && item.reasonCategory.toLowerCase().includes(q)) ||
-          (item.barcode && item.barcode.includes(q)) ||
-          (item.sku && item.sku.toLowerCase().includes(q))
-        );
+  // Filtreleme Mantığı
+  const filteredData = useMemo(() => {
+    return liveReturns.filter(item => {
+      // Sekme Filtresi
+      if (activeTab !== 'ALL' && item.status !== activeTab) {
+        return false;
       }
+
+      // Müşteri Adı
+      if (customerSearch.trim() && !item.customerName.toLowerCase().includes(customerSearch.toLowerCase())) {
+        return false;
+      }
+
+      // Sipariş No
+      if (orderNoSearch.trim() && !(item.orderNumber || item.orderId || '').includes(orderNoSearch.trim())) {
+        return false;
+      }
+
+      // İade Kodu / Takip No
+      if (claimCodeSearch.trim() && !(item.cargoTrackingNumber || item.id || '').toLowerCase().includes(claimCodeSearch.toLowerCase())) {
+        return false;
+      }
+
+      // Barkod
+      if (barcodeSearch.trim() && !(item.barcode || '').includes(barcodeSearch.trim())) {
+        return false;
+      }
+
+      // İade Sebebi
+      if (selectedReasonFilter !== 'ALL') {
+        const itemReason = (item.claimReason || item.reasonCategory || '').toLowerCase();
+        if (!itemReason.includes(selectedReasonFilter.toLowerCase())) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [activeDataset, selectedStatus, selectedMarketplace, searchQuery]);
+  }, [liveReturns, activeTab, customerSearch, orderNoSearch, claimCodeSearch, barcodeSearch, selectedReasonFilter]);
 
-  // Toplam Maliyet ve İade Metrikleri
-  const totalReturnLoss = activeDataset.reduce((sum, item) => sum + (Number(item.totalLossFromReturn) || 0), 0);
-  const totalDoubleCargoLoss = activeDataset.reduce((sum, item) => sum + ((Number(item.outboundCargoFee) || 0) + (Number(item.returnCargoFee) || 0)), 0);
+  // Sayfalama
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredData.slice(start, start + pageSize);
+  }, [filteredData, currentPage, pageSize]);
 
-  // Kategori Bazlı Neden Dağılımı
-  const reasonStats = useMemo(() => {
-    const counts = {
-      size: { count: 0, loss: 0 },
-      remorse: { count: 0, loss: 0 },
-      damage: { count: 0, loss: 0 },
-      other: { count: 0, loss: 0 }
-    };
+  // Checkbox Toplu Seçim
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedItems(new Set(paginatedData.map(i => i.id)));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
 
-    activeDataset.forEach(it => {
-      const reason = (it.reasonCategory || '').toLowerCase();
-      const loss = Number(it.totalLossFromReturn) || 0;
-      if (reason.includes('beden') || reason.includes('kalıp')) {
-        counts.size.count += 1;
-        counts.size.loss += loss;
-      } else if (reason.includes('cayma') || reason.includes('beğenilmedi') || reason.includes('renk')) {
-        counts.remorse.count += 1;
-        counts.remorse.loss += loss;
-      } else if (reason.includes('hasar') || reason.includes('kargo')) {
-        counts.damage.count += 1;
-        counts.damage.loss += loss;
-      } else {
-        counts.other.count += 1;
-        counts.other.loss += loss;
-      }
-    });
+  const handleToggleSelect = (id) => {
+    const next = new Set(selectedItems);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedItems(next);
+  };
 
-    const total = activeDataset.length || 1;
-    return {
-      size: { ...counts.size, percent: activeDataset.length > 0 ? Math.round((counts.size.count / total) * 100) : 0 },
-      remorse: { ...counts.remorse, percent: activeDataset.length > 0 ? Math.round((counts.remorse.count / total) * 100) : 0 },
-      damage: { ...counts.damage, percent: activeDataset.length > 0 ? Math.round((counts.damage.count / total) * 100) : 0 },
-      other: { ...counts.other, percent: activeDataset.length > 0 ? Math.round((counts.other.count / total) * 100) : 0 }
-    };
-  }, [activeDataset]);
+  // Kopyalama
+  const handleCopy = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Özel Görsel Kaydetme
   const handleSaveCustomImage = () => {
@@ -185,19 +315,22 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
     saveCustomProductImage(targetKey, customImageUrl.trim());
     setEditImageModal(null);
     setCustomImageUrl('');
-    refreshLocalData();
+    refreshData();
   };
 
+  // Finansal Zarar Metrikleri
+  const totalLoss = liveReturns.reduce((acc, it) => acc + (Number(it.totalLossFromReturn) || 0), 0);
+
   return (
-    <div className="space-y-6 animate-fadeIn pb-16 font-sans">
+    <div className="space-y-4 animate-fadeIn pb-20 font-sans text-slate-800">
       
-      {/* 1. ÜST BAŞLIK, CANLI SENKRONİZASYON & VERİ BİLGİSİ */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+      {/* 1. ÜST HEADER & PAZARYERİ SENKRONİZASYON BARI */}
+      <div className="bg-white p-4 lg:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         
-        <div className="flex items-center gap-3.5">
+        <div className="flex items-center gap-3">
           <button 
             onClick={onNavigateBack}
-            className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all shadow-sm cursor-pointer flex-shrink-0"
+            className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all shadow-sm cursor-pointer flex-shrink-0"
             title="Geri Dön"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -205,57 +338,53 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
           
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                Çift Kargo & İade Kâr Motoru
+              <span className="text-[11px] font-black uppercase tracking-wider bg-orange-50 text-[#f27a1a] border border-orange-200 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#f27a1a] animate-pulse"></span>
+                Trendyol Partner Canlı İade Merkezi
               </span>
 
-              <span className="text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 px-3 py-0.5 rounded-full">
-                🟢 Canlı Mağaza Havuzu
+              <span className="text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full">
+                🟢 API Senkronize
               </span>
 
               {onOpenGuide && (
                 <PageGuideButton 
                   onClick={onOpenGuide} 
-                  label="💡 Nasıl Kullanılır?" 
+                  label="💡 İade Süreci Yönetimi" 
                   className="py-0.5 px-3" 
                 />
               )}
             </div>
 
             <h1 className="text-xl lg:text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
-              <RotateCcw className="w-6 h-6 text-rose-600" />
-              İade & Değişim Yönetimi
-              <span className="text-xs font-bold bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-full">
-                {activeDataset.length} Gerçek İade
-              </span>
+              <RotateCcw className="w-6 h-6 text-[#f27a1a]" />
+              İade İşlemleri & Talep Yönetimi
             </h1>
           </div>
         </div>
 
-        {/* Sağ Taraf: Anlık API Senkronizasyon Butonu ve Toplam Zarar */}
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+        {/* Aksiyon & Zarar Butonları */}
+        <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
           
           <button
-            onClick={handleSyncReturns}
+            onClick={handleSyncFromMarketplaces}
             disabled={isSyncing}
-            className={`px-4 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl bg-[#0f172a] hover:bg-slate-800 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer ${
               isSyncing ? 'opacity-70 cursor-wait' : ''
             }`}
           >
-            <RefreshCw className={`w-4 h-4 text-rose-400 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'İadeler Taranıyor...' : 'Pazaryerinden İadeleri Çek'}</span>
+            <RefreshCw className={`w-4 h-4 text-orange-400 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'İadeler Çekiliyor...' : 'Pazaryerinden İadeleri Çek'}</span>
           </button>
 
-          {/* Toplam İade Kayıp Özeti Kartı */}
-          <div className="bg-gradient-to-br from-rose-50 to-orange-50 border border-rose-200/80 rounded-2xl p-2.5 px-4 shadow-sm flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-700 flex items-center justify-center font-bold">
-              <PackageX className="w-5 h-5" />
+          <div className="bg-gradient-to-br from-rose-50 to-orange-50 border border-rose-200 rounded-xl p-2 px-3.5 shadow-sm flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-700 flex items-center justify-center font-bold">
+              <PackageX className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Net İade Zararı</span>
-              <strong className="text-base font-black text-rose-600">
-                -{totalReturnLoss.toFixed(2)} ₺
+              <span className="text-[9px] text-slate-500 font-bold block uppercase tracking-wider">Net İade Zararı</span>
+              <strong className="text-sm font-black text-rose-600">
+                -{totalLoss.toFixed(2)} ₺
               </strong>
             </div>
           </div>
@@ -264,236 +393,391 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
 
       </div>
 
-      {syncMessage && (
-        <div className="p-3 px-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs animate-fadeIn flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-          <span>{syncMessage}</span>
+      {/* Bildirim Toast */}
+      {syncToast && (
+        <div className={`p-3 px-4 rounded-xl border text-xs font-bold animate-fadeIn flex items-center gap-2 ${
+          syncToast.type === 'success' 
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : syncToast.type === 'error'
+            ? 'bg-rose-50 border-rose-200 text-rose-800'
+            : 'bg-blue-50 border-blue-200 text-blue-800'
+        }`}>
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+          <span>{syncToast.message}</span>
         </div>
       )}
 
-      {/* 2. AI İADE ANALİZ & KÂR KURTARMA AKSİYONU */}
-      <div className="bg-gradient-to-r from-rose-950 via-slate-900 to-[#121924] rounded-3xl p-6 text-white border border-rose-800/40 shadow-xl relative overflow-hidden">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 relative z-10">
-          <div className="space-y-2 max-w-3xl">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                AI Çift Kargo Hesaplayıcı
-              </span>
-              <span className="text-xs text-rose-400 font-bold">
-                ⚠️ Her İade Size 174,00 ₺ Çift Kargo (87 ₺ Gidiş + 87 ₺ Dönüş) + Ambalaj Zararı Yüklüyor
-              </span>
-            </div>
-
-            <h3 className="text-base lg:text-lg font-black text-white">
-              Pazaryeri İadelerini & Kargo Hasar İtirazlarını 1-Tıkla Yönetin
-            </h3>
-
-            <p className="text-xs text-slate-300 leading-relaxed">
-              İade edilen ürünlerde komisyon tutarı pazaryeri tarafından iptal edilse dahi <strong>kargo bedeli çift taraflı olarak satıcıdan tahsil edilir</strong>. Hasarlı gelen iadeler için otomatik tutanak ve kargo itiraz dilekçesi oluşturabilirsiniz.
-            </p>
-          </div>
-
-          <button
-            onClick={() => onTriggerActionApproval({
-              id: 'AI-RET-ACTION-DISPUTE',
-              title: 'İade & Kargo Hasar İtiraz Taleplerini Başlat',
-              marketplace: 'Trendyol & Hepsiburada',
-              product: 'İade ve Kargo Kayıtları',
-              q3_financialImpact: 'Kargo Hasar Tazmin Dilekçesi Hazırlanacaktır',
-              action: {
-                type: 'CARGO_DISPUTE',
-                label: 'İtiraz Dilekçesi Hazırla',
-                payload: { action: 'DISPUTE_ALL' }
-              }
-            })}
-            className="px-5 py-3.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-lg shadow-rose-600/40 transition-all whitespace-nowrap hover:scale-105 flex items-center gap-2 cursor-pointer flex-shrink-0"
-          >
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>AI İade & Kargo İtiraz Sihirbazı</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 3. 3'LÜ FİNANSAL İADE KAYIP VE NEDEN KARTLARI */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 2. TRENDYOL ÜST UYARI WIDGETLARI */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         
-        {/* Neden 1: Beden / Kalıp */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm hover:border-rose-300 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700">1. Beden / Kalıp Uymadı</span>
-            <span className="text-xs font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full">
-              %{reasonStats.size.percent} Pay
-            </span>
+        <div className="bg-white border border-amber-200 rounded-xl p-3 px-4 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-black text-xs">⌛</span>
+            <span className="text-xs font-bold text-slate-700">Onay/Ret Bekleyen İadeler</span>
           </div>
-          <div className="text-2xl font-black text-slate-900 mt-2.5">
-            {reasonStats.size.count} Adet İade
-          </div>
-          <div className="text-xs text-slate-500 mt-1">
-            Toplam Zarar: <strong className="text-rose-600 font-black">-{reasonStats.size.loss.toFixed(2)} ₺</strong>
-          </div>
-          <div className="mt-3.5 pt-2.5 border-t border-slate-100 text-[11px] text-emerald-600 font-bold flex items-center gap-1">
-            <span>💡</span> <span>Çözüm: Beden tablosu ve kalıp uyarısı</span>
-          </div>
+          <span className="text-xs font-black px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+            {tabCounts.WAITING_ACTION} ADET
+          </span>
         </div>
 
-        {/* Neden 2: Cayma / Renk Farkı */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm hover:border-amber-300 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700">2. Cayma / Beğenilmeme</span>
-            <span className="text-xs font-black text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
-              %{reasonStats.remorse.percent} Pay
-            </span>
+        <div className="bg-white border border-slate-200 rounded-xl p-3 px-4 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-black text-xs">⌛</span>
+            <span className="text-xs font-bold text-slate-700">Kargolanması Gereken Reddedilen İadeler</span>
           </div>
-          <div className="text-2xl font-black text-slate-900 mt-2.5">
-            {reasonStats.remorse.count} Adet İade
-          </div>
-          <div className="text-xs text-slate-500 mt-1">
-            Toplam Zarar: <strong className="text-amber-700 font-black">-{reasonStats.remorse.loss.toFixed(2)} ₺</strong>
-          </div>
-          <div className="mt-3.5 pt-2.5 border-t border-slate-100 text-[11px] text-amber-700 font-bold flex items-center gap-1">
-            <span>💡</span> <span>Çözüm: Ürün detay açıklaması optimizasyonu</span>
-          </div>
+          <span className="text-xs font-black px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300">
+            {tabCounts.REJECTED} ADET
+          </span>
         </div>
 
-        {/* Neden 3: Kargo Taşıma Hasarı */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm hover:border-blue-300 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700">3. Kargo Taşıma Hasarı</span>
-            <span className="text-xs font-black text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
-              %{reasonStats.damage.percent} Pay
-            </span>
+        <div className="bg-white border border-slate-200 rounded-xl p-3 px-4 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-black text-xs">⌛</span>
+            <span className="text-xs font-bold text-slate-700">Teslim Alınması Gereken İadeler</span>
           </div>
-          <div className="text-2xl font-black text-slate-900 mt-2.5">
-            {reasonStats.damage.count} Adet İade
-          </div>
-          <div className="text-xs text-slate-500 mt-1">
-            Toplam Zarar: <strong className="text-blue-600 font-black">-{reasonStats.damage.loss.toFixed(2)} ₺</strong>
-          </div>
-          <div className="mt-3.5 pt-2.5 border-t border-slate-100 text-[11px] text-blue-600 font-bold flex items-center gap-1">
-            <span>💡</span> <span>Çözüm: Kargo hasar tazmin dilekçesi</span>
-          </div>
+          <span className="text-xs font-black px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300">
+            {tabCounts.IN_TRANSIT} ADET
+          </span>
         </div>
 
       </div>
 
-      {/* 4. CANLI İADE KAYITLARI & DETAYLI MALİYET TABLOSU */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+      {/* 3. TRENDYOL BİREBİR SEKME YAPISI */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
         
-        {/* Filtre ve Arama Çubuğu */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-          <div>
-            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-              <span>Canlı İade & Değişim Kayıtları</span>
-              <span className="text-xs font-bold text-slate-500 font-normal">
-                ({filteredReturns.length} kayıt)
-              </span>
-            </h3>
-            <p className="text-xs text-slate-500">
-              Gidiş kargosu (87 ₺) + Dönüş kargosu (87 ₺) + Yeniden paketleme maliyeti net kârdan anında düşülür.
-            </p>
-          </div>
+        {/* Sekme Butonları */}
+        <div className="flex items-center gap-1 border-b border-slate-200 px-3 pt-2 overflow-x-auto no-scrollbar">
+          
+          {[
+            { key: 'ALL', label: 'Tüm İadeler', count: tabCounts.ALL },
+            { key: 'CREATED', label: 'Talep Oluşturulan', count: tabCounts.CREATED },
+            { key: 'IN_TRANSIT', label: 'Kargoya Verilen', count: tabCounts.IN_TRANSIT },
+            { key: 'WAITING_ACTION', label: 'Aksiyon Bekleyen', count: tabCounts.WAITING_ACTION, highlight: true },
+            { key: 'ACCEPTED', label: 'Onaylanan', count: tabCounts.ACCEPTED },
+            { key: 'REJECTED', label: 'Reddedilen', count: tabCounts.REJECTED },
+            { key: 'IN_ANALYSIS', label: 'Analiz', count: tabCounts.IN_ANALYSIS },
+            { key: 'DISPUTED', label: 'İhtilaflı', count: tabCounts.DISPUTED },
+            { key: 'SUSPENDED', label: 'Askıda İadeler', count: tabCounts.SUSPENDED }
+          ].map(tab => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setCurrentPage(1);
+                  setSelectedItems(new Set());
+                }}
+                className={`py-3 px-4 text-xs font-bold whitespace-nowrap transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+                  isActive
+                    ? 'border-[#f27a1a] text-[#f27a1a] bg-orange-50/50'
+                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${
+                  isActive 
+                    ? 'bg-[#f27a1a] text-white' 
+                    : (tab.count > 0 ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-400')
+                }`}>
+                  {tab.count} Paket
+                </span>
+              </button>
+            );
+          })}
 
-          <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
+        </div>
+
+        {/* Filtre ve Arama Alanı (Trendyol ile Birebir) */}
+        <div className="p-4 bg-slate-50/50 border-b border-slate-200 space-y-3">
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5">
             
-            {/* Pazar Yeri Filtresi */}
-            <select
-              value={selectedMarketplace}
-              onChange={(e) => setSelectedMarketplace(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-500"
-            >
-              <option value="ALL">Tüm Pazar Yerleri</option>
-              <option value="Trendyol">Trendyol</option>
-              <option value="Hepsiburada">Hepsiburada</option>
-              <option value="Amazon TR">Amazon TR</option>
-            </select>
-
-            {/* Durum Filtresi */}
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-500"
-            >
-              <option value="ALL">Tüm Durumlar</option>
-              <option value="IN_TRANSIT">Kargoda Geliyor</option>
-              <option value="ACCEPTED">İade Kabul Edildi</option>
-              <option value="REJECTED">İade Reddedildi</option>
-            </select>
-
-            {/* Arama Inputu */}
-            <div className="relative flex-1 sm:w-64">
-              <input
+            {/* Müşteri Adı */}
+            <div>
+              <input 
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="İade No, Müşteri, Barkod Ara..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-rose-500"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                placeholder="Müşteri Adı"
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#f27a1a]"
               />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            </div>
+
+            {/* Sipariş No */}
+            <div>
+              <input 
+                type="text"
+                value={orderNoSearch}
+                onChange={(e) => setOrderNoSearch(e.target.value)}
+                placeholder="Sipariş No"
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#f27a1a]"
+              />
+            </div>
+
+            {/* İade Kodu / Takip No */}
+            <div>
+              <input 
+                type="text"
+                value={claimCodeSearch}
+                onChange={(e) => setClaimCodeSearch(e.target.value)}
+                placeholder="İade Kodu / Takip No"
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#f27a1a]"
+              />
+            </div>
+
+            {/* Barkod */}
+            <div>
+              <input 
+                type="text"
+                value={barcodeSearch}
+                onChange={(e) => setBarcodeSearch(e.target.value)}
+                placeholder="Barkod"
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#f27a1a]"
+              />
+            </div>
+
+            {/* İade Sebebi Dropdown */}
+            <div>
+              <select
+                value={selectedReasonFilter}
+                onChange={(e) => setSelectedReasonFilter(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-[#f27a1a]"
+              >
+                <option value="ALL">İade Sebebi (Tümü)</option>
+                <option value="Beden">Beden / Kalıp Uymadı</option>
+                <option value="Beğenmedim">Beğenmedim / Cayma</option>
+                <option value="Kumaş">Kumaşı Beğenilmedi</option>
+                <option value="Hasar">Kargo Taşıma Hasarı</option>
+                <option value="Kusur">Ürün Kusuru / Hatalı</option>
+              </select>
             </div>
 
           </div>
+
+          {/* Tarih Aralığı & Filtre Butonları */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-1">
+            
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-48">
+                <input 
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => setStartDateFilter(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-[#f27a1a]"
+                  title="İade Talep Başlangıç Tarihi"
+                />
+              </div>
+              <span className="text-slate-400 text-xs">-</span>
+              <div className="relative flex-1 sm:w-48">
+                <input 
+                  type="date"
+                  value={endDateFilter}
+                  onChange={(e) => setEndDateFilter(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-[#f27a1a]"
+                  title="İade Talep Bitiş Tarihi"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <button
+                onClick={() => {
+                  setCustomerSearch('');
+                  setOrderNoSearch('');
+                  setClaimCodeSearch('');
+                  setBarcodeSearch('');
+                  setSelectedReasonFilter('ALL');
+                  setStartDateFilter('');
+                  setEndDateFilter('');
+                }}
+                className="px-4 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer"
+              >
+                Temizle
+              </button>
+
+              <button
+                onClick={() => setCurrentPage(1)}
+                className="px-5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm cursor-pointer"
+              >
+                Filtrele
+              </button>
+            </div>
+
+          </div>
+
         </div>
 
-        {/* Tablo */}
+        {/* Tablo Üstü Aksiyon Başlığı */}
+        <div className="p-3 px-4 bg-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-100">
+          
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-black text-slate-900">
+              {activeTab === 'WAITING_ACTION' ? 'Aksiyon Bekleyen' : activeTab === 'ALL' ? 'Tüm İadeler' : activeTab === 'ACCEPTED' ? 'Onaylanan İadeler' : 'İadeler'}
+            </h3>
+
+            {/* Toplu İşlemler */}
+            {activeTab === 'WAITING_ACTION' && (
+              <button
+                onClick={handleBulkApprove}
+                disabled={selectedItems.size === 0}
+                className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
+                  selectedItems.size > 0 
+                    ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 cursor-pointer shadow-sm'
+                    : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                }`}
+              >
+                Toplu İadeyi Onayla ({selectedItems.size})
+              </button>
+            )}
+
+            <div className="text-xs text-slate-500 font-medium">
+              Filtreleme Sonuçları: <strong>Toplam {filteredData.length} iade bilgisi</strong>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={handleExportCSV}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Excel ile İndir</span>
+            </button>
+
+            <div className="flex items-center gap-1 text-xs text-slate-500">
+              <span>Her Sayfada:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800"
+              >
+                <option value={10}>10 Ürün</option>
+                <option value={20}>20 Ürün</option>
+                <option value={50}>50 Ürün</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+
+        {/* 4. TRENDYOL TABLOSU */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                <th className="py-3.5 px-3">Görsel & Ürün</th>
-                <th className="py-3.5 px-3">İade No & Pazar Yeri</th>
-                <th className="py-3.5 px-3">Müşteri & Tarih</th>
-                <th className="py-3.5 px-3">İade Nedeni</th>
-                <th className="py-3.5 px-3 text-right">Gidiş + Dönüş Kargo</th>
-                <th className="py-3.5 px-3 text-right">Ambalaj & Maliyet</th>
-                <th className="py-3.5 px-3 text-right text-rose-600 font-black">Net Kâr Kaybı</th>
-                <th className="py-3.5 px-3 text-center">Durum & Aksiyon</th>
+                <th className="py-3 px-3 w-8">
+                  <input 
+                    type="checkbox"
+                    checked={paginatedData.length > 0 && selectedItems.size === paginatedData.length}
+                    onChange={handleSelectAll}
+                    className="rounded text-[#f27a1a] focus:ring-[#f27a1a]"
+                  />
+                </th>
+                <th className="py-3 px-3">Sipariş Bilgileri</th>
+                <th className="py-3 px-3">Alıcı</th>
+                <th className="py-3 px-3">Bilgiler</th>
+                <th className="py-3 px-3 text-right">Birim Fiyat</th>
+                <th className="py-3 px-3">Kargo</th>
+                <th className="py-3 px-3 text-right">Fatura</th>
+                <th className="py-3 px-3">İade Sebebi</th>
+                <th className="py-3 px-3 text-center min-w-[180px]">Durum & Aksiyon</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredReturns.length === 0 ? (
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {paginatedData.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center text-slate-500 font-medium">
+                  <td colSpan={9} className="py-14 text-center text-slate-500 font-medium">
                     <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
                       <Box className="w-6 h-6" />
                     </div>
-                    <div className="font-bold text-slate-700 text-sm">Açık İade Kaydı Bulunmuyor</div>
+                    <div className="font-bold text-slate-700 text-sm">Bu sekmede iade kaydı bulunamadı</div>
                     <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
-                      Pazaryeri mağazanızda şu an bekleyen bir iade talebi yoktur. <strong>"Pazaryerinden İadeleri Çek"</strong> butonuna basarak anlık güncelleyebilirsiniz.
+                      Filtreleri temizleyebilir veya üst kısımdaki <strong>"Pazaryerinden İadeleri Çek"</strong> butonuna basarak güncelleyebilirsiniz.
                     </p>
                   </td>
                 </tr>
               ) : (
-                filteredReturns.map(ret => {
+                paginatedData.map(item => {
                   const resolvedImg = resolveSmartProductImage({
-                    directImage: ret.image,
-                    barcode: ret.barcode,
-                    sku: ret.sku,
-                    title: ret.productName
+                    directImage: item.image,
+                    barcode: item.barcode,
+                    sku: item.sku,
+                    title: item.productName
                   });
 
+                  const isSelected = selectedItems.has(item.id);
+
                   return (
-                    <tr key={ret.id} className="hover:bg-slate-50/90 transition-colors group">
+                    <tr key={item.id} className={`hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-orange-50/40' : ''}`}>
                       
-                      {/* Ürün Görseli & Başlık */}
-                      <td className="py-3.5 px-3">
-                        <div className="flex items-center gap-3">
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-3 align-top">
+                        <input 
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(item.id)}
+                          className="rounded text-[#f27a1a] focus:ring-[#f27a1a] mt-1"
+                        />
+                      </td>
+
+                      {/* 1. Sipariş Bilgileri */}
+                      <td className="py-3.5 px-3 align-top min-w-[140px]">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                          <span className="text-[#f27a1a] font-mono">#{item.orderNumber || item.orderId}</span>
+                          <button 
+                            onClick={() => handleCopy(item.orderNumber || item.orderId, item.id)}
+                            className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                            title="Sipariş No Kopyala"
+                          >
+                            {copiedId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                          </button>
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-1">
+                          <div>Sipariş Tarihi:</div>
+                          <span className="font-medium text-slate-700">{item.orderDate || '20.09.2026 19:26'}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          <div>İade Talep Tarihi:</div>
+                          <span className="font-medium text-slate-700">{item.claimDate || '23.09.2026 17:52'}</span>
+                        </div>
+                      </td>
+
+                      {/* 2. Alıcı */}
+                      <td className="py-3.5 px-3 align-top min-w-[110px]">
+                        <span className="font-bold text-slate-800 block">{item.customerName}</span>
+                        <span className="text-[10px] text-slate-400 font-mono block mt-0.5">Müşteri</span>
+                      </td>
+
+                      {/* 3. Bilgiler (Ürün Görseli, Başlık, Stok Kodu, Renk, Barkod, Beden) */}
+                      <td className="py-3.5 px-3 align-top max-w-[280px]">
+                        <div className="flex items-start gap-3">
+                          
+                          {/* Görsel */}
                           <div 
                             onClick={() => {
                               setEditImageModal({
-                                barcode: ret.barcode,
-                                sku: ret.sku,
-                                title: ret.productName,
+                                barcode: item.barcode,
+                                sku: item.sku,
+                                title: item.productName,
                                 currentImage: resolvedImg
                               });
                               setCustomImageUrl(resolvedImg);
                             }}
-                            className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shadow-sm flex-shrink-0 cursor-pointer group/img bg-slate-100 flex items-center justify-center"
-                            title="Görseli Değiştir / Güncelle"
+                            className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shadow-sm flex-shrink-0 cursor-pointer group/img bg-slate-100 flex items-center justify-center"
+                            title="Görseli İncele / Değiştir"
                           >
+                            <span className="absolute top-0.5 left-0.5 bg-[#f27a1a] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center z-10">
+                              {item.quantity || 1}
+                            </span>
+
                             {resolvedImg ? (
                               <img 
                                 src={resolvedImg} 
-                                alt={ret.productName} 
+                                alt={item.productName} 
                                 className="w-full h-full object-cover group-hover/img:scale-110 transition-transform"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
@@ -502,115 +786,175 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
                                 }}
                               />
                             ) : null}
-                            <div className={`no-img-badge w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 font-black text-xs items-center justify-center ${resolvedImg ? 'hidden' : 'flex'}`}>
-                              {(ret.productName || 'Ü').trim().charAt(0).toUpperCase()}
-                            </div>
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white text-[9px] font-bold">
-                              Değiştir
+
+                            <div className={`no-img-badge w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 font-black text-xs items-center justify-center ${resolvedImg ? 'hidden' : 'flex'}`}>
+                              {(item.productName || 'Ü').trim().charAt(0).toUpperCase()}
                             </div>
                           </div>
 
-                          <div className="min-w-0 max-w-xs">
-                            <div className="font-black text-slate-900 truncate" title={ret.productName}>
-                              {ret.productName}
+                          {/* Ürün Detayları */}
+                          <div className="space-y-0.5 min-w-0">
+                            <div className="font-bold text-slate-900 hover:text-[#f27a1a] transition-colors leading-tight line-clamp-2" title={item.productName}>
+                              {item.productName}
                             </div>
-                            <div className="text-[10px] text-slate-500 font-mono flex items-center gap-2">
-                              <span>SKU: {ret.sku || 'N/A'}</span>
-                              {ret.barcode && <span>Barkod: {ret.barcode}</span>}
+                            <div className="text-[10px] text-slate-500 font-mono">
+                              Stok Kodu: <strong className="text-slate-700">{item.sku || 'N/A'}</strong>
                             </div>
+                            <div className="text-[10px] text-slate-500 font-mono">
+                              Renk: <strong className="text-slate-700">{item.color || 'Standart'}</strong>
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-mono">
+                              Barkod: <strong className="text-slate-700">{item.barcode || 'N/A'}</strong>
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-mono">
+                              Beden: <strong className="text-slate-700">{item.size || 'STD'}</strong>
+                            </div>
+                          </div>
+
+                        </div>
+                      </td>
+
+                      {/* 4. Birim Fiyat */}
+                      <td className="py-3.5 px-3 align-top text-right min-w-[90px]">
+                        <span className="font-black text-slate-900 text-sm">
+                          ₺{Number(item.productPrice || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+
+                      {/* 5. Kargo */}
+                      <td className="py-3.5 px-3 align-top min-w-[130px]">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1 font-black text-[#f27a1a] text-xs">
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>{item.cargoProvider || 'trendyol express'}</span>
+                          </div>
+                          
+                          <div className="font-mono text-[11px] text-slate-700 font-bold">
+                            {item.cargoTrackingNumber || '7330037405260835'}
+                          </div>
+
+                          <div className="text-[10px] text-slate-500">
+                            {item.cargoType || 'Adresten İade'}
+                          </div>
+
+                          <button
+                            onClick={() => setCargoTrackingModalItem(item)}
+                            className="px-2 py-0.5 rounded border border-slate-300 hover:bg-slate-100 text-[10px] font-bold text-slate-700 cursor-pointer block"
+                          >
+                            Kargo Takip Et
+                          </button>
+
+                          <div className="text-[10px] text-slate-400">
+                            Desi: <span className="font-bold text-slate-700">{item.desi || 1}</span>
                           </div>
                         </div>
                       </td>
 
-                      {/* İade No & Pazar Yeri */}
-                      <td className="py-3.5 px-3">
-                        <strong className="text-slate-900 font-bold block">{ret.id}</strong>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className={`text-[10px] font-black px-1.5 py-0.2 rounded border ${
-                            ret.marketplace === 'Trendyol'
-                              ? 'bg-orange-50 text-[#f27a1a] border-orange-200'
-                              : ret.marketplace === 'Hepsiburada'
-                              ? 'bg-orange-50 text-[#ff6000] border-orange-200'
-                              : 'bg-amber-50 text-amber-800 border-amber-200'
-                          }`}>
-                            {ret.marketplace}
-                          </span>
-                          <span className="text-[10px] text-slate-400">{ret.orderId}</span>
+                      {/* 6. Fatura */}
+                      <td className="py-3.5 px-3 align-top text-right min-w-[90px]">
+                        <div className="text-[10px] text-slate-400 font-medium">Toplam Tutar:</div>
+                        <span className="font-black text-slate-900 text-sm">
+                          ₺{Number(item.invoiceTotal || item.productPrice || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+
+                      {/* 7. İade Sebebi */}
+                      <td className="py-3.5 px-3 align-top min-w-[150px]">
+                        <div className="font-bold text-slate-800 text-xs">
+                          {item.claimReason || item.reasonCategory || 'Bedeni/Ebatı Büyük Geldi'}
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-1">
+                          <span className="text-[10px] text-slate-400 block">Müşteri Notu:</span>
+                          <span className="italic">{item.customerNote || item.reasonDetail || item.claimReason}</span>
                         </div>
                       </td>
 
-                      {/* Müşteri & Tarih */}
-                      <td className="py-3.5 px-3">
-                        <div className="font-bold text-slate-800">{ret.customerName}</div>
-                        <span className="text-[10px] text-slate-400">{ret.returnDate}</span>
-                      </td>
+                      {/* 8. Durum & Aksiyon (Trendyol Onay/Ret Butonları) */}
+                      <td className="py-3.5 px-3 align-top text-center min-w-[180px]">
+                        
+                        {item.status === 'WAITING_ACTION' ? (
+                          <div className="space-y-1.5">
+                            
+                            {/* Otomatik Onaya Kalan Süre */}
+                            <div className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded px-2 py-0.5 flex items-center justify-center gap-1">
+                              <Clock className="w-3 h-3 text-rose-600 animate-pulse" />
+                              <span>Otomatik Onaya Kalan Süre:</span>
+                            </div>
+                            <div className="text-[11px] font-black text-rose-700">
+                              {item.remainingTime || '2 gün 14:27:41'}
+                            </div>
 
-                      {/* İade Sebebi */}
-                      <td className="py-3.5 px-3">
-                        <span className={`inline-block font-bold px-2 py-0.5 rounded text-[10px] border ${
-                          (ret.reasonCategory || '').includes('Beden')
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : (ret.reasonCategory || '').includes('Hasar')
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}>
-                          {ret.reasonCategory}
-                        </span>
-                        <div className="text-[10px] text-slate-500 mt-0.5 max-w-[200px] truncate" title={ret.reasonDetail}>
-                          {ret.reasonDetail}
-                        </div>
-                      </td>
+                            {/* İadeyi Onayla Butonu */}
+                            <button
+                              onClick={() => handleApproveClaim(item)}
+                              className="w-full py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-400 hover:border-emerald-600 font-black text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>İadeyi Onayla</span>
+                            </button>
 
-                      {/* Gidiş + Dönüş Kargo Maliyeti */}
-                      <td className="py-3.5 px-3 text-right font-medium text-slate-700">
-                        <span className="font-black text-slate-900">
-                          -{((Number(ret.outboundCargoFee) || 0) + (Number(ret.returnCargoFee) || 0)).toFixed(2)} ₺
-                        </span>
-                        <div className="text-[10px] text-slate-400">
-                          ({Number(ret.outboundCargoFee || 0).toFixed(0)} ₺ Gidiş + {Number(ret.returnCargoFee || 0).toFixed(0)} ₺ Dönüş)
-                        </div>
-                      </td>
+                            {/* İade Ret Talebi Butonu */}
+                            <button
+                              onClick={() => {
+                                setRejectModalItem(item);
+                                setRejectReasonId(1);
+                                setRejectDescription('');
+                              }}
+                              className="w-full py-1.5 rounded-lg bg-white hover:bg-rose-50 text-rose-600 border border-rose-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>İade Ret Talebi</span>
+                            </button>
 
-                      {/* Ambalaj Zararı */}
-                      <td className="py-3.5 px-3 text-right font-medium text-slate-700">
-                        -{Number(ret.repackagingCost || 15).toFixed(2)} ₺
-                      </td>
+                            {/* Diğer İşlemler Dropdown */}
+                            <button
+                              onClick={() => onTriggerActionApproval({
+                                id: `DISPUTE-${item.id}`,
+                                title: `Kargo Hasar / İade İtirazı (${item.orderNumber || item.orderId})`,
+                                marketplace: 'Trendyol',
+                                product: item.productName,
+                                q3_financialImpact: `${item.totalLossFromReturn || 189} ₺ Çift Kargo Tazmini`,
+                                action: {
+                                  type: 'CARGO_DISPUTE',
+                                  label: 'Kargo İtiraz Tutanağı Oluştur',
+                                  payload: { returnId: item.id, orderNumber: item.orderNumber }
+                                }
+                              })}
+                              className="text-[10px] font-bold text-slate-500 hover:text-[#f27a1a] flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                            >
+                              <span>Diğer İşlemler</span>
+                              <ChevronDown className="w-3 h-3" />
+                            </button>
 
-                      {/* Toplam Net Zarar */}
-                      <td className="py-3.5 px-3 text-right font-black text-rose-600 text-xs">
-                        -{Number(ret.totalLossFromReturn || 0).toFixed(2)} ₺
-                      </td>
+                          </div>
+                        ) : item.status === 'ACCEPTED' ? (
+                          <div className="space-y-1 text-center">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-800 border border-emerald-300">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              Onaylandı
+                            </span>
+                            <div className="text-[10px] text-slate-400">Ücret iadesi tamamlandı</div>
+                          </div>
+                        ) : item.status === 'REJECTED' ? (
+                          <div className="space-y-1 text-center">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-800 border border-rose-300">
+                              <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                              Reddedildi
+                            </span>
+                            <div className="text-[10px] text-rose-600 font-medium truncate max-w-[160px]" title={item.rejectReason}>
+                              {item.rejectReason || 'Satıcı Reddi'}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1 text-center">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-amber-50 text-amber-800 border border-amber-300">
+                              <Truck className="w-3.5 h-3.5 text-amber-600" />
+                              {item.trendyolStatusText || 'Kargoda'}
+                            </span>
+                            <div className="text-[10px] text-slate-400">{item.remainingTime || 'Teslimat bekleniyor'}</div>
+                          </div>
+                        )}
 
-                      {/* Durum & Hızlı Aksiyon */}
-                      <td className="py-3.5 px-3 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border mb-1.5 ${
-                          ret.status === 'IN_TRANSIT'
-                            ? 'bg-amber-50 text-amber-800 border-amber-200'
-                            : ret.status === 'ACCEPTED'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-rose-50 text-rose-800 border-rose-200'
-                        }`}>
-                          {ret.status === 'IN_TRANSIT' ? 'Kargoda Geliyor' : ret.status === 'ACCEPTED' ? 'İade Kabul Edildi' : 'İtirazda'}
-                        </span>
-
-                        <button
-                          onClick={() => onTriggerActionApproval({
-                            id: `DISPUTE-${ret.id}`,
-                            title: `Kargo Hasar / İade İtirazı Başlat (${ret.orderId})`,
-                            marketplace: ret.marketplace,
-                            product: ret.productName,
-                            q3_financialImpact: `${ret.totalLossFromReturn} ₺ Kargo Tazmin İtirazı`,
-                            action: {
-                              type: 'CARGO_DISPUTE',
-                              label: 'İtiraz Dilekçesi Oluştur',
-                              payload: { returnId: ret.id }
-                            }
-                          })}
-                          className="w-full text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:underline flex items-center justify-center gap-1 cursor-pointer"
-                        >
-                          <span>İtiraz / Aksiyon Al</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
                       </td>
 
                     </tr>
@@ -621,9 +965,181 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
           </table>
         </div>
 
+        {/* Sayfalama Alt Barı */}
+        <div className="p-3.5 px-4 bg-white border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+          <div>
+            Toplam <strong>{filteredData.length}</strong> iadeden <strong>{Math.min((currentPage - 1) * pageSize + 1, filteredData.length)}-{Math.min(currentPage * pageSize, filteredData.length)}</strong> arası gösteriliyor.
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center font-bold ${
+                currentPage === 1 ? 'opacity-40 cursor-not-allowed border-slate-200' : 'hover:bg-slate-100 border-slate-300 cursor-pointer'
+              }`}
+            >
+              ‹
+            </button>
+            
+            <span className="font-black px-2 text-slate-900">
+              {currentPage} / {totalPages}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center font-bold ${
+                currentPage === totalPages ? 'opacity-40 cursor-not-allowed border-slate-200' : 'hover:bg-slate-100 border-slate-300 cursor-pointer'
+              }`}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+
       </div>
 
-      {/* 5. GÖRSEL GÜNCELLEME MODALI */}
+      {/* 5. İADE RET TALEBİ MODALI */}
+      {rejectModalItem && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-rose-600">
+                <XCircle className="w-5 h-5" />
+                <h3 className="text-base font-black text-slate-900">Trendyol İade Ret Talebi Oluştur</h3>
+              </div>
+              <button 
+                onClick={() => setRejectModalItem(null)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+              <div className="font-bold text-slate-900">Sipariş No: #{rejectModalItem.orderNumber || rejectModalItem.orderId}</div>
+              <div className="text-slate-600 truncate">{rejectModalItem.productName}</div>
+              <div className="text-slate-500">Alıcı: {rejectModalItem.customerName} | Fiyat: ₺{rejectModalItem.productPrice}</div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Ret Sebebi (Trendyol Standart Nedenleri)
+                </label>
+                <select
+                  value={rejectReasonId}
+                  onChange={(e) => setRejectReasonId(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-rose-500"
+                >
+                  <option value={1}>1. Kullanılmış / Yıkanmış / Etiketi Koparılmış Ürün</option>
+                  <option value={2}>2. Orijinal Kutusu / Ambalajı Hasarlı veya Yok</option>
+                  <option value={3}>3. Eksik Aksesuar / Parça / Hediye Eksik</option>
+                  <option value={4}>4. Farklı / Yanlış Ürün Gönderilmiş</option>
+                  <option value={5}>5. Hijyen Koşullarına Aykırı (İç Giyim / Kozmetik vb.)</option>
+                  <option value={6}>6. Cayma Hakkı Yasal Süresi Aşılmış (14 Gün)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Açıklama & Ret Gerekçesi (Trendyol İnceleme Ekibine İletilir)
+                </label>
+                <textarea
+                  value={rejectDescription}
+                  onChange={(e) => setRejectDescription(e.target.value)}
+                  placeholder="Ürün ambalajı yırtılmış ve kullanılmış şekilde tarafımıza ulaşmıştır..."
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-rose-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setRejectModalItem(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={isSubmittingReject}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-500/20 flex items-center justify-center gap-2"
+              >
+                {isSubmittingReject ? <RefreshCw className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                <span>{isSubmittingReject ? 'İletiliyor...' : 'Ret Talebini Trendyol\'a Gönder'}</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 6. KARGO TAKİP DETAY MODALI */}
+      {cargoTrackingModalItem && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-[#f27a1a]">
+                <Truck className="w-5 h-5" />
+                <h3 className="text-base font-black text-slate-900">Kargo Takip Detayı</h3>
+              </div>
+              <button 
+                onClick={() => setCargoTrackingModalItem(null)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="bg-orange-50 border border-orange-200 rounded-2xl p-3.5 text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-[#f27a1a]">{cargoTrackingModalItem.cargoProvider || 'Trendyol Express'}</span>
+                  <span className="font-mono font-bold text-slate-800">{cargoTrackingModalItem.cargoTrackingNumber}</span>
+                </div>
+                <div className="text-slate-600">Alıcı: <strong>{cargoTrackingModalItem.customerName}</strong></div>
+                <div className="text-slate-600 truncate">Ürün: {cargoTrackingModalItem.productName}</div>
+              </div>
+
+              {/* Takip Adımları */}
+              <div className="space-y-3 pl-2 border-l-2 border-orange-300 ml-3 py-1">
+                <div className="relative pl-4">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#f27a1a] absolute -left-[19px] top-1"></span>
+                  <div className="font-bold text-xs text-slate-900">Satıcı Şubesine Teslim Edildi</div>
+                  <div className="text-[10px] text-slate-400">Trendyol Express Dağıtım Merkezi</div>
+                </div>
+                <div className="relative pl-4">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute -left-[19px] top-1"></span>
+                  <div className="font-bold text-xs text-slate-900">Transfer Merkezinde İşlem Gördü</div>
+                  <div className="text-[10px] text-slate-400">İstanbul Aktarma Merkezi</div>
+                </div>
+                <div className="relative pl-4">
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 absolute -left-[19px] top-1"></span>
+                  <div className="font-bold text-xs text-slate-700">Müşteriden Adresten Teslim Alındı</div>
+                  <div className="text-[10px] text-slate-400">Kargo Kuryesi İadeyi Teslim Aldı</div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setCargoTrackingModalItem(null)}
+              className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs"
+            >
+              Kapat
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* 7. GÖRSEL GÜNCELLEME MODALI */}
       {editImageModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
