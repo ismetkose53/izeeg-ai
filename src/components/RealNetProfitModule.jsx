@@ -84,7 +84,7 @@ function parseOrderDate(rawDate) {
  */
 function isDateInPeriod(rawDate, period) {
   const d = parseOrderDate(rawDate);
-  if (!d) return period === 'THIS_MONTH'; // Tarih ayrıştırılamazsa genel aylık havuza dahil et
+  if (!d) return false;
 
   const now = new Date();
   
@@ -97,7 +97,7 @@ function isDateInPeriod(rawDate, period) {
   }
 
   if (period === 'THIS_WEEK') {
-    // Son 7 gün içerisindeki tüm siparişler
+    // Son 7 gün içerisindeki tüm siparişler ve iadeler
     const diffMs = now.getTime() - d.getTime();
     const diffDays = diffMs / (1000 * 3600 * 24);
     return diffDays >= -1 && diffDays <= 7;
@@ -105,9 +105,11 @@ function isDateInPeriod(rawDate, period) {
 
   if (period === 'THIS_MONTH') {
     // İçinde bulunulan ay veya son 30 gün
+    const diffMs = now.getTime() - d.getTime();
+    const diffDays = diffMs / (1000 * 3600 * 24);
     return (
       (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) ||
-      (now.getTime() - d.getTime()) <= (30 * 24 * 3600 * 1000)
+      (diffDays >= -1 && diffDays <= 30)
     );
   }
 
@@ -125,9 +127,15 @@ export function RealNetProfitModule({
   // Dönem Filtresi: 'TODAY' (Bugün) | 'THIS_WEEK' (Bu Hafta) | 'THIS_MONTH' (Bu Ay)
   const [period, setPeriod] = useState('TODAY');
 
-  // Canlı İade Listesini Al
-  const allStoredReturns = useMemo(() => {
-    return getStoredReturns();
+  // Canlı İade Listesini Al ve Güncellemeleri Dinle
+  const [liveReturns, setLiveReturns] = useState(() => getStoredReturns());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setLiveReturns(getStoredReturns());
+    };
+    window.addEventListener('izeeg_returns_updated', handleUpdate);
+    return () => window.removeEventListener('izeeg_returns_updated', handleUpdate);
   }, []);
 
   // Döneme Göre Finansal Metrikler (Canlı Siparişlerden ve Ürün Verilerinden Deterministik Hesaplanır)
@@ -139,7 +147,7 @@ export function RealNetProfitModule({
     });
 
     // 2. Seçilen Döneme Göre İadeleri Filtrele
-    const periodReturns = (allStoredReturns || []).filter(ret => {
+    const periodReturns = (liveReturns || []).filter(ret => {
       return isDateInPeriod(ret.returnDate || ret.claimDate || ret.createdAt, period);
     });
 

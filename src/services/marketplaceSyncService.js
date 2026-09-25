@@ -1288,7 +1288,7 @@ export const SELLER_ACTIVE_TRENDYOL_CLAIMS = [
     orderId: '11547192038',
     orderNumber: '11547192038',
     orderDate: '14.09.2026 13:15',
-    claimDate: '18.09.2026 14:00',
+    claimDate: '19.09.2026 10:00',
     marketplace: 'Trendyol',
     customerName: 'Selin Şahin',
     productName: 'Dökümlü Saten Midi Elbise',
@@ -1325,30 +1325,30 @@ export function generateDefaultReturnsDataset() {
   const baseItems = [...SELLER_ACTIVE_TRENDYOL_CLAIMS];
 
   // 12 Adet "Kargoya Verilen" (IN_TRANSIT) İade
-  const inTransitNames = [
-    { name: 'Oversize Taşlı Poplin Gömlek', price: 1450, code: '73300367192039', cust: 'Derya Yılmaz', color: 'Beyaz', sku: 'GMLK-OVR-01', barcode: '8680005910283' },
-    { name: 'Beli Lastikli Keten Şort', price: 890, code: '73300366182910', cust: 'Gamze Çelik', color: 'Taş', sku: 'SRT-KTN-02', barcode: '8680006819204' },
-    { name: 'Kruvaze Yaka Saten Bluz', price: 1150, code: '73300365172819', cust: 'Aslı Güler', color: 'Şampanya', sku: 'BLZ-KRV-03', barcode: '8680007920192' },
-    { name: 'Vatkalı Fitilli Kaşkorse Crop', price: 650, code: '73300364162718', cust: 'Ece Aydın', color: 'Siyah', sku: 'CRP-KAS-04', barcode: '8680008819201' },
-    { name: 'Geniş Paça Kargo Pantolon', price: 1650, code: '73300363152617', cust: 'İrem Kurt', color: 'Haki', sku: 'PNT-KRG-05', barcode: '8680009920193' },
-    { name: 'Kare Yaka Mini Triko Elbise', price: 1350, code: '73300362142516', cust: 'Seda Koç', color: 'Lacivert', sku: 'ELB-MIN-06', barcode: '8680010920194' },
-    { name: 'Kapüşonlu Fermuarlı Sweatshirt', price: 1550, code: '73300361132415', cust: 'Melis Arslan', color: 'Gri Melanj', sku: 'SWT-FER-07', barcode: '8680011920195' },
-    { name: 'Yırtmaçlı Denim Midi Etek', price: 1250, code: '73300360122314', cust: 'Nur Aksoy', color: 'Mavi', sku: 'ETK-DNM-08', barcode: '8680012920196' },
-    { name: 'Dik Yaka Kolsuz Triko Atlet', price: 590, code: '73300359112213', cust: 'Deniz Polat', color: 'Siyah', sku: 'ATL-TRK-09', barcode: '8680013920197' },
-    { name: 'Dantel Detaylı Askılı Atlet', price: 720, code: '73300358102112', cust: 'Tuğba Şen', color: 'Krem', sku: 'ATL-DNT-10', barcode: '8680014920198' },
-    { name: 'Çizgili Oversize Poplin Gömlek', price: 1390, code: '73300357092011', cust: 'Gözde Yıldırım', color: 'Mavi-Beyaz', sku: 'GMLK-CZG-11', barcode: '8680015920199' },
-    { name: 'Fitilli İspanyol Paça Tayt Pantolon', price: 950, code: '73300356081910', cust: 'Hazal Erdem', color: 'Kahverengi', sku: 'TYT-ISP-12', barcode: '8680016920200' }
+  const inTransitConfigs = [
+    { name: 'Oversize Taşlı Poplin Gömlek', price: 1450, code: '73300367192039', cust: 'Derya Yılmaz', color: 'Beyaz', sku: 'GMLK-OVR-01', barcode: '8680005910283', orderDate: '21.09.2026 10:00', claimDate: '24.09.2026 14:30' },
+    { name: 'Beli Lastikli Keten Şort', price: 890, code: '73300366182910', cust: 'Gamze Çelik', color: 'Taş', sku: 'SRT-KTN-02', barcode: '8680006819204', orderDate: '20.09.2026 14:00', claimDate: '23.09.2026 11:20' },
+    { name: 'Kruvaze Yaka Saten Bluz', price: 1150, code: '73300365172819', cust: 'Aslı Güler', color: 'Şampanya', sku: 'BLZ-KRV-03', barcode: '8680007920192', orderDate: '19.09.2026 16:30', claimDate: '22.09.2026 09:45' },
+    { name: 'Vatkalı Fitilli Kaşkorse Crop', price: 650, code: '73300364162718', cust: 'Ece Aydın', color: 'Siyah', sku: 'CRP-KAS-04', barcode: '8680008819201', orderDate: '07.09.2026 11:00', claimDate: '11.09.2026 14:20' },
+    { name: 'Geniş Paça Kargo Pantolon', price: 1650, code: '73300363152617', cust: 'İrem Kurt', color: 'Haki', sku: 'PNT-KRG-05', barcode: '8680009920193', orderDate: '02.09.2026 09:30', claimDate: '06.09.2026 16:10' },
+    { name: 'Kare Yaka Mini Triko Elbise', price: 1350, code: '73300362142516', cust: 'Seda Koç', color: 'Lacivert', sku: 'ELB-MIN-06', barcode: '8680010920194', orderDate: '25.08.2026 12:00', claimDate: '28.08.2026 10:00' },
+    { name: 'Kapüşonlu Fermuarlı Sweatshirt', price: 1550, code: '73300361132415', cust: 'Melis Arslan', color: 'Gri Melanj', sku: 'SWT-FER-07', barcode: '8680011920195', orderDate: '18.08.2026 14:00', claimDate: '22.08.2026 15:30' },
+    { name: 'Yırtmaçlı Denim Midi Etek', price: 1250, code: '73300360122314', cust: 'Nur Aksoy', color: 'Mavi', sku: 'ETK-DNM-08', barcode: '8680012920196', orderDate: '10.08.2026 16:00', claimDate: '14.08.2026 11:15' },
+    { name: 'Dik Yaka Kolsuz Triko Atlet', price: 590, code: '73300359112213', cust: 'Deniz Polat', color: 'Siyah', sku: 'ATL-TRK-09', barcode: '8680013920197', orderDate: '25.07.2026 13:00', claimDate: '29.07.2026 17:40' },
+    { name: 'Dantel Detaylı Askılı Atlet', price: 720, code: '73300358102112', cust: 'Tuğba Şen', color: 'Krem', sku: 'ATL-DNT-10', barcode: '8680014920198', orderDate: '15.07.2026 10:00', claimDate: '18.07.2026 12:20' },
+    { name: 'Çizgili Oversize Poplin Gömlek', price: 1390, code: '73300357092011', cust: 'Gözde Yıldırım', color: 'Mavi-Beyaz', sku: 'GMLK-CZG-11', barcode: '8680015920199', orderDate: '01.07.2026 11:30', claimDate: '05.07.2026 16:50' },
+    { name: 'Fitilli İspanyol Paça Tayt Pantolon', price: 950, code: '73300356081910', cust: 'Hazal Erdem', color: 'Kahverengi', sku: 'TYT-ISP-12', barcode: '8680016920200', orderDate: '18.06.2026 15:00', claimDate: '22.06.2026 14:10' }
   ];
 
-  inTransitNames.forEach((item, idx) => {
+  inTransitConfigs.forEach((item, idx) => {
     baseItems.push({
       id: `CLM-TY-TR-${idx + 1}`,
       claimId: `748300${idx + 1}`,
       claimLineItemId: `item-clm-tr-${idx + 1}`,
       orderId: `115200${idx + 10}`,
       orderNumber: `115200${idx + 10}`,
-      orderDate: `12.09.2026 1${idx}:00`,
-      claimDate: `16.09.2026 1${idx}:30`,
+      orderDate: item.orderDate,
+      claimDate: item.claimDate,
       marketplace: 'Trendyol',
       customerName: item.cust,
       productName: item.name,
@@ -1380,24 +1380,24 @@ export function generateDefaultReturnsDataset() {
   });
 
   // 6 Adet "Talep Oluşturulan" (CREATED)
-  const createdNames = [
-    { name: 'Oversize Basic Modal Tişört', price: 750, cust: 'Berna Çetin', sku: 'TSH-BS-01', barcode: '8680017920201' },
-    { name: 'Düğmeli Keten Yelek', price: 1190, cust: 'Pınar Acar', sku: 'YLK-KTN-02', barcode: '8680018920202' },
-    { name: 'Pileli Şifon Maxi Etek', price: 1450, cust: 'Hilal Tekin', sku: 'ETK-SIF-03', barcode: '8680019920203' },
-    { name: 'Straplez Saten Korse Üst', price: 980, cust: 'Ezgi Doğan', sku: 'UST-STR-04', barcode: '8680020920204' },
-    { name: 'Rahat Kalıp Jogger Pantolon', price: 1250, cust: 'Cansu Şahin', sku: 'PNT-JOG-05', barcode: '8680021920205' },
-    { name: 'Çizgili V Yaka Pamuklu Kazak', price: 1390, cust: 'Müge Yavuz', sku: 'KZK-CZG-06', barcode: '8680022920206' }
+  const createdConfigs = [
+    { name: 'Oversize Basic Modal Tişört', price: 750, cust: 'Berna Çetin', sku: 'TSH-BS-01', barcode: '8680017920201', orderDate: '22.09.2026 14:00', claimDate: '25.09.2026 10:30' },
+    { name: 'Düğmeli Keten Yelek', price: 1190, cust: 'Pınar Acar', sku: 'YLK-KTN-02', barcode: '8680018920202', orderDate: '21.09.2026 11:30', claimDate: '24.09.2026 16:15' },
+    { name: 'Pileli Şifon Maxi Etek', price: 1450, cust: 'Hilal Tekin', sku: 'ETK-SIF-03', barcode: '8680019920203', orderDate: '25.08.2026 10:00', claimDate: '28.08.2026 11:00' },
+    { name: 'Straplez Saten Korse Üst', price: 980, cust: 'Ezgi Doğan', sku: 'UST-STR-04', barcode: '8680020920204', orderDate: '12.08.2026 16:00', claimDate: '15.08.2026 14:30' },
+    { name: 'Rahat Kalıp Jogger Pantolon', price: 1250, cust: 'Cansu Şahin', sku: 'PNT-JOG-05', barcode: '8680021920205', orderDate: '17.07.2026 13:30', claimDate: '20.07.2026 09:15' },
+    { name: 'Çizgili V Yaka Pamuklu Kazak', price: 1390, cust: 'Müge Yavuz', sku: 'KZK-CZG-06', barcode: '8680022920206', orderDate: '05.06.2026 11:00', claimDate: '08.06.2026 14:20' }
   ];
 
-  createdNames.forEach((item, idx) => {
+  createdConfigs.forEach((item, idx) => {
     baseItems.push({
       id: `CLM-TY-CR-${idx + 1}`,
       claimId: `748400${idx + 1}`,
       claimLineItemId: `item-clm-cr-${idx + 1}`,
       orderId: `115100${idx + 10}`,
       orderNumber: `115100${idx + 10}`,
-      orderDate: `21.09.2026 14:00`,
-      claimDate: `24.09.2026 10:30`,
+      orderDate: item.orderDate,
+      claimDate: item.claimDate,
       marketplace: 'Trendyol',
       customerName: item.cust,
       productName: item.name,
@@ -1428,16 +1428,55 @@ export function generateDefaultReturnsDataset() {
     });
   });
 
-  // 382 Adet "Onaylanan" (ACCEPTED) - Tam 382 adet tamamlayacak şekilde eklenir
+  // 382 Adet "Onaylanan" (ACCEPTED) - Gerçekçi Geçmiş Tarih Dağılımı (2025 - Ağustos 2026)
+  const historicalPeriods = [
+    { year: 2026, month: '08' },
+    { year: 2026, month: '07' },
+    { year: 2026, month: '06' },
+    { year: 2026, month: '05' },
+    { year: 2026, month: '04' },
+    { year: 2026, month: '03' },
+    { year: 2026, month: '02' },
+    { year: 2026, month: '01' },
+    { year: 2025, month: '12' },
+    { year: 2025, month: '11' },
+    { year: 2025, month: '10' },
+    { year: 2025, month: '09' },
+    { year: 2025, month: '08' },
+    { year: 2025, month: '07' },
+    { year: 2025, month: '06' },
+    { year: 2025, month: '05' },
+    { year: 2025, month: '04' },
+    { year: 2025, month: '03' }
+  ];
+
   for (let i = 1; i <= 382; i++) {
+    let orderDateStr = '';
+    let claimDateStr = '';
+
+    if (i === 1) {
+      // 1 Adet Eylül 2026 başından onaylanan iade
+      orderDateStr = '28.08.2026 14:00';
+      claimDateStr = '02.09.2026 11:00';
+    } else {
+      // Diğer 381 adet onaylanan iade geçmiş aylara ve 2025 yılına yayılır
+      const periodObj = historicalPeriods[(i - 2) % historicalPeriods.length];
+      const dayNum = ((i * 7) % 27) + 1;
+      const dayStr = dayNum < 10 ? `0${dayNum}` : `${dayNum}`;
+      const hourNum = 9 + (i % 9);
+      const hourStr = hourNum < 10 ? `0${hourNum}` : `${hourNum}`;
+      orderDateStr = `${dayStr}.${periodObj.month}.${periodObj.year} 10:00`;
+      claimDateStr = `${dayStr}.${periodObj.month}.${periodObj.year} ${hourStr}:30`;
+    }
+
     baseItems.push({
       id: `CLM-TY-ACC-${i}`,
       claimId: `748000${i}`,
       claimLineItemId: `item-clm-acc-${i}`,
       orderId: `114000${1000 + i}`,
       orderNumber: `114000${1000 + i}`,
-      orderDate: `01.09.2026 10:00`,
-      claimDate: `05.09.2026 16:00`,
+      orderDate: orderDateStr,
+      claimDate: claimDateStr,
       marketplace: 'Trendyol',
       customerName: `Müşteri #${i}`,
       productName: i % 2 === 0 ? 'Siyah Modal Tshirt ve Pantolon Takım' : 'Vatkalı Oversize Tshirt',
@@ -1477,6 +1516,13 @@ export function getStoredReturns() {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Eski hatalı veri temizleme: 382 adet onaylanan kaydın hepsi aynı tarihe (05.09.2026) ayarlandıysa yenile
+        const faultyCount = parsed.filter(r => r.status === 'ACCEPTED' && (r.claimDate || '').includes('05.09.2026')).length;
+        if (faultyCount > 10) {
+          const freshData = generateDefaultReturnsDataset();
+          localStorage.setItem(RETURNS_STORAGE_KEY, JSON.stringify(freshData));
+          return freshData;
+        }
         return parsed;
       }
     }
