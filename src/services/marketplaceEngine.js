@@ -69,9 +69,18 @@ export function calculateOrderProfit(order, products = []) {
   let totalSelling = 0;
   let totalCost = 0;
   let totalCommission = 0;
-  let hasMissingCost = false;
-  const cargoFee = Number(order.cargoFee !== undefined ? order.cargoFee : 42.91);
-  const totalItemCount = items.reduce((acc, it) => acc + (it.quantity || 1), 0);
+  const cargoSettings = typeof localStorage !== 'undefined' ? (() => {
+    try {
+      const saved = localStorage.getItem('izeeg_custom_cargo_settings');
+      return saved ? JSON.parse(saved) : { trendyolCargoCost: 87.00, hepsiburadaCargoCost: 43.50 };
+    } catch { return { trendyolCargoCost: 87.00, hepsiburadaCargoCost: 43.50 }; }
+  })() : { trendyolCargoCost: 87.00, hepsiburadaCargoCost: 43.50 };
+
+  const defaultCargo = order.marketplace === 'Trendyol' 
+    ? (cargoSettings.trendyolCargoCost || 87.00) 
+    : (cargoSettings.hepsiburadaCargoCost || 43.50);
+
+  const cargoFee = Number(order.cargoCost !== undefined ? order.cargoCost : (order.cargoFee !== undefined ? order.cargoFee : defaultCargo));
 
   const calculatedItems = items.map((it) => {
     const qty = it.quantity || 1;

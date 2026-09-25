@@ -35,7 +35,9 @@ import {
   testTrendyolApi, 
   fetchTrendyolLiveOrders, 
   testHepsiburadaApi, 
-  fetchHepsiburadaLiveOrders 
+  fetchHepsiburadaLiveOrders,
+  getCustomCargoSettings,
+  saveCustomCargoSettings
 } from '../services/marketplaceSyncService';
 
 const API_CREDENTIALS_KEY = 'izeeg_core_api_credentials';
@@ -55,6 +57,11 @@ export function MarketplaceIntegrations({
   onToast 
 }) {
   const currentUser = getCurrentUser();
+
+  // Kargo Anlaşma Maliyeti State'leri (Trendyol Anlaşması: 87.00 ₺)
+  const [cargoSettings, setCargoSettings] = useState(getCustomCargoSettings());
+  const [tyCargoCost, setTyCargoCost] = useState(cargoSettings.trendyolCargoCost || 87.00);
+  const [hbCargoCost, setHbCargoCost] = useState(cargoSettings.hepsiburadaCargoCost || 43.50);
 
   // Kayıtlı API Bilgilerini Güvenle Yükle
   const getStoredCreds = () => {
@@ -214,10 +221,36 @@ export function MarketplaceIntegrations({
     ]);
   };
 
-  // Eklenti Lisansını Devre Dışı Bırak / Kaldır
-  const handleDisconnectAddon = (addonId) => {
-    lockAddonForCurrentUser(addonId);
-    setAddons(prev => prev.map(item => item.id === addonId ? { ...item, active: false } : item));
+  // Kargo Anlaşma Maliyetlerini Kaydet ve Siparişleri Yeniden Hesapla
+  const handleSaveCargoSettings = () => {
+    const updated = {
+      ...cargoSettings,
+      trendyolCargoCost: Number(tyCargoCost) || 87.00,
+      hepsiburadaCargoCost: Number(hbCargoCost) || 43.50
+    };
+    saveCustomCargoSettings(updated);
+    setCargoSettings(updated);
+
+    if (setOrders) {
+      setOrders(prev => prev.map(o => {
+        const newCargoFee = o.marketplace === 'Trendyol' ? Number(tyCargoCost) : (o.marketplace === 'Hepsiburada' ? Number(hbCargoCost) : (o.cargoCost || 42.91));
+        const newNetPayout = Number((o.grossPrice - o.commission - newCargoFee).toFixed(2));
+        const newNetProfit = Number((newNetPayout - o.costPrice).toFixed(2));
+        const newMargin = o.grossPrice > 0 ? Number(((newNetProfit / o.grossPrice) * 100).toFixed(1)) : 0;
+        return {
+          ...o,
+          cargoCost: newCargoFee,
+          cargoFee: newCargoFee,
+          netPayout: newNetPayout,
+          netProfit: newNetProfit,
+          profitMargin: newMargin,
+          isLoss: newNetProfit < 0
+        };
+      }));
+    }
+
+    if (onToast) onToast(`🚚 Kargo anlaşma maliyetleri güncellendi (Trendyol: ${tyCargoCost} ₺)!`);
+    confetti({ particleCount: 50, spread: 60 });
   };
 
   // Çekirdek Pazar Yeri Canlı Senkronizasyon & Sipariş Çekme Motoru
@@ -499,7 +532,78 @@ export function MarketplaceIntegrations({
           </div>
         </div>
 
-        {/* 3. STANDART PAKETE DAHİL ÇEKİRDEK ENTEGRASYONLAR (TRENDYOL, HEPSİBURADA, TİCİMAX) */}
+        {/* 3. MAĞAZAYA ÖZEL KARGO ANLAŞMA MALİYETLERİ PANELİ */}
+        <div className="bg-white border-2 border-indigo-100 rounded-3xl p-5 shadow-sm space-y-3">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                🚚
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Mağaza Özel Kargo Anlaşma Baremleri</h3>
+                <p className="text-[11px] text-slate-500">
+                  Pazaryeri API'leri sipariş anında özel fatura bareminizi içermediğinde sistem burada tanımladığınız anlaşma tutarını uygular.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSaveCargoSettings}
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow transition-all flex items-center gap-1.5 cursor-pointer self-end md:self-auto"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Kargo Maliyetini Kaydet & Uygula</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2 border-t border-slate-100 text-xs">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800">Trendyol Anlaşmalı Kargo</span>
+                <span className="text-[10px] font-black text-[#f27a1a] bg-orange-100 px-1.5 py-0.5 rounded">TY Express</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  value={tyCargoCost}
+                  onChange={(e) => setTyCargoCost(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-mono font-bold text-slate-900 text-sm focus:outline-none focus:border-indigo-500"
+                />
+                <span className="font-bold text-slate-500">₺/Paket</span>
+              </div>
+              <span className="text-[10px] text-slate-400 block">Sizin cari anlaşmanız (87.00 ₺)</span>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800">Hepsiburada Anlaşmalı Kargo</span>
+                <span className="text-[10px] font-black text-[#ff6000] bg-orange-100 px-1.5 py-0.5 rounded">HepsiJET</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  value={hbCargoCost}
+                  onChange={(e) => setHbCargoCost(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-mono font-bold text-slate-900 text-sm focus:outline-none focus:border-indigo-500"
+                />
+                <span className="font-bold text-slate-500">₺/Paket</span>
+              </div>
+              <span className="text-[10px] text-slate-400 block">Varsayılan barem tutarı</span>
+            </div>
+
+            <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-emerald-900">Otomatik İade Çift Kargo Kesintisi:</span>
+              <p className="text-[10px] text-emerald-800 leading-snug">
+                İade siparişlerde (Gidiş + Dönüş) <strong>{(Number(tyCargoCost) * 2).toFixed(2)} ₺</strong> otomatik düşülür.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. STANDART PAKETE DAHİL ÇEKİRDEK ENTEGRASYONLAR (TRENDYOL, HEPSİBURADA, TİCİMAX) */}
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">

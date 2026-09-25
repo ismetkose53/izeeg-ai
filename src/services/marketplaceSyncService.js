@@ -3,12 +3,39 @@
 const PRODUCTS_STORAGE_KEY = 'izeeg_live_products';
 const ORDERS_STORAGE_KEY = 'izeeg_live_orders';
 const CARGO_LEAKS_STORAGE_KEY = 'izeeg_live_cargo_leaks';
+const CARGO_SETTINGS_KEY = 'izeeg_custom_cargo_settings';
+
+// Kullanıcı Tanımlı Özel Kargo Anlaşma Baremleri (Varsayılan Trendyol: 87.00 ₺)
+export function getCustomCargoSettings() {
+  try {
+    const saved = localStorage.getItem(CARGO_SETTINGS_KEY);
+    return saved ? JSON.parse(saved) : {
+      trendyolCargoCost: 87.00,
+      hepsiburadaCargoCost: 43.50,
+      amazonCargoCost: 40.00
+    };
+  } catch {
+    return {
+      trendyolCargoCost: 87.00,
+      hepsiburadaCargoCost: 43.50,
+      amazonCargoCost: 40.00
+    };
+  }
+}
+
+export function saveCustomCargoSettings(settings) {
+  try {
+    localStorage.setItem(CARGO_SETTINGS_KEY, JSON.stringify(settings));
+  } catch (e) {
+    console.warn("Cargo settings save notice:", e);
+  }
+}
 
 // Güncel 2026 Türkiye Pazaryeri Kargo Baremleri (TL + KDV dahil)
 export const CARGO_BAREMLERI = {
   TRENDYOL: { 
     desi0_1: 38.50, 
-    desi1_2: 42.91, 
+    desi1_2: 87.00, // Satıcının 87 TL Kargo Anlaşması
     desi2_3: 48.20, 
     desi3_5: 56.40,
     returnMultiplier: 2.0 // Gidiş + Dönüş çift kargo kesintisi
@@ -290,6 +317,10 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
   let totalCommission = 0;
   let totalCost = 0;
 
+  const cargoSettings = getCustomCargoSettings();
+  const rawCargoFee = Number(raw.cargoFee || raw.shipmentCost || raw.cargoCost || raw.deliveryCost || 0);
+  const baseCargoCost = rawCargoFee > 0 ? rawCargoFee : (cargoSettings.trendyolCargoCost || 87.00);
+
   const items = lines.map((l, idx) => {
     const qty = Number(l.quantity || 1);
     const unitPrice = Number(l.price || 0);
@@ -311,9 +342,9 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
       unitCost = Number((unitPrice * 0.40).toFixed(2));
     }
 
-    const itemCargoShare = Number((CARGO_BAREMLERI.TRENDYOL.desi1_2 / Math.max(1, lines.length)).toFixed(2));
+    const itemCargoShare = Number((baseCargoCost / Math.max(1, lines.length)).toFixed(2));
     const itemNetProfit = status === 'RETURNED'
-      ? -Number((CARGO_BAREMLERI.TRENDYOL.desi1_2 * CARGO_BAREMLERI.TRENDYOL.returnMultiplier).toFixed(2))
+      ? -Number((baseCargoCost * CARGO_BAREMLERI.TRENDYOL.returnMultiplier).toFixed(2))
       : Number((unitPrice - unitCost - unitComm - itemCargoShare).toFixed(2));
 
     totalCommission += (unitComm * qty);
@@ -335,12 +366,12 @@ function mapTrendyolOrderToInternal(raw, sellerId, catalog = []) {
   });
 
   // 2. Kargo Maliyeti Hesabı (İadelerde Gidiş-Dönüş Çift Kargo Kesilir)
-  let cargoCost = CARGO_BAREMLERI.TRENDYOL.desi1_2; // 42.91 ₺ Standart
+  let cargoCost = baseCargoCost;
   let returnCargoCost = 0;
 
   if (status === 'RETURNED') {
     // İadelerde satıcıya hem gidiş hem dönüş kargosu faturalandırılır
-    cargoCost = Number((CARGO_BAREMLERI.TRENDYOL.desi1_2 * CARGO_BAREMLERI.TRENDYOL.returnMultiplier).toFixed(2));
+    cargoCost = Number((baseCargoCost * CARGO_BAREMLERI.TRENDYOL.returnMultiplier).toFixed(2));
     returnCargoCost = cargoCost;
   }
 
@@ -445,11 +476,15 @@ function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = []) {
     costPrice = Number((totalGrossPrice * 0.40).toFixed(2));
   }
 
-  let cargoCost = CARGO_BAREMLERI.HEPSIBURADA.desi1_2; // 43.50 ₺
+  const cargoSettings = getCustomCargoSettings();
+  const rawCargoFee = Number(raw.cargoFee || raw.shipmentCost || raw.cargoCost || 0);
+  const baseCargoCost = rawCargoFee > 0 ? rawCargoFee : (cargoSettings.hepsiburadaCargoCost || 43.50);
+
+  let cargoCost = baseCargoCost;
   let returnCargoCost = 0;
 
   if (status === 'RETURNED') {
-    cargoCost = Number((CARGO_BAREMLERI.HEPSIBURADA.desi1_2 * CARGO_BAREMLERI.HEPSIBURADA.returnMultiplier).toFixed(2));
+    cargoCost = Number((baseCargoCost * CARGO_BAREMLERI.HEPSIBURADA.returnMultiplier).toFixed(2));
     returnCargoCost = cargoCost;
   }
 
