@@ -427,6 +427,13 @@ export function App() {
         {/* 15. PAZARYERİ API BAĞLANTILARI */}
         {activeTab === 'integrations' && (
           <MarketplaceIntegrations 
+            orders={orders}
+            setOrders={setOrders}
+            products={products}
+            setProducts={setProducts}
+            cargoLeaks={cargoLeaks}
+            setCargoLeaks={setCargoLeaks}
+            onToast={showToast}
             onOpenSubModal={handleOpenAddonCheckout} 
             onOpenGuide={() => setGuideModalPage('ai-worker')}
           />

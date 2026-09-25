@@ -21,7 +21,9 @@ import {
   Clock,
   Check,
   Eye,
-  EyeOff
+  EyeOff,
+  Download,
+  AlertTriangle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { MARKETPLACE_ONBOARDING_GUIDES } from '../services/mockData';
@@ -29,10 +31,26 @@ import { ApiSettingsModal } from './ApiSettingsModal';
 import { AddonPurchaseModal } from './AddonPurchaseModal';
 import { getCurrentUser, isAddonActiveForUser, unlockAddonForCurrentUser, lockAddonForCurrentUser } from '../services/authService';
 import { PageGuideButton } from './PageHelpGuideModal';
+import { 
+  testTrendyolApi, 
+  fetchTrendyolLiveOrders, 
+  testHepsiburadaApi, 
+  fetchHepsiburadaLiveOrders 
+} from '../services/marketplaceSyncService';
 
 const API_CREDENTIALS_KEY = 'izeeg_core_api_credentials';
 
-export function MarketplaceIntegrations({ onOpenSubModal, onOpenGuide }) {
+export function MarketplaceIntegrations({ 
+  orders = [],
+  setOrders,
+  products = [],
+  setProducts,
+  cargoLeaks = [],
+  setCargoLeaks,
+  onOpenSubModal, 
+  onOpenGuide,
+  onToast 
+}) {
   const currentUser = getCurrentUser();
 
   // Kayıtlı API Bilgilerini Güvenle Yükle
@@ -51,7 +69,7 @@ export function MarketplaceIntegrations({ onOpenSubModal, onOpenGuide }) {
   const [tyApiKey, setTyApiKey] = useState(storedCreds.tyApiKey || '');
   const [tyApiSecret, setTyApiSecret] = useState(storedCreds.tyApiSecret || '');
   const [tySellerId, setTySellerId] = useState(storedCreds.tySellerId || '');
-  const [tyStatus, setTyStatus] = useState(storedCreds.tyApiKey ? 'CONNECTED' : 'DISCONNECTED');
+  const [tyStatus, setTyStatus] = useState(storedCreds.tyApiKey && storedCreds.tySellerId ? 'CONNECTED' : 'DISCONNECTED');
   const [showTySecret, setShowTySecret] = useState(false);
 
   // Hepsiburada API State
@@ -66,28 +84,24 @@ export function MarketplaceIntegrations({ onOpenSubModal, onOpenGuide }) {
   const [ticimaxStatus, setTicimaxStatus] = useState(storedCreds.ticimaxApiKey ? 'CONNECTED' : 'DISCONNECTED');
   const [showTicimaxKey, setShowTicimaxKey] = useState(false);
 
+  // Senkronizasyon & Hata State'leri
+  const [syncingPlatform, setSyncingPlatform] = useState(null);
+  const [apiErrorMessage, setApiErrorMessage] = useState(null);
+
   // Acemi Rehberi Modal State
-  const [selectedGuidePlatform, setSelectedGuidePlatform] = useState(null); // 'Trendyol' | 'Hepsiburada' | 'Amazon' | null
-  const [selectedAddonModal, setSelectedAddonModal] = useState(null); // API Ayar Modalı için
-  const [selectedPurchaseAddon, setSelectedPurchaseAddon] = useState(null); // Ek Modül Satın Alma Modalı için
+  const [selectedGuidePlatform, setSelectedGuidePlatform] = useState(null);
+  const [selectedAddonModal, setSelectedAddonModal] = useState(null);
+  const [selectedPurchaseAddon, setSelectedPurchaseAddon] = useState(null);
 
   // Senkronizasyon Kayıtları (Sync History Logs)
   const [syncLogs, setSyncLogs] = useState([
     {
       id: 'SYNC-801',
-      time: '12 dk önce',
+      time: 'Az önce',
       platform: 'Trendyol Partner API',
       status: 'SUCCESS',
-      orders: 8,
-      message: 'Siparişler, kargo desi baremleri ve komisyonlar başarıyla çekildi.'
-    },
-    {
-      id: 'SYNC-802',
-      time: '25 dk önce',
-      platform: 'Hepsiburada Merchant',
-      status: 'SUCCESS',
-      orders: 3,
-      message: 'Merchant API bağlantısı doğrulandı ve siparişler eşitlendi.'
+      orders: orders.filter(o => o.marketplace === 'Trendyol').length,
+      message: 'API Bağlantısı ve kimlik denetimi aktif.'
     }
   ]);
 
@@ -160,7 +174,6 @@ export function MarketplaceIntegrations({ onOpenSubModal, onOpenGuide }) {
     unlockAddonForCurrentUser(addonId);
     setAddons(prev => prev.map(item => item.id === addonId ? { ...item, active: true } : item));
     
-    // Otomatik olarak API Ayar Modalı açılsın
     const targetAddon = addons.find(a => a.id === addonId);
     if (targetAddon) {
       setTimeout(() => {
@@ -203,9 +216,11 @@ export function MarketplaceIntegrations({ onOpenSubModal, onOpenGuide }) {
     setAddons(prev => prev.map(item => item.id === addonId ? { ...item, active: false } : item));
   };
 
-  // Çekirdek Pazar Yeri Test Bağlantısı & Güvenli Kayıt
-  const handleTestConnection = (platform) => {
-    // Bilgileri yerel güvenli tarayıcı hafızasına kaydet
+  // Çekirdek Pazar Yeri Canlı Senkronizasyon & Sipariş Çekme Motoru
+  const handleSyncMarketplace = async (platform) => {
+    setApiErrorMessage(null);
+    setSyncingPlatform(platform);
+
     const updatedCreds = {
       tyApiKey,
       tyApiSecret,
@@ -222,23 +237,129 @@ export function MarketplaceIntegrations({ onOpenSubModal, onOpenGuide }) {
     }
 
     if (platform === 'Trendyol') {
+      if (!tySellerId || !tyApiKey || !tyApiSecret) {
+        setApiErrorMessage('⚠️ Lütfen Trendyol Satıcı ID, API Key ve API Secret Key alanlarının tamamını doldurunuz.');
+        setSyncingPlatform(null);
+        return;
+      }
+
       setTyStatus('CONNECTING');
-      setTimeout(() => {
-        setTyStatus('CONNECTED');
-        confetti({ particleCount: 50, spread: 60 });
-      }, 900);
+      const testResult = await testTrendyolApi({ sellerId: tySellerId, apiKey: tyApiKey, apiSecret: tyApiSecret });
+      
+      if (!testResult.success) {
+        setTyStatus('ERROR');
+        setApiErrorMessage(testResult.message);
+        setSyncingPlatform(null);
+        if (onToast) onToast(testResult.message);
+        return;
+      }
+
+      setTyStatus('CONNECTED');
+      const fetchResult = await fetchTrendyolLiveOrders({ sellerId: tySellerId, apiKey: tyApiKey, apiSecret: tyApiSecret });
+      
+      if (fetchResult.orders && fetchResult.orders.length > 0) {
+        if (setOrders) {
+          setOrders(prev => {
+            const existingIds = new Set(prev.map(o => o.id));
+            const newOnes = fetchResult.orders.filter(o => !existingIds.has(o.id));
+            return [...newOnes, ...prev];
+          });
+        }
+        if (setProducts) {
+          const newProducts = fetchResult.orders.map(o => ({
+            id: o.sku || o.id,
+            barcode: o.barcode,
+            name: o.productName,
+            variant: o.variant,
+            category: 'Genel',
+            marketplace: 'Trendyol',
+            stock: 50,
+            costPrice: o.costPrice,
+            sellingPrice: o.grossPrice,
+            commissionRate: o.commissionRate || 18,
+            vatRate: 20,
+            desi: 2,
+            cargoCost: o.cargoCost,
+            netProfit: o.netProfit,
+            profitMargin: o.profitMargin,
+            status: 'profitable'
+          }));
+          setProducts(prev => {
+            const existing = new Set(prev.map(p => p.barcode || p.id));
+            const add = newProducts.filter(p => !existing.has(p.barcode || p.id));
+            return [...add, ...prev];
+          });
+        }
+      }
+
+      setSyncLogs(prev => [
+        {
+          id: `SYNC-${Date.now().toString().slice(-4)}`,
+          time: 'Az önce',
+          platform: 'Trendyol Partner API',
+          status: 'SUCCESS',
+          orders: fetchResult.count,
+          message: fetchResult.count > 0 
+            ? `${fetchResult.count} adet canlı sipariş sisteme aktarıldı.` 
+            : 'API bağlantısı aktif ve doğrulandı (Mağazanızda şu an bekleyen 0 sipariş).'
+        },
+        ...prev
+      ]);
+
+      if (onToast) onToast(fetchResult.count > 0 ? `✨ Trendyol'dan ${fetchResult.count} sipariş çekildi!` : '✅ Trendyol API başarıyla doğrulandı.');
+      confetti({ particleCount: 70, spread: 70 });
+      setSyncingPlatform(null);
     } else if (platform === 'Hepsiburada') {
+      if (!hbMerchantId || !hbSecretKey) {
+        setApiErrorMessage('⚠️ Lütfen Hepsiburada Merchant ID ve Secret Key alanlarını doldurunuz.');
+        setSyncingPlatform(null);
+        return;
+      }
+
       setHbStatus('CONNECTING');
-      setTimeout(() => {
-        setHbStatus('CONNECTED');
-        confetti({ particleCount: 50, spread: 60 });
-      }, 900);
+      const testResult = await testHepsiburadaApi({ merchantId: hbMerchantId, secretKey: hbSecretKey });
+      
+      if (!testResult.success) {
+        setHbStatus('ERROR');
+        setApiErrorMessage(testResult.message);
+        setSyncingPlatform(null);
+        if (onToast) onToast(testResult.message);
+        return;
+      }
+
+      setHbStatus('CONNECTED');
+      const fetchResult = await fetchHepsiburadaLiveOrders({ merchantId: hbMerchantId, secretKey: hbSecretKey });
+
+      if (fetchResult.orders && fetchResult.orders.length > 0 && setOrders) {
+        setOrders(prev => {
+          const existingIds = new Set(prev.map(o => o.id));
+          const newOnes = fetchResult.orders.filter(o => !existingIds.has(o.id));
+          return [...newOnes, ...prev];
+        });
+      }
+
+      setSyncLogs(prev => [
+        {
+          id: `SYNC-${Date.now().toString().slice(-4)}`,
+          time: 'Az önce',
+          platform: 'Hepsiburada Merchant API',
+          status: 'SUCCESS',
+          orders: fetchResult.count,
+          message: fetchResult.count > 0 
+            ? `${fetchResult.count} adet sipariş başarıyla eşitlendi.`
+            : 'Hepsiburada API doğrulandı (Mağazanızda şu an bekleyen 0 sipariş).'
+        },
+        ...prev
+      ]);
+
+      if (onToast) onToast(fetchResult.count > 0 ? `✨ Hepsiburada'dan ${fetchResult.count} sipariş çekildi!` : '✅ Hepsiburada API başarıyla doğrulandı.');
+      confetti({ particleCount: 70, spread: 70 });
+      setSyncingPlatform(null);
     } else if (platform === 'Ticimax') {
-      setTicimaxStatus('CONNECTING');
-      setTimeout(() => {
-        setTicimaxStatus('CONNECTED');
-        confetti({ particleCount: 50, spread: 60 });
-      }, 900);
+      setTicimaxStatus('CONNECTED');
+      if (onToast) onToast('✅ Ticimax & WooCommerce bağlantısı aktif edildi.');
+      confetti({ particleCount: 50, spread: 60 });
+      setSyncingPlatform(null);
     }
   };
 
@@ -307,190 +428,230 @@ export function MarketplaceIntegrations({ onOpenSubModal, onOpenGuide }) {
         </div>
       </div>
 
-      {/* 2. STANDART PAKETE DAHİL ÇEKİRDEK ENTEGRASYONLAR (TRENDYOL, HEPSİBURADA, TİCİMAX) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-            <span>Standart Paketinize Dahil Entegrasyonlar (Kullanıma Açık)</span>
-          </h3>
-          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-            Ücretsiz / Pakete Dahil
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          
-          {/* TRENDYOL API KARTI */}
-          <div className="bg-white border-2 border-orange-200 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#f27a1a] text-white flex items-center justify-center font-black text-base shadow-sm">
-                    ty
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900">Trendyol Partner API</h3>
-                    <span className="text-[10px] text-slate-500">Sipariş & Kargo Desi</span>
-                  </div>
-                </div>
-
-                <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  {tyStatus === 'CONNECTED' ? 'Bağlı' : tyStatus === 'CONNECTING' ? 'Test...' : 'Pasif'}
-                </span>
-              </div>
-
-              {/* Bilgileri Nereden Bulurum Butonu */}
-              <button
-                onClick={() => setSelectedGuidePlatform('Trendyol')}
-                className="w-full mt-3 py-1.5 px-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#f27a1a] text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 border border-orange-200"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-                <span>API Bilgilerimi Nereden Bulacağım? (Görsel Rehber)</span>
-              </button>
-
-              {/* Form Alanları */}
-              <div className="space-y-2.5 mt-3 text-xs">
-                <div>
-                  <label className="text-slate-700 font-bold block text-[11px] mb-0.5">Satıcı ID (Cari No)</label>
-                  <input
-                    type="text"
-                    value={tySellerId}
-                    onChange={(e) => setTySellerId(e.target.value)}
-                    placeholder="Örn: 192847"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#f27a1a]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-slate-700 font-bold block text-[11px] mb-0.5">API Key</label>
-                  <input
-                    type="text"
-                    value={tyApiKey}
-                    onChange={(e) => setTyApiKey(e.target.value)}
-                    placeholder="Örn: w89e47..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#f27a1a]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-slate-700 font-bold block text-[11px] mb-0.5">API Secret Key</label>
-                  <div className="relative">
-                    <input
-                      type={showTySecret ? 'text' : 'password'}
-                      value={tyApiSecret}
-                      onChange={(e) => setTyApiSecret(e.target.value)}
-                      placeholder="••••••••••••••••"
-                      autoComplete="off"
-                      spellCheck="false"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-2.5 pr-8 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#f27a1a]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowTySecret(!showTySecret)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      {showTySecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-[10px] text-slate-400">Son Senk: 12 dk önce</span>
-              <button
-                onClick={() => handleTestConnection('Trendyol')}
-                disabled={tyStatus === 'CONNECTING'}
-                className="px-3.5 py-1.5 rounded-xl bg-[#f27a1a] hover:bg-[#d9680e] text-white text-xs font-black shadow transition-all flex items-center gap-1 cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${tyStatus === 'CONNECTING' ? 'animate-spin' : ''}`} />
-                <span>Bağlantıyı Test Et</span>
-              </button>
+        {/* Hata Bildirimi (Varsa) */}
+        {apiErrorMessage && (
+          <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-bold flex items-start gap-2.5 animate-fadeIn">
+            <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <strong className="block text-rose-950 font-black">API Bağlantı Bildirimi:</strong>
+              <p className="leading-relaxed">{apiErrorMessage}</p>
             </div>
           </div>
+        )}
 
-          {/* HEPSİBURADA API KARTI */}
-          <div className="bg-white border-2 border-orange-200 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#ff6000] text-white flex items-center justify-center font-black text-base shadow-sm">
-                    hb
+        {/* 2. STANDART PAKETE DAHİL ÇEKİRDEK ENTEGRASYONLAR (TRENDYOL, HEPSİBURADA, TİCİMAX) */}
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <span>Standart Paketinize Dahil Entegrasyonlar (Kullanıma Açık)</span>
+            </h3>
+            
+            <button
+              onClick={() => {
+                handleSyncMarketplace('Trendyol');
+                if (hbMerchantId) handleSyncMarketplace('Hepsiburada');
+              }}
+              disabled={syncingPlatform !== null}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncingPlatform ? 'animate-spin' : ''}`} />
+              <span>Tümünü Şimdi Senkronize Et</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            
+            {/* TRENDYOL API KARTI */}
+            <div className="bg-white border-2 border-orange-200 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#f27a1a] text-white flex items-center justify-center font-black text-base shadow-sm">
+                      ty
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900">Trendyol Partner API</h3>
+                      <span className="text-[10px] text-slate-500">Sipariş & Kargo Desi</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900">Hepsiburada Merchant</h3>
-                    <span className="text-[10px] text-slate-500">Sipariş & Komisyon</span>
-                  </div>
+
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                    tyStatus === 'CONNECTED' 
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                      : tyStatus === 'ERROR'
+                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                      : 'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      tyStatus === 'CONNECTED' ? 'bg-emerald-500' : tyStatus === 'ERROR' ? 'bg-rose-500' : 'bg-slate-400'
+                    }`}></span>
+                    {tyStatus === 'CONNECTED' ? 'Bağlı & Canlı' : tyStatus === 'CONNECTING' ? 'Çekiliyor...' : tyStatus === 'ERROR' ? 'Hata' : 'Pasif'}
+                  </span>
                 </div>
 
-                <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  {hbStatus === 'CONNECTED' ? 'Bağlı' : hbStatus === 'CONNECTING' ? 'Test...' : 'Pasif'}
-                </span>
+                {/* Bilgileri Nereden Bulurum Butonu */}
+                <button
+                  onClick={() => setSelectedGuidePlatform('Trendyol')}
+                  className="w-full mt-3 py-1.5 px-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#f27a1a] text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 border border-orange-200"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  <span>API Bilgilerimi Nereden Bulacağım? (Görsel Rehber)</span>
+                </button>
+
+                {/* Form Alanları */}
+                <div className="space-y-2.5 mt-3 text-xs">
+                  <div>
+                    <label className="text-slate-700 font-bold block text-[11px] mb-0.5">Satıcı ID (Cari No)</label>
+                    <input
+                      type="text"
+                      value={tySellerId}
+                      onChange={(e) => setTySellerId(e.target.value)}
+                      placeholder="Örn: 192847"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#f27a1a]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-700 font-bold block text-[11px] mb-0.5">API Key</label>
+                    <input
+                      type="text"
+                      value={tyApiKey}
+                      onChange={(e) => setTyApiKey(e.target.value)}
+                      placeholder="Örn: w89e47..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#f27a1a]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-700 font-bold block text-[11px] mb-0.5">API Secret Key</label>
+                    <div className="relative">
+                      <input
+                        type={showTySecret ? 'text' : 'password'}
+                        value={tyApiSecret}
+                        onChange={(e) => setTyApiSecret(e.target.value)}
+                        placeholder="••••••••••••••••"
+                        autoComplete="off"
+                        spellCheck="false"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-2.5 pr-8 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#f27a1a]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowTySecret(!showTySecret)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showTySecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Bilgileri Nereden Bulurum Butonu */}
-              <button
-                onClick={() => setSelectedGuidePlatform('Hepsiburada')}
-                className="w-full mt-3 py-1.5 px-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#ff6000] text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 border border-orange-200"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-                <span>Merchant Bilgilerini Nereden Alırım?</span>
-              </button>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <span className="text-[10px] text-slate-400">
+                  {orders.filter(o => o.marketplace === 'Trendyol').length} Canlı Sipariş
+                </span>
+                <button
+                  onClick={() => handleSyncMarketplace('Trendyol')}
+                  disabled={syncingPlatform === 'Trendyol'}
+                  className="px-4 py-2 rounded-xl bg-[#f27a1a] hover:bg-[#d9680e] text-white text-xs font-black shadow transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncingPlatform === 'Trendyol' ? 'animate-spin' : ''}`} />
+                  <span>{syncingPlatform === 'Trendyol' ? 'Çekiliyor...' : 'Canlı Verileri Çek'}</span>
+                </button>
+              </div>
+            </div>
 
-              {/* Form Alanları */}
-              <div className="space-y-2.5 mt-3 text-xs">
-                <div>
-                  <label className="text-slate-700 font-bold block text-[11px] mb-0.5">Merchant ID</label>
-                  <input
-                    type="text"
-                    value={hbMerchantId}
-                    onChange={(e) => setHbMerchantId(e.target.value)}
-                    placeholder="Örn: 9812-hb"
-                    autoComplete="off"
-                    spellCheck="false"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#ff6000]"
-                  />
+            {/* HEPSİBURADA API KARTI */}
+            <div className="bg-white border-2 border-orange-200 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#ff6000] text-white flex items-center justify-center font-black text-base shadow-sm">
+                      hb
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900">Hepsiburada Merchant</h3>
+                      <span className="text-[10px] text-slate-500">Sipariş & Komisyon</span>
+                    </div>
+                  </div>
+
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                    hbStatus === 'CONNECTED' 
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                      : hbStatus === 'ERROR'
+                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                      : 'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      hbStatus === 'CONNECTED' ? 'bg-emerald-500' : hbStatus === 'ERROR' ? 'bg-rose-500' : 'bg-slate-400'
+                    }`}></span>
+                    {hbStatus === 'CONNECTED' ? 'Bağlı & Canlı' : hbStatus === 'CONNECTING' ? 'Çekiliyor...' : hbStatus === 'ERROR' ? 'Hata' : 'Pasif'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="text-slate-700 font-bold block text-[11px] mb-0.5">Entegratör API Secret</label>
-                  <div className="relative">
+                {/* Bilgileri Nereden Bulurum Butonu */}
+                <button
+                  onClick={() => setSelectedGuidePlatform('Hepsiburada')}
+                  className="w-full mt-3 py-1.5 px-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#ff6000] text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 border border-orange-200"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  <span>Merchant Bilgilerini Nereden Alırım?</span>
+                </button>
+
+                {/* Form Alanları */}
+                <div className="space-y-2.5 mt-3 text-xs">
+                  <div>
+                    <label className="text-slate-700 font-bold block text-[11px] mb-0.5">Merchant ID</label>
                     <input
-                      type={showHbSecret ? 'text' : 'password'}
-                      value={hbSecretKey}
-                      onChange={(e) => setHbSecretKey(e.target.value)}
-                      placeholder="••••••••••••••••"
+                      type="text"
+                      value={hbMerchantId}
+                      onChange={(e) => setHbMerchantId(e.target.value)}
+                      placeholder="Örn: 9812-hb"
                       autoComplete="off"
                       spellCheck="false"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-2.5 pr-8 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#ff6000]"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#ff6000]"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowHbSecret(!showHbSecret)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      {showHbSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-slate-700 font-bold block text-[11px] mb-0.5">Entegratör API Secret</label>
+                    <div className="relative">
+                      <input
+                        type={showHbSecret ? 'text' : 'password'}
+                        value={hbSecretKey}
+                        onChange={(e) => setHbSecretKey(e.target.value)}
+                        placeholder="••••••••••••••••"
+                        autoComplete="off"
+                        spellCheck="false"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-2.5 pr-8 py-1.5 font-mono text-slate-900 font-bold focus:outline-none focus:border-[#ff6000]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowHbSecret(!showHbSecret)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showHbSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-[10px] text-slate-400">Son Senk: 25 dk önce</span>
-              <button
-                onClick={() => handleTestConnection('Hepsiburada')}
-                disabled={hbStatus === 'CONNECTING'}
-                className="px-3.5 py-1.5 rounded-xl bg-[#ff6000] hover:bg-[#e55600] text-white text-xs font-black shadow transition-all flex items-center gap-1 cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${hbStatus === 'CONNECTING' ? 'animate-spin' : ''}`} />
-                <span>Bağlantıyı Test Et</span>
-              </button>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <span className="text-[10px] text-slate-400">
+                  {orders.filter(o => o.marketplace === 'Hepsiburada').length} Canlı Sipariş
+                </span>
+                <button
+                  onClick={() => handleSyncMarketplace('Hepsiburada')}
+                  disabled={syncingPlatform === 'Hepsiburada'}
+                  className="px-4 py-2 rounded-xl bg-[#ff6000] hover:bg-[#e55600] text-white text-xs font-black shadow transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncingPlatform === 'Hepsiburada' ? 'animate-spin' : ''}`} />
+                  <span>{syncingPlatform === 'Hepsiburada' ? 'Çekiliyor...' : 'Canlı Verileri Çek'}</span>
+                </button>
+              </div>
             </div>
-          </div>
 
           {/* TİCİMAX & WOOCOMMERCE KARTI */}
           <div className="bg-white border-2 border-cyan-200 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
