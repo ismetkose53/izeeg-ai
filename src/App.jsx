@@ -513,9 +513,14 @@ export function App() {
         {/* 14. SATIŞ & OPERASYON RAPORLARI */}
         {activeTab === 'reports' && (
           <SalesReportsPage
-            products={filteredProducts}
+            products={products}
+            orders={orders}
+            cargoLeaks={cargoLeaks}
             onOpenGuide={() => setGuideModalPage('net-profit')}
             onNavigateBack={() => setActiveTab('ai-worker')}
+            onNavigateToOrders={() => setActiveTab('orders')}
+            onNavigateToReturns={() => setActiveTab('returns')}
+            onNavigateToIntegrations={() => setActiveTab('integrations')}
           />
         )}
 
