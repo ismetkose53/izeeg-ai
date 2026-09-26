@@ -21,11 +21,11 @@ export function ShippingLabelModal({
   onClose,
   order,
   orders = [],
-  labelType = 'A4', // 'A4' | 'STICKER'
+  labelType = 'A4', // 'A4' | 'A5' | 'STICKER'
   autoTriggerPrint = false,
   onSuccess
 }) {
-  const [activeFormat, setActiveFormat] = useState(labelType); // 'A4' | 'STICKER'
+  const [activeFormat, setActiveFormat] = useState(labelType); // 'A4' | 'A5' | 'STICKER'
 
   useEffect(() => {
     setActiveFormat(labelType || 'A4');
@@ -56,7 +56,7 @@ export function ShippingLabelModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm animate-fadeIn print:p-0 print:bg-white print:static">
       
-      {/* Özel Yazdırma Stili: Modal Çerçevelerini Gizler ve Termal / A4 Çıktıyı Kusursuzlaştırır */}
+      {/* Özel Yazdırma Stili: Modal Çerçevelerini Gizler ve Termal / A5 / A4 Çıktıyı Kusursuzlaştırır */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           body * {
@@ -82,8 +82,8 @@ export function ShippingLabelModal({
             break-after: page;
           }
           @page {
-            size: ${activeFormat === 'STICKER' ? '100mm 150mm' : 'A4'};
-            margin: 4mm;
+            size: ${activeFormat === 'STICKER' ? '100mm 150mm' : activeFormat === 'A5' ? 'A5' : 'A4'};
+            margin: ${activeFormat === 'STICKER' ? '2mm' : '4mm'};
           }
         }
       `}} />
@@ -113,27 +113,40 @@ export function ShippingLabelModal({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Format Değiştirici */}
+            {/* Format Değiştirici: A4, A5, 100x150 Sticker */}
             <div className="bg-slate-800 p-1 rounded-xl flex items-center gap-1 border border-slate-700 text-xs">
               <button
                 onClick={() => setActiveFormat('A4')}
-                className={`px-3 py-1.5 font-bold rounded-lg transition-all ${
+                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${
                   activeFormat === 'A4'
                     ? 'bg-[#f27a1a] text-white shadow'
                     : 'text-slate-400 hover:text-white'
                 }`}
+                title="A4 (210x297 mm) Standart Lazer/Mürekkep Yazıcı Çıktısı"
               >
-                📄 A4 Sayfa Çıktısı
+                📄 A4 Sayfa
+              </button>
+              <button
+                onClick={() => setActiveFormat('A5')}
+                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${
+                  activeFormat === 'A5'
+                    ? 'bg-[#f27a1a] text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="A5 (148x210 mm) Yarım Sayfa İrsaliye & Kargo Çıktısı"
+              >
+                📑 A5 Sayfa
               </button>
               <button
                 onClick={() => setActiveFormat('STICKER')}
-                className={`px-3 py-1.5 font-bold rounded-lg transition-all ${
+                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${
                   activeFormat === 'STICKER'
                     ? 'bg-[#f27a1a] text-white shadow'
                     : 'text-slate-400 hover:text-white'
                 }`}
+                title="100x150 mm Termal Rulo Barkod Yazıcı Çıktısı"
               >
-                🏷️ 100x150 mm Termal Sticker
+                🏷️ 100x150 Sticker
               </button>
             </div>
 
@@ -181,10 +194,12 @@ export function ShippingLabelModal({
               return (
                 <div 
                   key={ord.id || idx}
-                  className={`bg-white border-2 border-slate-900 rounded-xl shadow-md p-5 sm:p-6 text-slate-900 font-sans transition-all page-break ${
+                  className={`bg-white border-2 border-slate-900 rounded-xl shadow-md text-slate-900 font-sans transition-all page-break ${
                     activeFormat === 'STICKER' 
-                      ? 'max-w-[100mm] min-h-[148mm] mx-auto flex flex-col justify-between border-dashed print:border-0 print:p-2' 
-                      : 'w-full print:border-0 print:p-4'
+                      ? 'max-w-[100mm] min-h-[148mm] p-4 mx-auto flex flex-col justify-between border-dashed print:border-0 print:p-2' 
+                      : activeFormat === 'A5'
+                      ? 'max-w-[148mm] min-h-[200mm] p-5 mx-auto flex flex-col justify-between print:border-0 print:p-3'
+                      : 'w-full p-6 print:border-0 print:p-4'
                   }`}
                 >
                   
@@ -347,7 +362,13 @@ export function ShippingLabelModal({
           <div className="text-xs text-slate-600 font-medium flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
             <span>
-              Yazıcı Tipi: <strong>{activeFormat === 'STICKER' ? '100x150 mm Termal Barkod Yazıcı (Zebra, Xprinter, HPRT)' : 'A4 Standart Lazer/Mürekkep Yazıcı'}</strong>
+              Yazıcı Tipi: <strong>
+                {activeFormat === 'STICKER' 
+                  ? '100x150 mm Termal Barkod Yazıcı (Zebra, Xprinter, HPRT)' 
+                  : activeFormat === 'A5'
+                  ? 'A5 Boyutu (148x210 mm Yarım Sayfa İrsaliye/Etiket)'
+                  : 'A4 Standart Lazer/Mürekkep Yazıcı (210x297 mm)'}
+              </strong>
             </span>
           </div>
 

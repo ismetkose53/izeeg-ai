@@ -823,6 +823,13 @@ export function UnifiedOrdersPage({
                   <span>Kargo Etiketi A4 Yazdır ({selectedOrderIds.length > 0 ? selectedOrderIds.length : 'Tümü'})</span>
                 </button>
                 <button
+                  onClick={() => handleBatchPrint('A5')}
+                  className="w-full p-2 rounded-lg flex items-center gap-2 text-left text-slate-700 hover:bg-slate-100"
+                >
+                  <Printer className="w-4 h-4 text-blue-600" />
+                  <span>Kargo Etiketi A5 Yazdır ({selectedOrderIds.length > 0 ? selectedOrderIds.length : 'Tümü'})</span>
+                </button>
+                <button
                   onClick={() => handleBatchPrint('STICKER')}
                   className="w-full p-2 rounded-lg flex items-center gap-2 text-left text-slate-700 hover:bg-slate-100"
                 >
@@ -866,36 +873,45 @@ export function UnifiedOrdersPage({
               </span>
             </button>
 
-            {/* Format Seçici */}
+            {/* Format Seçici: A4, A5, Sticker */}
             <select
               value={preferredLabelFormat}
               onChange={(e) => handleChangeLabelFormat(e.target.value)}
               className="bg-white border border-slate-300 rounded px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none cursor-pointer hover:border-[#f27a1a]"
-              title="Yazdırılacak varsayılan kargo fişi formatı"
+              title="Yazdırılacak varsayılan kargo fişi formatı (A4, A5 veya 100x150 mm termal etiket)"
             >
               <option value="A4">📄 A4 Çıktı</option>
+              <option value="A5">📑 A5 Çıktı</option>
               <option value="STICKER">🏷️ 100x150 Sticker</option>
             </select>
           </div>
 
-          {/* İŞLEME ALINANLAR SEKMESİNDE HIZLI TOPLU YAZDIRMA BUTONLARI (Kullanıcı Talebi 2) */}
+          {/* İŞLEME ALINANLAR SEKMESİNDE HIZLI TOPLU YAZDIRMA BUTONLARI */}
           {activeStatusTab === 'PREPARING' && (
             <div className="flex items-center gap-1.5 animate-fadeIn">
               <button
                 onClick={() => handleBatchPrint('A4')}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-lg shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer"
                 title="İşleme alınan siparişlerin kargo etiketlerini A4 formatında toplu yazdır"
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>Toplu A4 Yazdır ({selectedOrderIds.length > 0 ? selectedOrderIds.length : counts.PREPARING})</span>
+                <span>Toplu A4</span>
+              </button>
+              <button
+                onClick={() => handleBatchPrint('A5')}
+                className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer"
+                title="İşleme alınan siparişlerin kargo etiketlerini A5 formatında toplu yazdır"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Toplu A5</span>
               </button>
               <button
                 onClick={() => handleBatchPrint('STICKER')}
-                className="px-3 py-1.5 bg-[#f27a1a] hover:bg-[#d9670f] text-white text-xs font-extrabold rounded-lg shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-2.5 py-1.5 bg-[#f27a1a] hover:bg-[#d9670f] text-white text-xs font-extrabold rounded-lg shadow-sm flex items-center gap-1 transition-all cursor-pointer"
                 title="İşleme alınan siparişlerin kargo etiketlerini 100x150 Termal Sticker formatında toplu yazdır"
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>Toplu Sticker Yazdır ({selectedOrderIds.length > 0 ? selectedOrderIds.length : counts.PREPARING})</span>
+                <span>Toplu Sticker</span>
               </button>
             </div>
           )}
@@ -1551,18 +1567,26 @@ export function UnifiedOrdersPage({
                           onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A4', autoTriggerPrint: false })}
                           className="w-full py-1.5 px-3 rounded border border-[#f27a1a] text-[#f27a1a] hover:bg-orange-50 font-bold text-xs transition-colors text-center block"
                         >
-                          Kargo Etiketini A4 Yazdır
+                          📄 Kargo Etiketi A4 Yazdır
                         </button>
 
-                        {/* Buton 2: Kargo Etiketini Sticker Yazdır */}
+                        {/* Buton 2: Kargo Etiketini A5 Yazdır */}
+                        <button
+                          onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A5', autoTriggerPrint: false })}
+                          className="w-full py-1.5 px-3 rounded border border-blue-500 text-blue-600 hover:bg-blue-50 font-bold text-xs transition-colors text-center block"
+                        >
+                          📑 Kargo Etiketi A5 Yazdır
+                        </button>
+
+                        {/* Buton 3: Kargo Etiketini Sticker Yazdır */}
                         <button
                           onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'STICKER', autoTriggerPrint: false })}
-                          className="w-full py-1.5 px-3 rounded border border-[#f27a1a] text-[#f27a1a] hover:bg-orange-50 font-bold text-xs transition-colors text-center block"
+                          className="w-full py-1.5 px-3 rounded border border-slate-700 text-slate-700 hover:bg-slate-100 font-bold text-xs transition-colors text-center block"
                         >
-                          Kargo Etiketini Sticker Yazdır
+                          🏷️ Kargo Etiketi Sticker Yazdır
                         </button>
 
-                        {/* Buton 3: İşlemler ∨ (Görsel 3 ile Birebir Pop-up Menü) */}
+                        {/* Buton 4: İşlemler ∨ (Görsel 3 ile Birebir Pop-up Menü) */}
                         <div className="relative">
                           <button
                             onClick={() => setOpenActionOrderId(openActionOrderId === order.id ? null : order.id)}
@@ -1594,6 +1618,17 @@ export function UnifiedOrdersPage({
                               >
                                 <span>🖨️</span>
                                 <span>İşleme Al & Kargo Fişi Çıkar</span>
+                              </button>
+
+                              {/* 1.2. Hızlı A5 Yazdır */}
+                              <button
+                                onClick={() => {
+                                  setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A5', autoTriggerPrint: false });
+                                  setOpenActionOrderId(null);
+                                }}
+                                className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2 text-slate-700"
+                              >
+                                <span>📑</span> Kargo Etiketi A5 Yazdır
                               </button>
 
                               {/* 2. Başka Kargo Firması İle Gönder */}
