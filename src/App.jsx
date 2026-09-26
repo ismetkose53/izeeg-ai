@@ -304,6 +304,14 @@ export function App() {
     });
   };
 
+  // Sadece Yeni (NEW) ve İşleme Alınan (PREPARING) siparişlerin toplamı (Üst menü rozet sayısı)
+  const activeActionableOrdersCount = useMemo(() => {
+    return orders.filter(o => {
+      const st = String(o.status || '').toUpperCase();
+      return ['NEW', 'PREPARING', 'CREATED', 'IN_PROCESS', 'PICKING'].includes(st);
+    }).length;
+  }, [orders]);
+
   if (isPortalOpen) {
     return (
       <div className="min-h-screen bg-[#070b14] text-slate-100 font-sans selection:bg-[#f27a1a] selection:text-white">
@@ -349,7 +357,7 @@ export function App() {
         onOpenPortal={() => setIsPortalOpen(true)}
         currentUser={currentUser}
         trialDaysLeft={currentUser.trialDaysLeft || 5}
-        liveOrdersCount={orders.length}
+        liveOrdersCount={activeActionableOrdersCount}
         liveReturnsCount={(() => {
           try {
             const list = getStoredReturns();
@@ -696,7 +704,7 @@ export function App() {
       <MobileBottomNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        liveOrdersCount={orders.length}
+        liveOrdersCount={activeActionableOrdersCount}
         currentUser={currentUser}
         onOpenContactModal={() => setIsContactModalOpen(true)}
         onOpenSubModal={() => setIsSubModalOpen(true)}

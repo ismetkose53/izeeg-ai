@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Printer, 
@@ -18,9 +18,25 @@ export function ShippingLabelModal({
   order,
   orders = [],
   labelType = 'A4', // 'A4' | 'STICKER'
+  autoTriggerPrint = false,
   onSuccess
 }) {
   const [activeFormat, setActiveFormat] = useState(labelType); // 'A4' | 'STICKER'
+
+  useEffect(() => {
+    setActiveFormat(labelType || 'A4');
+  }, [labelType]);
+
+  useEffect(() => {
+    if (isOpen && autoTriggerPrint) {
+      const timer = setTimeout(() => {
+        try {
+          window.print();
+        } catch (e) {}
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, autoTriggerPrint]);
 
   if (!isOpen) return null;
 

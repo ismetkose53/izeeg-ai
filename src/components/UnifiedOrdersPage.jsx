@@ -80,8 +80,51 @@ export function UnifiedOrdersPage({
   const [openProfitBreakdownOrderId, setOpenProfitBreakdownOrderId] = useState(null);
   const [batchActionMenuOpen, setBatchActionMenuOpen] = useState(false);
 
+  // Otomatik Yazdırma (Auto-Print) ve Tercih Edilen Etiket Formatı State'leri
+  const [autoPrintOnProcessing, setAutoPrintOnProcessing] = useState(() => {
+    try {
+      return localStorage.getItem('izeeg_auto_print_on_processing') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [preferredLabelFormat, setPreferredLabelFormat] = useState(() => {
+    try {
+      return localStorage.getItem('izeeg_preferred_label_format') || 'A4';
+    } catch {
+      return 'A4';
+    }
+  });
+
+  const handleToggleAutoPrint = () => {
+    const nextVal = !autoPrintOnProcessing;
+    setAutoPrintOnProcessing(nextVal);
+    try {
+      localStorage.setItem('izeeg_auto_print_on_processing', String(nextVal));
+    } catch (e) {}
+    showToast(nextVal 
+      ? "⚡ Otomatik Yazdırma AKTİF: İşleme alınan siparişlerin kargo fişi anında otomatik yazdırılacak." 
+      : "⏸️ Otomatik Yazdırma KAPATILDI."
+    );
+  };
+
+  const handleChangeLabelFormat = (fmt) => {
+    setPreferredLabelFormat(fmt);
+    try {
+      localStorage.setItem('izeeg_preferred_label_format', fmt);
+    } catch (e) {}
+    showToast(`🖨️ Varsayılan etiket formatı: ${fmt === 'STICKER' ? '100x150 mm Termal Sticker' : 'A4 Standart Çıktı'} yapıldı.`);
+  };
+
   // Modallar
-  const [shippingModalConfig, setShippingModalConfig] = useState({ isOpen: false, order: null, orders: [], labelType: 'A4' });
+  const [shippingModalConfig, setShippingModalConfig] = useState({ 
+    isOpen: false, 
+    order: null, 
+    orders: [], 
+    labelType: 'A4',
+    autoTriggerPrint: false
+  });
   const [docsModalConfig, setDocsModalConfig] = useState({ isOpen: false, type: 'DISTANCE_CONTRACT', order: null });
 
   const [toastMsg, setToastMsg] = useState(null);
@@ -272,8 +315,10 @@ export function UnifiedOrdersPage({
     );
   };
 
-  // Sipariş Durumu Güncelleme
-  const handleUpdateOrderStatus = (orderId, newStatus) => {
+  // Sipariş Durumu Güncelleme (Tekli İşleme Al veya Statü Değiştirme)
+  const handleUpdateOrderStatus = (orderId, newStatus, forceAutoPrint = false) => {
+    const targetOrder = orders.find(o => o.id === orderId);
+
     setOrders(prev => prev.map(o => {
       if (o.id === orderId) {
         const willAutoInvoice = autoInvoiceEnabled && newStatus !== 'NEW' && o.invoiceStatus !== 'ISSUED';
@@ -296,8 +341,67 @@ export function UnifiedOrdersPage({
     }));
 
     confetti({ particleCount: 40, spread: 50 });
-    showToast(`Sipariş ${newStatus === 'PREPARING' ? 'İşleme Alındı' : 'Güncellendi'}.`);
     setOpenActionOrderId(null);
+
+    // Eğer 'PREPARING' (İşleme Alındı) yapıldıysa ve Otomatik Yazdır seçeneği aktifse (veya butonla zorlandıysa)
+    if (newStatus === 'PREPARING' && (autoPrintOnProcessing || forceAutoPrint) && targetOrder) {
+      setShippingModalConfig({
+        isOpen: true,
+        order: targetOrder,
+        orders: [targetOrder],
+        labelType: preferredLabelFormat,
+        autoTriggerPrint: true
+      });
+      showToast(`⚡ Sipariş işleme alındı ve ${preferredLabelFormat === 'STICKER' ? 'Sticker' : 'A4'} kargo fişi otomatik yazıcıya gönderildi!`);
+    } else {
+      showToast(`Sipariş ${newStatus === 'PREPARING' ? 'İşleme Alındı' : 'Güncellendi'}.`);
+    }
+  };
+
+  // Toplu İşleme Al (İsteğe bağlı veya oto-yazdır ile)
+  const handleBulkProcessOrders = (targetIds = selectedOrderIds, forcePrint = false) => {
+    const ids = targetIds.length > 0 
+      ? targetIds 
+      : filteredOrders.filter(o => o.status === 'NEW').map(o => o.id);
+
+    if (ids.length === 0) {
+      showToast("İşleme alınacak yeni sipariş bulunamadı.");
+      return;
+    }
+
+    const processedOrders = orders.filter(o => ids.includes(o.id));
+
+    setOrders(prev => prev.map(o => {
+      if (ids.includes(o.id)) {
+        const willAutoInvoice = autoInvoiceEnabled && o.invoiceStatus !== 'ISSUED';
+        const issuedInvoiceNo = willAutoInvoice ? (o.invoiceNumber || `IZG2026${Date.now().toString().slice(-8)}`) : o.invoiceNumber;
+        return {
+          ...o,
+          status: 'PREPARING',
+          statusLabel: 'İşleme Alındı',
+          statusBadge: 'bg-amber-500/10 text-amber-700 border border-amber-500/20',
+          invoiceStatus: willAutoInvoice ? 'ISSUED' : o.invoiceStatus,
+          invoiceNumber: issuedInvoiceNo
+        };
+      }
+      return o;
+    }));
+
+    confetti({ particleCount: 60, spread: 70 });
+    setBatchActionMenuOpen(false);
+
+    if (autoPrintOnProcessing || forcePrint) {
+      setShippingModalConfig({
+        isOpen: true,
+        order: processedOrders[0] || null,
+        orders: processedOrders,
+        labelType: preferredLabelFormat,
+        autoTriggerPrint: true
+      });
+      showToast(`🚀 ${ids.length} sipariş işleme alındı ve kargo fişleri (${preferredLabelFormat === 'STICKER' ? 'Sticker' : 'A4'}) toplu yazdırılıyor!`);
+    } else {
+      showToast(`⚡ ${ids.length} sipariş toplu işleme alındı.`);
+    }
   };
 
   // Excel Dışa Aktarma
@@ -320,18 +424,32 @@ export function UnifiedOrdersPage({
     confetti({ particleCount: 50, spread: 60 });
   };
 
-  // Toplu Etiket Yazdırma
-  const handleBatchPrint = (type = 'A4') => {
-    const selected = orders.filter(o => selectedOrderIds.includes(o.id));
+  // Toplu Etiket Yazdırma (İşleme Alınanlar veya Seçilenler İçin)
+  const handleBatchPrint = (type = preferredLabelFormat, targetIds = selectedOrderIds) => {
+    let selected = orders.filter(o => targetIds.includes(o.id));
+    
+    // Eğer seçim yapılmadıysa, mevcut sekmedeki siparişleri al (örneğin İşleme Alınanlar sekmesindeyse PREPARING siparişlerin tümü)
     if (selected.length === 0) {
-      showToast("Lütfen önce listeden en az bir sipariş seçin.");
+      if (activeStatusTab === 'PREPARING') {
+        selected = orders.filter(o => o.status === 'PREPARING');
+      } else if (activeStatusTab === 'NEW') {
+        selected = orders.filter(o => o.status === 'NEW');
+      } else {
+        selected = filteredOrders;
+      }
+    }
+
+    if (selected.length === 0) {
+      showToast("Yazdırılacak kargo etiketi bulunamadı.");
       return;
     }
+
     setShippingModalConfig({
       isOpen: true,
       order: selected[0],
       orders: selected,
-      labelType: type
+      labelType: type,
+      autoTriggerPrint: false
     });
     setBatchActionMenuOpen(false);
   };
@@ -696,35 +814,103 @@ export function UnifiedOrdersPage({
             </button>
 
             {batchActionMenuOpen && (
-              <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 space-y-1 z-40 text-xs font-bold animate-scaleUp">
+              <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 space-y-1 z-40 text-xs font-bold animate-scaleUp">
                 <button
                   onClick={() => handleBatchPrint('A4')}
                   className="w-full p-2 rounded-lg flex items-center gap-2 text-left text-slate-700 hover:bg-slate-100"
                 >
                   <Printer className="w-4 h-4 text-[#f27a1a]" />
-                  <span>Kargo Etiketi A4 Yazdır ({selectedOrderIds.length})</span>
+                  <span>Kargo Etiketi A4 Yazdır ({selectedOrderIds.length > 0 ? selectedOrderIds.length : 'Tümü'})</span>
                 </button>
                 <button
                   onClick={() => handleBatchPrint('STICKER')}
                   className="w-full p-2 rounded-lg flex items-center gap-2 text-left text-slate-700 hover:bg-slate-100"
                 >
                   <Printer className="w-4 h-4 text-orange-500" />
-                  <span>Kargo Etiketi Sticker Yazdır ({selectedOrderIds.length})</span>
+                  <span>Kargo Etiketi Sticker Yazdır ({selectedOrderIds.length > 0 ? selectedOrderIds.length : 'Tümü'})</span>
                 </button>
                 <button
-                  onClick={() => {
-                    selectedOrderIds.forEach(id => handleUpdateOrderStatus(id, 'PREPARING'));
-                    setBatchActionMenuOpen(false);
-                    showToast(`${selectedOrderIds.length} sipariş toplu işleme alındı.`);
-                  }}
-                  className="w-full p-2 rounded-lg flex items-center gap-2 text-left text-slate-700 hover:bg-slate-100"
+                  onClick={() => handleBulkProcessOrders(selectedOrderIds, false)}
+                  className="w-full p-2 rounded-lg flex items-center gap-2 text-left text-emerald-700 hover:bg-slate-100"
                 >
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Toplu İşleme Al ({selectedOrderIds.length})</span>
+                  <span>Toplu İşleme Al ({selectedOrderIds.length > 0 ? selectedOrderIds.length : 'Tümü'})</span>
+                </button>
+                <button
+                  onClick={() => handleBulkProcessOrders(selectedOrderIds, true)}
+                  className="w-full p-2 rounded-lg flex items-center gap-2 text-left text-blue-700 hover:bg-blue-50 border-t border-slate-100"
+                >
+                  <Printer className="w-4 h-4 text-blue-600" />
+                  <span>Toplu İşleme Al & Kargo Fişi Yazdır ({selectedOrderIds.length > 0 ? selectedOrderIds.length : 'Tümü'})</span>
                 </button>
               </div>
             )}
           </div>
+
+          {/* ⚡ OTOMATİK KARGO FİŞİ YAZDIRMA AYAR BUTONU (Kullanıcı Talebi 2) */}
+          <div className="flex items-center gap-1.5 bg-slate-100/90 border border-slate-300 rounded-lg p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={handleToggleAutoPrint}
+              className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                autoPrintOnProcessing
+                  ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/50'
+                  : 'bg-white hover:bg-slate-200 text-slate-700'
+              }`}
+              title="Açık olduğunda 'İşleme Al' dediğiniz siparişlerin kargo fişi otomatik olarak anında yazıcıya gönderilir."
+            >
+              <span className={`w-2 h-2 rounded-full ${autoPrintOnProcessing ? 'bg-white animate-ping' : 'bg-slate-400'}`}></span>
+              <span>⚡ İşleme Alınca Oto Yazdır:</span>
+              <span className="font-extrabold uppercase tracking-wide text-[10px]">
+                {autoPrintOnProcessing ? 'AÇIK' : 'KAPALI'}
+              </span>
+            </button>
+
+            {/* Format Seçici */}
+            <select
+              value={preferredLabelFormat}
+              onChange={(e) => handleChangeLabelFormat(e.target.value)}
+              className="bg-white border border-slate-300 rounded px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none cursor-pointer hover:border-[#f27a1a]"
+              title="Yazdırılacak varsayılan kargo fişi formatı"
+            >
+              <option value="A4">📄 A4 Çıktı</option>
+              <option value="STICKER">🏷️ 100x150 Sticker</option>
+            </select>
+          </div>
+
+          {/* İŞLEME ALINANLAR SEKMESİNDE HIZLI TOPLU YAZDIRMA BUTONLARI (Kullanıcı Talebi 2) */}
+          {activeStatusTab === 'PREPARING' && (
+            <div className="flex items-center gap-1.5 animate-fadeIn">
+              <button
+                onClick={() => handleBatchPrint('A4')}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-lg shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                title="İşleme alınan siparişlerin kargo etiketlerini A4 formatında toplu yazdır"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Toplu A4 Yazdır ({selectedOrderIds.length > 0 ? selectedOrderIds.length : counts.PREPARING})</span>
+              </button>
+              <button
+                onClick={() => handleBatchPrint('STICKER')}
+                className="px-3 py-1.5 bg-[#f27a1a] hover:bg-[#d9670f] text-white text-xs font-extrabold rounded-lg shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                title="İşleme alınan siparişlerin kargo etiketlerini 100x150 Termal Sticker formatında toplu yazdır"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Toplu Sticker Yazdır ({selectedOrderIds.length > 0 ? selectedOrderIds.length : counts.PREPARING})</span>
+              </button>
+            </div>
+          )}
+
+          {/* YENİ SEKMESİNDEYKEN HIZLI TOPLU İŞLEME AL & YAZDIR BUTONU */}
+          {activeStatusTab === 'NEW' && (
+            <button
+              onClick={() => handleBulkProcessOrders(selectedOrderIds, true)}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-lg shadow-sm flex items-center gap-1.5 transition-all cursor-pointer animate-fadeIn"
+              title="Yeni gelen siparişleri işleme alın ve kargo fişlerini anında toplu yazdırın"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>⚡ Toplu İşleme Al & Kargo Fişi Yazdır ({selectedOrderIds.length > 0 ? selectedOrderIds.length : counts.NEW})</span>
+            </button>
+          )}
 
           {/* Ülke Filtresi */}
           <div className="relative">
@@ -1341,12 +1527,28 @@ export function UnifiedOrdersPage({
                         </div>
                       </td>
 
-                      {/* 8. DURUM / AKSİYON BUTONLARI (A4 Etiket, Sticker Etiket, İşlemler ∨) */}
+                      {/* 8. DURUM / AKSİYON BUTONLARI (İşleme Al, A4 Etiket, Sticker Etiket, İşlemler ∨) */}
                       <td className="py-4 px-4 align-top space-y-1.5 min-w-[200px]">
                         
+                        {/* Sipariş Yeni İse: Hızlı Tek Tıkla İşleme Al (Otomatik Yazdırma Destekli) */}
+                        {order.status === 'NEW' && (
+                          <button
+                            onClick={() => handleUpdateOrderStatus(order.id, 'PREPARING')}
+                            className={`w-full py-1.5 px-3 rounded font-black text-xs transition-all text-center flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
+                              autoPrintOnProcessing
+                                ? 'bg-amber-500 hover:bg-amber-600 text-white ring-2 ring-amber-300 shadow-amber-500/30'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
+                            }`}
+                            title={autoPrintOnProcessing ? "İşleme al ve kargo fişini anında otomatik yazdır" : "Siparişi işleme alındı statüsüne taşı"}
+                          >
+                            <span>⚡</span>
+                            <span>İşleme Al {autoPrintOnProcessing ? '& Kargo Fişi Yazdır' : ''}</span>
+                          </button>
+                        )}
+
                         {/* Buton 1: Kargo Etiketini A4 Yazdır */}
                         <button
-                          onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A4' })}
+                          onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A4', autoTriggerPrint: false })}
                           className="w-full py-1.5 px-3 rounded border border-[#f27a1a] text-[#f27a1a] hover:bg-orange-50 font-bold text-xs transition-colors text-center block"
                         >
                           Kargo Etiketini A4 Yazdır
@@ -1354,7 +1556,7 @@ export function UnifiedOrdersPage({
 
                         {/* Buton 2: Kargo Etiketini Sticker Yazdır */}
                         <button
-                          onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'STICKER' })}
+                          onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'STICKER', autoTriggerPrint: false })}
                           className="w-full py-1.5 px-3 rounded border border-[#f27a1a] text-[#f27a1a] hover:bg-orange-50 font-bold text-xs transition-colors text-center block"
                         >
                           Kargo Etiketini Sticker Yazdır
@@ -1371,14 +1573,27 @@ export function UnifiedOrdersPage({
                           </button>
 
                           {openActionOrderId === order.id && (
-                            <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-slate-200 rounded-xl shadow-2xl p-1.5 space-y-0.5 z-40 text-xs font-semibold text-slate-800 animate-scaleUp">
+                            <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-2xl p-1.5 space-y-0.5 z-40 text-xs font-semibold text-slate-800 animate-scaleUp">
                               
                               {/* 1. İşleme Al */}
                               <button
                                 onClick={() => handleUpdateOrderStatus(order.id, 'PREPARING')}
-                                className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2 font-bold text-emerald-700"
+                                className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center justify-between font-bold text-emerald-700"
                               >
-                                <span>⚡</span> İşleme Al
+                                <div className="flex items-center gap-2">
+                                  <span>⚡</span>
+                                  <span>İşleme Al {autoPrintOnProcessing ? '(& Oto Yazdır)' : ''}</span>
+                                </div>
+                                {autoPrintOnProcessing && <span className="text-[10px] bg-amber-100 text-amber-800 px-1 py-0.5 rounded font-black">OTO</span>}
+                              </button>
+
+                              {/* 1.1. İşleme Al & Kargo Fişi Yazdır */}
+                              <button
+                                onClick={() => handleUpdateOrderStatus(order.id, 'PREPARING', true)}
+                                className="w-full p-2 text-left hover:bg-blue-50 rounded-lg flex items-center gap-2 font-bold text-blue-700"
+                              >
+                                <span>🖨️</span>
+                                <span>İşleme Al & Kargo Fişi Çıkar</span>
                               </button>
 
                               {/* 2. Başka Kargo Firması İle Gönder */}
@@ -1500,6 +1715,7 @@ export function UnifiedOrdersPage({
         order={shippingModalConfig.order}
         orders={shippingModalConfig.orders}
         labelType={shippingModalConfig.labelType}
+        autoTriggerPrint={shippingModalConfig.autoTriggerPrint}
         onSuccess={() => showToast("Kargo etiketi başarıyla yazdırıldı.")}
       />
 
