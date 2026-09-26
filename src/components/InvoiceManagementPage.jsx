@@ -1901,8 +1901,7 @@ function OfficialInvoicePreviewModal({ order, onClose, activeProviderName }) {
                 <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider block">Sipariş & Gönderi Detayı:</span>
                 <div className="text-[11px] text-slate-700 mt-1 space-y-0.5">
                   <div>Kanal: <strong className="text-slate-900">{order.marketplace || 'Trendyol'}</strong></div>
-                  <div>Sipariş No: <span className="font-mono font-bold text-slate-900">{order.orderNumber || order.id}</span></div>
-                  <div>Kargo Takip: <span className="font-mono text-slate-600">{order.trackingNumber || '7330037383986536'}</span></div>
+                  <div>Kargo Takip: <span className="font-mono text-slate-600">{order.trackingNumber || order.cargoTrackingNumber || order.packageNo || order.deliveryNo || order.id}</span></div>
                   <div>Ödeme Tipi: <strong className="text-emerald-700">Kredi Kartı / Peşin</strong></div>
                 </div>
               </div>
