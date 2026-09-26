@@ -62,10 +62,12 @@ export function LiveMobileNotificationCenter({
   isOpen, 
   onClose, 
   onNavigateTab,
-  unreadCount = 0 
+  unreadCount = 0,
+  notifications: propNotifications,
+  setNotifications: propSetNotifications
 }) {
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [notifications, setNotifications] = useState(() => {
+  const [internalNotifications, setInternalNotifications] = useState(() => {
     try {
       const saved = localStorage.getItem('izeeg_live_notifications');
       if (saved) {
@@ -75,6 +77,15 @@ export function LiveMobileNotificationCenter({
     } catch {}
     return [];
   });
+
+  const notifications = propNotifications !== undefined ? propNotifications : internalNotifications;
+  const setNotifications = (updater) => {
+    if (propSetNotifications) {
+      propSetNotifications(updater);
+    } else {
+      setInternalNotifications(updater);
+    }
+  };
 
   if (!isOpen) return null;
 

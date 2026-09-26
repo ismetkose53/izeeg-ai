@@ -47,9 +47,9 @@ export function AppHeader({
   onOpenPortal,
   currentUser = { role: 'merchant', storeName: 'yumey', ownerName: 'İsmet Bey', trialDaysLeft: 5 },
   trialDaysLeft = 5,
-  liveOrdersCount = 6,
+  liveOrdersCount = 0,
   liveReturnsCount = 0,
-  unreadNotificationsCount = 3,
+  unreadNotificationsCount = 0,
   pendingActionsCount = 0
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

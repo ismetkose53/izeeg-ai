@@ -189,6 +189,25 @@ export function App() {
     localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(cargoLeaks));
   }, [cargoLeaks]);
 
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      const saved = localStorage.getItem('izeeg_live_notifications');
+      return saved !== null ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const unreadNotificationsCount = Array.isArray(notifications)
+    ? notifications.filter(n => n && n.isUnread).length
+    : 0;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('izeeg_live_notifications', JSON.stringify(notifications));
+    } catch {}
+  }, [notifications]);
+
   useEffect(() => {
     localStorage.setItem('izeeg_demo_mode', isDemoMode ? 'true' : 'false');
   }, [isDemoMode]);
@@ -217,10 +236,12 @@ export function App() {
     setProducts([]);
     setOrders([]);
     setCargoLeaks([]);
+    setNotifications([]);
     setIsDemoMode(false);
     localStorage.setItem('izeeg_live_products', JSON.stringify([]));
     localStorage.setItem('izeeg_live_orders', JSON.stringify([]));
     localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify([]));
+    localStorage.setItem('izeeg_live_notifications', JSON.stringify([]));
     localStorage.setItem('izeeg_demo_mode', 'false');
     showToast("🧹 Canlı Satış Modu: Tüm deneme verileri temizlendi, tertemiz sıfırlandı.");
   };
@@ -367,7 +388,7 @@ export function App() {
             return orders.filter(o => o.status === 'RETURNED').length;
           }
         })()}
-        unreadNotificationsCount={3}
+        unreadNotificationsCount={unreadNotificationsCount}
         pendingActionsCount={0}
       />
 
@@ -637,7 +658,9 @@ export function App() {
           setActiveTab(tab);
           setIsNotificationsOpen(false);
         }}
-        unreadCount={3}
+        unreadCount={unreadNotificationsCount}
+        notifications={notifications}
+        setNotifications={setNotifications}
       />
 
       {/* AI Asistan Modalı */}

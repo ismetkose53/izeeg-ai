@@ -25,7 +25,8 @@ export function TrendyolHeader({
   onOpenAIModal,
   onOpenSubModal,
   trialDaysLeft = 5,
-  liveOrdersCount = 7
+  liveOrdersCount = 0,
+  unreadNotificationsCount = 0
 }) {
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
@@ -130,9 +131,11 @@ export function TrendyolHeader({
             {/* Bildirim Çanı */}
             <div className="relative cursor-pointer hover:text-white" onClick={() => setActiveTab('cargo-audit')}>
               <Bell className="w-4 h-4" />
-              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#f27a1a] text-white text-[9px] font-black rounded-full flex items-center justify-center">
-                3
-              </span>
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#f27a1a] text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                  {unreadNotificationsCount}
+                </span>
+              )}
             </div>
 
             {/* Profil */}
