@@ -20,12 +20,20 @@ import {
   CheckCircle2,
   PackageX,
   Clock,
-  Sparkles
+  Sparkles,
+  Building,
+  Receipt,
+  FileText
 } from 'lucide-react';
 import { DATA_STATUS_BADGES } from '../services/mockData';
 import { PageGuideButton } from './PageHelpGuideModal';
 import { calculateOrderProfit } from '../services/marketplaceEngine';
-import { getStoredReturns, getCustomCargoSettings } from '../services/marketplaceSyncService';
+import { 
+  getStoredReturns, 
+  getCustomCargoSettings,
+  getStoredIncomingInvoices,
+  calculateIncomingInvoicesSummary
+} from '../services/marketplaceSyncService';
 
 /**
  * Tarih Değerini Güvenli Şekilde JS Date Nesnesine Dönüştürür
@@ -122,7 +130,8 @@ export function RealNetProfitModule({
   onOpenGuide,
   onNavigateToReturns, 
   onNavigateToAds,
-  onNavigateToProTable 
+  onNavigateToProTable,
+  onNavigateToInvoices
 }) {
   // Dönem Filtresi: 'TODAY' (Bugün) | 'THIS_WEEK' (Bu Hafta) | 'THIS_MONTH' (Bu Ay)
   const [period, setPeriod] = useState('TODAY');
@@ -138,7 +147,18 @@ export function RealNetProfitModule({
     return () => window.removeEventListener('izeeg_returns_updated', handleUpdate);
   }, []);
 
-  // Döneme Göre Finansal Metrikler (Canlı Siparişlerden ve Ürün Verilerinden Deterministik Hesaplanır)
+  // Canlı Tarafımıza Kesilen Pazaryeri Gider Faturaları
+  const [liveIncomingInvoices, setLiveIncomingInvoices] = useState(() => getStoredIncomingInvoices());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setLiveIncomingInvoices(getStoredIncomingInvoices());
+    };
+    window.addEventListener('izeeg_incoming_invoices_updated', handleUpdate);
+    return () => window.removeEventListener('izeeg_incoming_invoices_updated', handleUpdate);
+  }, []);
+
+  // Döneme Göre Finansal Metrikler (Canlı Siparişlerden, İadelerden ve Gider Faturalarından Deterministik Hesaplanır)
   const financialData = useMemo(() => {
     // 1. Seçilen Döneme Göre Siparişleri Filtrele
     const periodOrders = (orders || []).filter(order => {
@@ -150,6 +170,13 @@ export function RealNetProfitModule({
     const periodReturns = (liveReturns || []).filter(ret => {
       return isDateInPeriod(ret.returnDate || ret.claimDate || ret.createdAt, period);
     });
+
+    // 3. Seçilen Döneme Göre Pazaryerinin Kestiği Gider Faturalarını Hesapla
+    const incomingSummary = calculateIncomingInvoicesSummary(liveIncomingInvoices, period);
+    const platformFeeDeduction = Number(incomingSummary.platformFeeTotal || 0);
+    const otherPenaltyDeduction = Number(incomingSummary.otherTotal || 0);
+    const incomingAdSpend = Number(incomingSummary.adTotal || 0);
+    const extraInvoicesDeduction = platformFeeDeduction + otherPenaltyDeduction;
 
     // 0 Sipariş Durumu
     if (periodOrders.length === 0 && periodReturns.length === 0) {
@@ -165,10 +192,16 @@ export function RealNetProfitModule({
         returnProductLoss: 0,
         returnDoubleCargoCost: 0,
         totalReturnLoss: 0,
-        adSpend: 0,
+        adSpend: incomingAdSpend,
         adApiStatus: 'API_VERIFIED',
+        platformFeeDeduction,
+        otherPenaltyDeduction,
+        extraInvoicesDeduction,
+        incomingSummary,
+        incomingInvoicesCount: (incomingSummary.filteredInvoices || []).length,
+        incomingInvoicesTotal: Number(incomingSummary.totalAmount || 0),
         estimatedVat: 0,
-        netProfit: 0,
+        netProfit: 0 - incomingAdSpend - extraInvoicesDeduction,
         netMargin: 0,
         roi: 0,
         marketplaces: [
@@ -252,11 +285,11 @@ export function RealNetProfitModule({
 
     const totalReturnLoss = periodReturns.reduce((sum, r) => sum + (Number(r.totalLossFromReturn) || 189.00), 0);
     
-    // Reklam Harcaması: Kullanıcı tanımlı reklam gideri veya 0
-    const adSpend = 0; 
+    // Reklam Harcaması: Faturalandırılmış Reklam Gideri
+    const adSpend = incomingAdSpend; 
     
-    // Net Kâr (Ciro - COGS - Komisyon - Kargo - İade Kaybı - Reklam)
-    const netProfit = totalGross - totalCogs - totalCommission - totalCargo - totalReturnLoss - adSpend;
+    // Net Kâr (Ciro - COGS - Komisyon - Kargo - İade Kaybı - Reklam - Platform Hizmet/Ceza Faturaları)
+    const netProfit = totalGross - totalCogs - totalCommission - totalCargo - totalReturnLoss - adSpend - extraInvoicesDeduction;
     const netMargin = totalGross > 0 ? Number(((netProfit / totalGross) * 100).toFixed(1)) : 0;
     const roi = totalCogs > 0 ? Number(((netProfit / totalCogs) * 100).toFixed(1)) : 0;
 
@@ -305,6 +338,12 @@ export function RealNetProfitModule({
       totalReturnLoss,
       adSpend,
       adApiStatus: 'API_VERIFIED',
+      platformFeeDeduction,
+      otherPenaltyDeduction,
+      extraInvoicesDeduction,
+      incomingSummary,
+      incomingInvoicesCount: (incomingSummary.filteredInvoices || []).length,
+      incomingInvoicesTotal: Number(incomingSummary.totalAmount || 0),
       estimatedVat: 0,
       netProfit,
       netMargin,
@@ -312,7 +351,7 @@ export function RealNetProfitModule({
       marketplaces,
       returnsList: formattedReturnsList
     };
-  }, [orders, products, liveReturns, period]);
+  }, [orders, products, liveReturns, liveIncomingInvoices, period]);
 
   return (
     <div className="space-y-6 animate-fadeIn font-sans">
@@ -461,7 +500,7 @@ export function RealNetProfitModule({
         )}
       </div>
 
-      {/* 3. 7 KALEMLİ FİNANSAL KÖPRÜ (WATERFALL BREAKDOWN) */}
+      {/* 3. 8 KALEMLİ FİNANSAL KÖPRÜ (WATERFALL BREAKDOWN) */}
       <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 shadow-sm">
         <h3 className="text-sm sm:text-base font-black text-slate-900 mb-1">
           Gelir - Gider Şelalesi (Net Kâra Giden Yol)
@@ -470,13 +509,13 @@ export function RealNetProfitModule({
           Paranız nereye gidiyor? Cirodan net kâra kadar olan tüm kesinti adımları ({period === 'TODAY' ? 'Bugün' : period === 'THIS_WEEK' ? 'Bu Hafta' : 'Bu Ay'}):
         </p>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3 text-xs">
           
           {/* 1. Brüt Ciro */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 flex flex-col justify-between">
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-black text-slate-500 uppercase block">1. Brüt Satış (Ciro)</span>
-              <strong className="text-base font-black text-slate-900 block mt-1">
+              <span className="text-[10px] font-black text-slate-500 uppercase block">1. Brüt Ciro</span>
+              <strong className="text-sm sm:text-base font-black text-slate-900 block mt-1">
                 {financialData.grossSales.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
@@ -486,75 +525,88 @@ export function RealNetProfitModule({
           </div>
 
           {/* 2. Ürün Alış Maliyeti */}
-          <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-3.5 flex flex-col justify-between">
+          <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-3 flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-black text-rose-800 uppercase block">2. Ürün Maliyeti (COGS)</span>
-              <strong className="text-base font-black text-rose-600 block mt-1">
+              <span className="text-[10px] font-black text-rose-800 uppercase block">2. Maliyet (COGS)</span>
+              <strong className="text-sm sm:text-base font-black text-rose-600 block mt-1">
                 -{financialData.cogs.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
             <div className="mt-2 text-[10px] text-rose-700 font-bold">
-              Alış faturası bedelleri
+              Alış faturası
             </div>
           </div>
 
           {/* 3. Komisyonlar */}
-          <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-3.5 flex flex-col justify-between">
+          <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-3 flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-black text-rose-800 uppercase block">3. Pazar Yeri Komisyonu</span>
-              <strong className="text-base font-black text-rose-600 block mt-1">
+              <span className="text-[10px] font-black text-rose-800 uppercase block">3. Komisyon</span>
+              <strong className="text-sm sm:text-base font-black text-rose-600 block mt-1">
                 -{financialData.commission.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
             <div className="mt-2 text-[10px] text-slate-500 font-bold">
-              Trendyol %21.5 Anlaşmalı
+              Pazaryeri kesintisi
             </div>
           </div>
 
           {/* 4. Kargo & Desi */}
-          <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-3.5 flex flex-col justify-between">
+          <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-3 flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-black text-rose-800 uppercase block">4. Kargo & Desi Gideri</span>
-              <strong className="text-base font-black text-rose-600 block mt-1">
+              <span className="text-[10px] font-black text-rose-800 uppercase block">4. Kargo & Barem</span>
+              <strong className="text-sm sm:text-base font-black text-rose-600 block mt-1">
                 -{financialData.cargoCost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
             <div className="mt-2 text-[10px] text-amber-700 font-bold">
-              87,00 ₺ Kargo Baremi
+              Taşıma maliyeti
             </div>
           </div>
 
           {/* 5. İadeler & Çift Kargo */}
-          <div className="bg-rose-50/70 border border-rose-300 rounded-2xl p-3.5 flex flex-col justify-between">
+          <div className="bg-rose-50/70 border border-rose-300 rounded-2xl p-3 flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-black text-rose-900 uppercase block">5. İade & Çift Kargo</span>
-              <strong className="text-base font-black text-rose-700 block mt-1">
+              <span className="text-[10px] font-black text-rose-900 uppercase block">5. İade & Zarar</span>
+              <strong className="text-sm sm:text-base font-black text-rose-700 block mt-1">
                 -{financialData.totalReturnLoss.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
             <div className="mt-2 text-[10px] text-rose-700 font-bold">
-              {financialData.returnCount} İade Talebi
+              {financialData.returnCount} İade Kaybı
             </div>
           </div>
 
           {/* 6. Reklam Harcamaları */}
-          <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-3.5 flex flex-col justify-between">
+          <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-3 flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-black text-rose-800 uppercase block">6. Reklam Gideri</span>
-              <strong className="text-base font-black text-slate-800 block mt-1">
+              <span className="text-[10px] font-black text-rose-800 uppercase block">6. Reklam (CPC)</span>
+              <strong className="text-sm sm:text-base font-black text-purple-700 block mt-1">
                 -{financialData.adSpend.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
-            <div className="mt-2 text-[10px] text-emerald-700 font-bold">
-              API Doğrulanmış
+            <div className="mt-2 text-[10px] text-purple-700 font-bold">
+              Faturalandırılmış
             </div>
           </div>
 
-          {/* 7. Gerçek Net Kâr */}
-          <div className="col-span-2 sm:col-span-1 bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm">
+          {/* 7. Platform & Ek Hizmet Faturaları */}
+          <div className="bg-rose-50/60 border border-rose-300 rounded-2xl p-3 flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-black text-emerald-900 uppercase block">7. GERÇEK NET KÂR</span>
-              <strong className="text-base font-black text-emerald-700 block mt-1">
+              <span className="text-[10px] font-black text-rose-800 uppercase block">7. Platform Bedeli</span>
+              <strong className="text-sm sm:text-base font-black text-rose-700 block mt-1">
+                -{financialData.extraInvoicesDeduction.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+              </strong>
+            </div>
+            <div className="mt-2 text-[10px] text-rose-700 font-bold">
+              Hizmet/Ceza Faturası
+            </div>
+          </div>
+
+          {/* 8. Gerçek Net Kâr */}
+          <div className="col-span-2 sm:col-span-1 bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-3 flex flex-col justify-between shadow-sm">
+            <div>
+              <span className="text-[10px] font-black text-emerald-900 uppercase block">8. NET KÂR</span>
+              <strong className="text-sm sm:text-base font-black text-emerald-700 block mt-1">
                 +{financialData.netProfit.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
               </strong>
             </div>
@@ -566,7 +618,77 @@ export function RealNetProfitModule({
         </div>
       </div>
 
-      {/* 4. İADE DETAYLARI & KANAL BAZLI DAĞILIM İKİLİ GRID */}
+      {/* 4. PAZARYERLERİ TARAFINIZA KESİLEN FATURALAR KÖPRÜSÜ */}
+      <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0">
+              <Building className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2 flex-wrap">
+                <span>Pazaryerlerinin Tarafınıza Kestiği Gider Faturaları</span>
+                <span className="text-[10px] font-black bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-full border border-rose-200">
+                  {financialData.incomingInvoicesCount} Fatura ({period === 'TODAY' ? 'Bugün' : period === 'THIS_WEEK' ? 'Bu Hafta' : 'Bu Ay'})
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Pazaryeri komisyonları, kargo barem bedelleri, CPC reklamları ve platform hizmet kesintileri net kâr hesabınıza kuruşu kuruşuna dahil edilmiştir.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="text-right">
+              <span className="text-[10px] font-black text-slate-400 uppercase block">Toplam Gider Faturası</span>
+              <span className="text-base font-black text-rose-700 font-mono">
+                {financialData.incomingInvoicesTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+              </span>
+            </div>
+            {onNavigateToInvoices && (
+              <button
+                onClick={onNavigateToInvoices}
+                className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <span>Faturaları Gör</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">Komisyon Faturaları</span>
+            <strong className="text-sm font-black text-slate-900 block mt-0.5">
+              {financialData.incomingSummary?.commissionTotal?.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) || '0,00'} ₺
+            </strong>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">Kargo Faturaları</span>
+            <strong className="text-sm font-black text-slate-900 block mt-0.5">
+              {financialData.incomingSummary?.cargoTotal?.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) || '0,00'} ₺
+            </strong>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">Reklam / CPC Faturaları</span>
+            <strong className="text-sm font-black text-purple-700 block mt-0.5">
+              {financialData.incomingSummary?.adTotal?.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) || '0,00'} ₺
+            </strong>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">Platform & Hizmet Bedeli</span>
+            <strong className="text-sm font-black text-rose-700 block mt-0.5">
+              {(financialData.platformFeeDeduction + financialData.otherPenaltyDeduction).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+            </strong>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. İADE DETAYLARI & KANAL BAZLI DAĞILIM İKİLİ GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Sol Taraf: İadelerin Gün/Hafta/Ay Detaylı Dökümü */}

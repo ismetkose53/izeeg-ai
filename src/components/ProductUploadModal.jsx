@@ -44,7 +44,7 @@ export function ProductUploadModal({
 
   // Toplu Maliyet Çarpanı Oranı
   const [bulkCostRatio, setBulkCostRatio] = useState(40); // %40 maliyet varsayılanı
-  const [bulkSupplierName, setBulkSupplierName] = useState('Merter Toptan Tekstil');
+  const [bulkSupplierName, setBulkSupplierName] = useState('');
 
   // Manuel Tekli Ürün Form State'i
   const [manualForm, setManualForm] = useState({
@@ -649,7 +649,7 @@ export function ProductUploadModal({
                       required
                       value={manualForm.supplier}
                       onChange={(e) => setManualForm({ ...manualForm, supplier: e.target.value })}
-                      placeholder="Örn: Merter Toptan Tekstil / Güngören İmalat"
+                      placeholder="Örn: Tedarikçi Firma / Toptancı"
                       className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-500 font-medium"
                     />
                   </div>

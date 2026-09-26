@@ -1,5 +1,5 @@
 // Vercel Serverless Function: Hepsiburada Merchant API Secure Gateway
-// Destek: Canlı (Prod) ve Test (SIT) Ortamları, Developer User-Agent (yumey_dev), Paket & Sipariş Uç Noktaları
+// Destek: Canlı (Prod) ve Test (SIT) Ortamları, Developer User-Agent (yumey_dev), Siparişler, Ürünler, İadeler, Müşteri Soruları ve Yorumlar
 
 export default async function handler(req, res) {
   // 1. Güvenlik Başlıkları
@@ -51,7 +51,10 @@ export default async function handler(req, res) {
     userAgent: customUserAgent, 
     action = 'orders', 
     offset = 0, 
-    limit = 50 
+    limit = 50,
+    questionId,
+    reviewId,
+    text
   } = body || {};
 
   if (!merchantId || !secretKey) {
@@ -63,7 +66,7 @@ export default async function handler(req, res) {
 
   const cleanMerchantId = String(merchantId).trim();
   const cleanSecret = String(secretKey).trim();
-  const cleanAction = action === 'products' ? 'products' : (action === 'returns' || action === 'claims' ? 'returns' : 'orders');
+  const cleanAction = action;
   const cleanLimit = Math.min(Math.max(1, parseInt(limit) || 50), 100);
   const cleanOffset = Math.max(0, parseInt(offset) || 0);
 
@@ -73,8 +76,11 @@ export default async function handler(req, res) {
   // 4. Basic Auth
   const authHeader = 'Basic ' + Buffer.from(`${cleanMerchantId}:${cleanSecret}`).toString('base64');
 
-  // 5. Hepsiburada Olası API Uç Noktaları (Hem Canlı OMS hem SIT/Test Ortamı)
+  // 5. Hepsiburada Olası API Uç Noktaları
   let candidateUrls = [];
+  let method = 'GET';
+  let requestPayload = null;
+
   if (cleanAction === 'products') {
     candidateUrls = [
       `https://listing-external.hepsiburada.com/listings/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
@@ -82,7 +88,7 @@ export default async function handler(req, res) {
       `https://mpop.hepsiburada.com/product/api/products/all?merchantId=${cleanMerchantId}&offset=${cleanOffset}&limit=${cleanLimit}`,
       `https://mpop-sit.hepsiburada.com/product/api/products/all?merchantId=${cleanMerchantId}&offset=${cleanOffset}&limit=${cleanLimit}`
     ];
-  } else if (cleanAction === 'returns') {
+  } else if (cleanAction === 'returns' || cleanAction === 'claims') {
     candidateUrls = [
       `https://oms-external.hepsiburada.com/returns/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
       `https://oms-external-sit.hepsiburada.com/returns/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
@@ -90,8 +96,41 @@ export default async function handler(req, res) {
       `https://claim-external-sit.hepsiburada.com/claims/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
       `https://mpop.hepsiburada.com/returns/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`
     ];
+  } else if (cleanAction === 'questions') {
+    candidateUrls = [
+      `https://mpop.hepsiburada.com/qa/api/questions/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://qa-external.hepsiburada.com/questions/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://mpop-sit.hepsiburada.com/qa/api/questions/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`
+    ];
+  } else if (cleanAction === 'question-answer') {
+    method = 'POST';
+    const cleanQId = String(questionId || body.id || '').trim();
+    requestPayload = JSON.stringify({ text: String(text || body.answerText || '').trim() });
+    candidateUrls = [
+      `https://mpop.hepsiburada.com/qa/api/questions/${cleanQId}/answers`,
+      `https://qa-external.hepsiburada.com/questions/${cleanQId}/answers`
+    ];
+  } else if (cleanAction === 'reviews') {
+    candidateUrls = [
+      `https://mpop.hepsiburada.com/reviews/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://listing-external.hepsiburada.com/reviews/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`
+    ];
+  } else if (cleanAction === 'review-reply') {
+    method = 'POST';
+    const cleanRevId = String(reviewId || body.id || '').trim();
+    requestPayload = JSON.stringify({ text: String(text || body.answerText || '').trim() });
+    candidateUrls = [
+      `https://mpop.hepsiburada.com/reviews/${cleanRevId}/reply`,
+      `https://listing-external.hepsiburada.com/reviews/${cleanRevId}/reply`
+    ];
+  } else if (cleanAction === 'settlements' || cleanAction === 'finance-invoices') {
+    candidateUrls = [
+      `https://finance-external.hepsiburada.com/reconciliation/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
+      `https://mpop.hepsiburada.com/finance/api/invoices?merchantId=${cleanMerchantId}`,
+      `https://finance-external-sit.hepsiburada.com/reconciliation/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`
+    ];
   } else {
-    // Sipariş & Paket Uç Noktaları (OMS Live -> OMS SIT -> MPOP Live -> MPOP SIT)
+    // Sipariş & Paket Uç Noktaları
     candidateUrls = [
       `https://oms-external.hepsiburada.com/packages/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
       `https://oms-external-sit.hepsiburada.com/packages/merchantid/${cleanMerchantId}?offset=${cleanOffset}&limit=${cleanLimit}`,
@@ -109,8 +148,8 @@ export default async function handler(req, res) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 9000);
 
-      const response = await fetch(targetUrl, {
-        method: 'GET',
+      const fetchOptions = {
+        method: method,
         headers: {
           'Authorization': authHeader,
           'User-Agent': userAgent,
@@ -118,7 +157,13 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json'
         },
         signal: controller.signal
-      });
+      };
+
+      if (requestPayload) {
+        fetchOptions.body = requestPayload;
+      }
+
+      const response = await fetch(targetUrl, fetchOptions);
 
       clearTimeout(timeoutId);
 

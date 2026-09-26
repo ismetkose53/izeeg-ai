@@ -6,140 +6,208 @@ import { AI_EMPLOYEE_CASES } from './mockData';
 /**
  * 09:00 Sabah Yönetici Brifingini Üretir
  */
-export function generateMorningBrief(metrics, products, leaks) {
+export function generateMorningBrief(metrics = {}, products = [], leaks = []) {
+  if (!products || products.length === 0) {
+    return {
+      time: 'Canlı İzleme Aktif',
+      title: 'Günlük E-Ticaret Yönetici Raporu',
+      headline: 'Sistem hazır ve canlı pazar yeri / ürün verisi izleniyor.',
+      summary: 'Henüz mağaza veya pazar yeri sipariş verisi bağlanmadı. Entegrasyon sağlandığında anlık analizler burada listelenecektir.',
+      priorities: [
+        {
+          type: 'info',
+          title: 'Pazar Yeri API / Entegrasyon Durumu',
+          description: 'Trendyol, Hepsiburada veya XML/Excel kataloğunuzu ekleyerek anlık kârlılık analizini başlatabilirsiniz.',
+          action: 'Pazar Yeri Ayarları veya Ürün Yükleme sekmesini ziyaret edin.'
+        }
+      ]
+    };
+  }
+
   const losingProducts = products.filter(p => p.status === 'losing');
-  const lowStockProducts = products.filter(p => p.stock < 15);
-  const pendingCargoLeak = leaks.filter(l => l.status === 'ActionRequired');
+  const lowStockProducts = products.filter(p => Number(p.stock) < 15);
+  const pendingCargoLeak = (leaks || []).filter(l => l.status === 'ActionRequired');
+
+  const rev = Number(metrics.totalRevenue || 0);
+  const profit = Number(metrics.netProfit || 0);
+  const margin = Number(metrics.netMargin || 0);
+
+  const priorities = [];
+
+  if (losingProducts.length > 0) {
+    const p = losingProducts[0];
+    priorities.push({
+      type: 'danger',
+      title: `Aşırı Reklam / İade Uyarısı: ${p.name || p.title || 'Ürün'}`,
+      description: `Bu üründe kârlılık eksiye düşmüştür veya iade oranı yüksektir.`,
+      action: `Reklam bütçesini kontrol edin ve beden tablosu uyarısı ekleyin.`
+    });
+  }
+
+  if (pendingCargoLeak.length > 0) {
+    priorities.push({
+      type: 'warning',
+      title: `Kargo Desi Fazla Kesintisi: ${pendingCargoLeak.length} Siparişte Hata`,
+      description: `Kargo firmaları belirlenen desi yerine yüksek desi fatura kesmiş. Toplam ${metrics.totalRecoverableCargo || 0} TL fazladan kesinti tespit edildi.`,
+      action: `Kargo Denetçisi sekmesinden tek tıkla itiraz dilekçesi oluşturun.`
+    });
+  }
+
+  if (lowStockProducts.length > 0) {
+    const p = lowStockProducts[0];
+    priorities.push({
+      type: 'info',
+      title: `Kritik Stok Uyarısı: ${p.name || p.title || 'Ürün'}`,
+      description: `Kalan stok: ${p.stock} adet. Bu satış hızıyla stok tükenebilir.`,
+      action: `Tedarikçiye sipariş geçerek Buybox kaybını önleyin.`
+    });
+  }
+
+  if (priorities.length === 0) {
+    priorities.push({
+      type: 'info',
+      title: 'Tüm Operasyon Sağlıklı',
+      description: 'Herhangi bir kargo kaçağı veya zarar yazan ürün tespit edilmedi.',
+      action: 'Canlı izleme devam ediyor.'
+    });
+  }
 
   return {
     time: 'Bugün 09:00',
     title: 'Günlük E-Ticaret Yönetici Raporu',
-    headline: `Dün 38.900 TL ciro yaptın, net kârın: 8.150 TL (%20.9 Net Marj).`,
-    summary: `Genel satış ivmen güçlü seyrediyor fakat cüzdanında 3 kritik kaçak noktası tespit edildi.`,
-    priorities: [
-      {
-        type: 'danger',
-        title: `Aşırı Reklam & İade Kaçağı: ${losingProducts[0]?.name || 'Dökümlü Saten Midi Elbise'}`,
-        description: `Bu üründe reklam harcaman 3.400 TL'ye ulaştı ve iade oranı %18. Net kârı eksiye çekiyor.`,
-        action: `Reklam bütçesini %35 kıs ve beden tablosu uyarısı ekle.`
-      },
-      {
-        type: 'warning',
-        title: `Kargo Desi Fazla Kesintisi: ${pendingCargoLeak.length} Siparişte Hata`,
-        description: `Kargo firmaları 1-2 desi yerine 4-5 desi fatura kesmiş. Toplam ${metrics.totalRecoverableCargo || 124} TL fazladan para alındı.`,
-        action: `Kargo Denetçisi sekmesinden tek tıkla itiraz dilekçesi oluştur.`
-      },
-      {
-        type: 'info',
-        title: `Kritik Stok Uyarısı: ${lowStockProducts[0]?.name || 'Keten Blazer Ceket'}`,
-        description: `Kalan stok: ${lowStockProducts[0]?.stock || 0} adet. Bu satış hızıyla liste 2 günde tükenebilir.`,
-        action: `Tedarikçiye acil sipariş geçerek Buybox kaybını önle.`
-      }
-    ]
+    headline: `Toplam ciro: ${rev.toLocaleString('tr-TR')} TL, Net Kâr: ${profit.toLocaleString('tr-TR')} TL (%${margin} Net Marj).`,
+    summary: losingProducts.length > 0 || pendingCargoLeak.length > 0 
+      ? `Genel satış ivmesi takip ediliyor; ${losingProducts.length + pendingCargoLeak.length} adet optimizasyon noktası mevcut.`
+      : `Genel satış ve kârlılık dengesi stabil seyrediyor.`,
+    priorities
   };
 }
 
 /**
  * AI Çalışanı 4-Sorulu Analiz Vakalarını Getirir
  */
-export function getAIEmployeeInsights() {
-  return AI_EMPLOYEE_CASES;
+export function getAIEmployeeInsights(products = [], orders = [], cargoLeaks = []) {
+  if (Array.isArray(AI_EMPLOYEE_CASES) && AI_EMPLOYEE_CASES.length > 0) {
+    return AI_EMPLOYEE_CASES;
+  }
+
+  const cases = [];
+
+  // Losing products case
+  const losing = (products || []).filter(p => p.status === 'losing');
+  if (losing.length > 0) {
+    const p = losing[0];
+    cases.push({
+      id: `AI-CASE-${p.id || '01'}`,
+      severity: 'CRITICAL',
+      badgeText: 'Zarar Eden Ürün / Kâr Kaçağı',
+      title: `${p.name || p.title} Ürününde Gizli Zarar Tespiti`,
+      q1_whatHappened: `Bu üründe satış fiyatı maliyet, komisyon ve kargo giderlerini karşılamıyor.`,
+      q2_whyHappened: `Yüksek komisyon veya ek operasyon giderleri kâr marjını eksiye çekmektedir.`,
+      q3_financialImpact: `Ürün başına net kâr eksiye düşmüştür.`,
+      q4_whatCanBeDone: `Fiyatı optimize edin veya reklam bütçesini gözden geçirin.`,
+      actionLabel: 'Fiyatı Güncelle',
+      actionTab: 'pro-table'
+    });
+  }
+
+  // Cargo leaks case
+  const pendingLeaks = (cargoLeaks || []).filter(l => l.status === 'ActionRequired');
+  if (pendingLeaks.length > 0) {
+    cases.push({
+      id: 'AI-CASE-CARGO-01',
+      severity: 'WARNING',
+      badgeText: 'Kargo Desi Uyuşmazlığı',
+      title: `${pendingLeaks.length} Siparişte Haksız Desi Kesintisi`,
+      q1_whatHappened: `Kargo şirketi paketleri sisteme kayıtlı desiden daha yüksek faturalandırdı.`,
+      q2_whyHappened: `Otomatik desi okuma hataları ve şube tartım uyuşmazlıkları.`,
+      q3_financialImpact: `Fazladan haksız kargo kesintisi oluştu.`,
+      q4_whatCanBeDone: `Otomatik dilekçe ile pazaryerine toplu itiraz iletin.`,
+      actionLabel: 'Dilekçe Oluştur',
+      actionTab: 'cargo-audit'
+    });
+  }
+
+  return cases;
 }
 
 /**
  * Satıcının Türkçe sorularına 4-Sorulu yapılandırılmış yapay zeka yanıtları üretir
  */
-export function askAIAssistant(question, storeContext) {
+export function askAIAssistant(question, storeContext, products = [], orders = [], cargoLeaks = []) {
   const q = question.toLowerCase();
+  const totalRev = Number(storeContext?.totalRevenue || 0);
+  const netProf = Number(storeContext?.netProfit || 0);
+  const netMarg = Number(storeContext?.netMargin || 0);
+
+  if (!products || products.length === 0) {
+    return {
+      text: `🔍 **Canlı Durum Raporu**
+Henüz sisteme bağlı ürün veya sipariş verisi bulunmamaktadır.
+
+💡 **Ne Yapılabilir?**
+Trendyol / Hepsiburada API anahtarlarınızı girerek veya Ürün Yükleme sekmesinden Excel / XML yükleyerek mağazanızı anlık yapay zeka izlemesine alabilirsiniz.`,
+      suggestedAction: 'API Entegrasyonuna Git',
+      actionTab: 'integrations'
+    };
+  }
 
   if (q.includes('neden düştü') || q.includes('kârım düştü') || q.includes('zarar') || q.includes('kaçak')) {
+    const losing = products.filter(p => p.status === 'losing');
     return {
       text: `🔍 **Ne Oldu?**
-Son 7 günde net kâr marjınız %27.4'ten %20.9'a geriledi (Haftalık kayıp: ~2.450 TL).
+Mağazanızda toplam ciro ${totalRev.toLocaleString('tr-TR')} ₺, net kâr ise ${netProf.toLocaleString('tr-TR')} ₺ (%${netMarg} Net Marj).
 
 🧠 **Neden Oldu?**
-1. **Dökümlü Saten Midi Elbise** ürününün reklam bütçesi 3.400 TL'ye çıkarken ROAS 1.6'ya düştü. Üstelik müşteriler "Kalıp dar" diye %18 iade açtı.
-2. Trendyol Express 3 siparişte 1-2 desi yerine 4-5 desi fatura tahsil etti.
+${losing.length > 0 ? `${losing.length} adet üründe giderler kârı baskılıyor.` : 'Kargo kesintileri ve komisyon oranları izlenmektedir.'}
 
 💸 **Finansal Etkisi Ne?**
-Reklam ve iade çarkı yüzünden bu üründen net **-1.059,10 TL zarar** ettiniz.
+Net kâr marjınız güncel satış fiyatları ve kargo tarifeleri üzerinden hesaplanmıştır.
 
 ⚡ **Ne Yapılabilir?**
-AI Çalışanı onayınızla reklam bütçesini %35 kısabilir ve pazar yeri kargo itiraz dilekçesini otomatik iletebilir.`,
-      suggestedAction: 'Aksiyonları İncele & Onayla',
+AI E-Ticaret Çalışanı sekmesinden önerilen fiyat ve bütçe aksiyonlarını inceleyip uygulayabilirsiniz.`,
+      suggestedAction: 'Aksiyonları İncele',
       actionTab: 'ai-worker'
     };
   }
 
   if (q.includes('en karlı') || q.includes('en çok kazandıran') || q.includes('şampiyon')) {
+    const sorted = [...products].sort((a, b) => {
+      const pA = (Number(a.sellingPrice || a.salePrice || 0) - Number(a.costPrice || 0));
+      const pB = (Number(b.sellingPrice || b.salePrice || 0) - Number(b.costPrice || 0));
+      return pB - pA;
+    });
+    const best = sorted[0] || { name: 'Kayıtlı Ürün', sellingPrice: 0 };
+
     return {
       text: `🔍 **Ne Oldu?**
-En yüksek net nakit üreten şampiyon ürününüz: **Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım**.
+En yüksek birim kâr marjına sahip ürününüz: **${best.name || best.title}**.
 
 🧠 **Neden Oldu?**
-• Satış Fiyatı: 1.950,00 TL (Alış: 780,00 TL, Kargo: 87,00 TL)
-• Ürün Başı Net Kâr: 663,75 TL (%34.0 Net Marj)
-• İade Oranı: Yalnızca %2.8 (Sektör ortalaması %18)
-• Buybox Rekabeti: %100 sizde.
+Satış Fiyatı: ${Number(best.sellingPrice || best.salePrice || 0).toLocaleString('tr-TR')} TL, Alış Maliyeti: ${Number(best.costPrice || 0).toLocaleString('tr-TR')} TL.
 
 💸 **Finansal Etkisi Ne?**
-Bu ay tek başına kasanıza **92.925 TL net nakit kâr** sağladı.
+Bu ürün mağazanızın kârlılık omurgasını oluşturmaktadır.
 
 ⚡ **Ne Yapılabilir?**
-Fiyatı 2.090,00 TL (+140 TL) yaparak aylık net kârınızı +14.200 TL artırabilirsiniz.`,
-      suggestedAction: 'Fiyatı Güncelle',
+Stok durumunu yakından takip ederek Buybox ve reklam sıralamasını koruyabilirsiniz.`,
+      suggestedAction: 'Ürün Kâr Tablosu',
       actionTab: 'pro-table'
-    };
-  }
-
-  if (q.includes('reklam') || q.includes('roas') || q.includes('ad')) {
-    return {
-      text: `🔍 **Ne Oldu?**
-Toplam reklam harcamanız 8.950 TL, toplam reklam kaynaklı ciro 51.534 TL (Ortalama ROAS: 5.75).
-
-🧠 **Neden Oldu?**
-Modal Takım (ROAS: 18.75) ve Yıldız Taş Tişört (ROAS: 9.54) çok iyi çalışırken, Saten Elbise (ROAS: 1.64) reklam bütçesini yakıyor.
-
-💸 **Finansal Etkisi Ne?**
-Saten elbisedeki aşırı reklam harcaması cebinizden 1.059 TL net zarar çıkardı.
-
-⚡ **Ne Yapılabilir?**
-'Reklam & ROAS' sekmesinden ilgili kampanyayı tek tıkla durdurabilir veya %35 bütçe kısma onayını verebilirsiniz.`,
-      suggestedAction: 'Reklam Panelini Aç',
-      actionTab: 'ads'
-    };
-  }
-
-  if (q.includes('iade') || q.includes('geri gelen')) {
-    return {
-      text: `🔍 **Ne Oldu?**
-Bu hafta toplam 14 adet iade talebi geldi (Toplam çift kargo ve paketleme ziyanı: 1.480 TL).
-
-🧠 **Neden Oldu?**
-İadelerin %62'si "Beden/Kalıp dar geldi" gerekçesiyle oluştu.
-
-💸 **Finansal Etkisi Ne?**
-Her iade edilen üründe ortalama 100,82 TL çift kargo + ambalaj zararı oluşuyor.
-
-⚡ **Ne Yapılabilir?**
-Ürün beden tablolarını güncelleyerek bu iadeleri %40 oranında engelleyebilirsiniz.`,
-      suggestedAction: 'İade Panelini İncele',
-      actionTab: 'returns'
     };
   }
 
   return {
     text: `🔍 **Ne Oldu?**
-Mağazanızın tüm kanallardaki anlık finansal ve operasyonel durumu tarandı.
+Mağazanızın tüm kanallardaki anlık finansal ve operasyonel durumu canlı verilerle tarandı.
 
 🧠 **Neden Oldu?**
-Toplam ciro **${storeContext?.totalRevenue?.toLocaleString('tr-TR')} ₺**, net kârınız **${storeContext?.netProfit?.toLocaleString('tr-TR')} ₺** (%${storeContext?.netMargin}). 
+Toplam ciro **${totalRev.toLocaleString('tr-TR')} ₺**, net kâr **${netProf.toLocaleString('tr-TR')} ₺** (%${netMarg} Net Marj). Toplam ${products.length} adet aktif ürün izleniyor.
 
 💸 **Finansal Etkisi Ne?**
-3 adet aktif kaçak noktası tespit edildi (Kargo desi uyuşmazlığı + aşırı reklam harcaması).
+Tüm komisyon, KDV ve kargo kesintileri net kâra yansıtılmıştır.
 
 ⚡ **Ne Yapılabilir?**
-AI E-Ticaret Çalışanı sekmesinden 4-sorulu aksiyon planlarını inceleyip tek tıkla onaylayabilirsiniz.`,
+AI E-Ticaret Çalışanı sekmesinden aksiyon planlarını inceleyebilirsiniz.`,
     suggestedAction: 'AI Çalışanı Paneline Git',
     actionTab: 'ai-worker'
   };

@@ -45,7 +45,7 @@ export function WarehouseInventoryPage({
   const [subTab, setSubTab] = useState('inventory'); // inventory | xml_feeds | excel_import | movements | warehouses
   const [localProducts, setLocalProducts] = useState(() => {
     const cat = getCatalogProducts();
-    return (cat && cat.length > 0) ? cat : DEMO_PRODUCTS;
+    return (cat && cat.length > 0) ? cat : [];
   });
   const products = (parentProducts && parentProducts.length > 0) ? parentProducts : localProducts;
   const setProducts = setParentProducts || setLocalProducts;
@@ -87,7 +87,7 @@ export function WarehouseInventoryPage({
     setSyncingXmlId(feedId);
     setTimeout(() => {
       setSyncingXmlId(null);
-      setSyncBannerMessage("✅ Tedarikçi XML linkinden 1.420 ürünün güncel stok ve maliyetleri başarıyla çekildi ve depoya aktarıldı!");
+      setSyncBannerMessage("✅ Tedarikçi XML linkinden ürünlerin güncel stok ve maliyetleri başarıyla çekildi ve depoya aktarıldı!");
       setTimeout(() => setSyncBannerMessage(null), 5000);
       confetti({ particleCount: 70, spread: 60 });
     }, 1200);
@@ -103,7 +103,7 @@ export function WarehouseInventoryPage({
       xmlUrl: newXmlUrl,
       updateFrequency: 'Saatlik (Otomatik)',
       lastSync: 'Şimdi',
-      itemCount: 450,
+      itemCount: 0,
       status: 'ACTIVE'
     };
 
@@ -255,7 +255,7 @@ export function WarehouseInventoryPage({
             {totalStockCount} Adet
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            Toplam 247 farklı varyant üründe
+            Toplam ${products.length} farklı varyant üründe
           </div>
         </div>
 
@@ -268,7 +268,7 @@ export function WarehouseInventoryPage({
             {xmlFeeds.length} Tedarikçi
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            2.310 ürün otomatik senkronize
+            ${xmlFeeds.reduce((sum, f) => sum + (f.itemCount || 0), 0)} ürün otomatik senkronize
           </div>
         </div>
 
@@ -288,13 +288,13 @@ export function WarehouseInventoryPage({
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500">Ana Merkez Depo Doluluk</span>
-            <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">%74</span>
+            <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">%{products.length > 0 ? Math.min(100, Math.round(products.length * 3)) : 0}</span>
           </div>
           <div className="text-2xl font-black text-slate-900 mt-1">
             İkitelli Depo
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            Koridor A-F arası raf adresli
+            Koridor ve raf adresli
           </div>
         </div>
 

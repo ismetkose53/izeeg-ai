@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Sparkles, 
   Brain, 
@@ -18,7 +18,8 @@ import {
   Layers,
   Database
 } from 'lucide-react';
-import { AI_EMPLOYEE_CASES, DATA_STATUS_BADGES, INITIAL_PRODUCTS, UNIFIED_LIVE_ORDERS } from '../services/mockData';
+import { DATA_STATUS_BADGES } from '../services/mockData';
+import { getAIEmployeeInsights } from '../services/aiAdvisorService';
 import { getAuditLogs } from '../services/safetyAuditService';
 import { RealNetProfitModule } from './RealNetProfitModule';
 import { PageGuideButton } from './PageHelpGuideModal';
@@ -36,7 +37,11 @@ export function AIWorkerDashboard({
   const [activeCaseFilter, setActiveCaseFilter] = useState('ALL'); // ALL | CRITICAL | WARNING | OPPORTUNITY
   const auditLogs = getAuditLogs();
 
-  const filteredCases = AI_EMPLOYEE_CASES.filter(c => {
+  const rawCases = useMemo(() => {
+    return getAIEmployeeInsights(products, orders, cargoLeaks);
+  }, [products, orders, cargoLeaks]);
+
+  const filteredCases = rawCases.filter(c => {
     if (activeCaseFilter === 'ALL') return true;
     return c.severity === activeCaseFilter;
   });
@@ -75,7 +80,7 @@ export function AIWorkerDashboard({
             </p>
           </div>
 
-          {/* Hızlı AI Asistan Soru Çubuğu (Mobilde Düzenli ve Tam Uyumlu) */}
+          {/* Hızlı AI Asistan Soru Çubuğu */}
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:flex lg:flex-row items-center gap-2 sm:gap-3 w-full lg:w-auto">
             {onOpenGuide && (
               <PageGuideButton 
@@ -111,21 +116,22 @@ export function AIWorkerDashboard({
           </div>
           <div className="flex items-center gap-1.5 text-amber-300 font-semibold flex-shrink-0">
             <Zap className="w-3.5 h-3.5" />
-            <span>{isDemoMode ? 'Onay Bekleyen 3 Kritik AI Aksiyonu' : 'Sistem İzlemede (0 Kritik Kaçak)'}</span>
+            <span>{rawCases.length > 0 ? `Onay Bekleyen ${rawCases.length} Kritik AI Aksiyonu` : 'Sistem İzlemede (0 Kritik Kaçak)'}</span>
           </div>
         </div>
       </div>
 
-      {/* 2. GERÇEK VERİYE DAYALI NET KÂR MODÜLÜ ("Bugün Gerçekten Ne Kazandım?") */}
+      {/* 2. GERÇEK VERİYE DAYALI NET KÂR MODÜLÜ */}
       <RealNetProfitModule
         products={products}
         orders={orders}
         onNavigateToReturns={() => onNavigateTab('returns')}
         onNavigateToAds={() => onNavigateTab('ads')}
         onNavigateToProTable={() => onNavigateTab('pro-table')}
+        onNavigateToInvoices={() => onNavigateTab('invoices')}
       />
 
-      {/* 3. 4-SORULU AI ÇALIŞAN KARAR KARTLARI (THE 4 QUESTIONS) */}
+      {/* 3. 4-SORULU AI ÇALIŞAN KARAR KARTLARI */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
@@ -146,7 +152,7 @@ export function AIWorkerDashboard({
                 activeCaseFilter === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Tümü ({AI_EMPLOYEE_CASES.length})
+              Tümü ({rawCases.length})
             </button>
             <button
               onClick={() => setActiveCaseFilter('CRITICAL')}
@@ -176,7 +182,7 @@ export function AIWorkerDashboard({
         </div>
 
         {/* 4 Soru Kartları Listesi */}
-        {!isDemoMode && orders.length === 0 && products.length === 0 ? (
+        {rawCases.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center shadow-sm">
             <div className="max-w-md mx-auto space-y-3">
               <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
@@ -222,11 +228,11 @@ export function AIWorkerDashboard({
                         ? 'bg-amber-100 text-amber-800 border border-amber-200'
                         : 'bg-blue-100 text-blue-700 border border-blue-200'
                     }`}>
-                      {item.badge}
+                      {item.badgeText || item.badge || 'AI Tespiti'}
                     </span>
 
                     <span className="text-xs font-bold text-slate-500">
-                      {item.marketplace} • <strong>{item.product}</strong>
+                      {item.marketplace || 'Çok Kanallı'}
                     </span>
                   </div>
 
@@ -299,16 +305,22 @@ export function AIWorkerDashboard({
                         Ne Yapılabilir?
                       </div>
                       <p className="text-xs text-slate-800 leading-relaxed font-medium mb-3">
-                        {item.q4_whatToDo}
+                        {item.q4_whatCanBeDone || item.q4_whatToDo}
                       </p>
                     </div>
 
                     {/* Güvenlik Kapısı Aksiyon Butonu */}
                     <button
-                      onClick={() => onTriggerActionApproval(item)}
-                      className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-[#f27a1a] text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-1.5 group"
+                      onClick={() => {
+                        if (item.actionTab && onNavigateTab) {
+                          onNavigateTab(item.actionTab);
+                        } else if (onTriggerActionApproval) {
+                          onTriggerActionApproval(item);
+                        }
+                      }}
+                      className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-[#f27a1a] text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-1.5 group cursor-pointer"
                     >
-                      <span>{item.action?.label || 'Aksiyonu İncele & Onayla'}</span>
+                      <span>{item.actionLabel || item.action?.label || 'Aksiyonu İncele'}</span>
                       <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                     </button>
                   </div>
@@ -387,6 +399,14 @@ export function AIWorkerDashboard({
                   </td>
                 </tr>
               ))}
+
+              {auditLogs.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
+                    Henüz onaylanmış aksiyon veya denetim kaydı bulunmuyor.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

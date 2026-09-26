@@ -76,9 +76,9 @@ export function AppHeader({
     setMobileMenuOpen(false);
   };
 
-  const isOperationActive = ['invoices', 'cargo-audit', 'customer-questions'].includes(activeTab);
+  const isOperationActive = ['invoices', 'incoming-invoices', 'cargo-audit', 'customer-questions'].includes(activeTab);
   const isOmnichannelActive = ['omnichannel-products', 'product-mapping', 'supplier-reorder', 'warehouse'].includes(activeTab);
-  const isFinanceActive = ['pro-table', 'repricer', 'reports', 'ads'].includes(activeTab);
+  const isFinanceActive = ['net-profit', 'pro-table', 'repricer', 'reports', 'ads', 'incoming-invoices'].includes(activeTab);
   const isIntegrationsActive = ['integrations', 'whatsapp'].includes(activeTab);
 
   return (
@@ -234,7 +234,7 @@ export function AppHeader({
             </button>
 
             {openDropdown === 'operation' && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-[#16202c] border border-slate-700 rounded-2xl shadow-2xl p-1.5 space-y-1 z-50 animate-scaleUp text-xs font-bold">
+              <div className="absolute top-full left-0 mt-2 w-72 bg-[#16202c] border border-slate-700 rounded-2xl shadow-2xl p-1.5 space-y-1 z-50 animate-scaleUp text-xs font-bold">
                 <button
                   onClick={() => handleSelectTab('invoices')}
                   className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
@@ -242,7 +242,23 @@ export function AppHeader({
                   }`}
                 >
                   <FileText className="w-4 h-4 text-emerald-400" />
-                  <span>E-Fatura & Yazdırma</span>
+                  <div className="flex-1">
+                    <span className="block font-bold">E-Fatura & Müşteri Satış Faturası</span>
+                    <span className="text-[10px] text-slate-400 font-medium">Otomatik GİB Kesim & Yazdırma</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleSelectTab('incoming-invoices')}
+                  className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
+                    activeTab === 'incoming-invoices' ? 'bg-rose-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4 text-rose-400" />
+                  <div className="flex-1">
+                    <span className="block font-bold text-rose-300">📥 Tarafınıza Kesilen Faturalar</span>
+                    <span className="text-[10px] text-rose-400/80 font-medium">Pazaryeri Komisyon & Kargo Giderleri</span>
+                  </div>
                 </button>
 
                 <button
@@ -252,9 +268,11 @@ export function AppHeader({
                   }`}
                 >
                   <Scale className="w-4 h-4 text-amber-400" />
-                  <span>Kargo Kaçağı & Desi İtiraz</span>
+                  <div className="flex-1">
+                    <span className="block">Kargo Kaçağı & Desi İtiraz</span>
+                    <span className="text-[10px] text-slate-400 font-medium">Hatalı Desi Tespiti & İtiraz Dilekçesi</span>
+                  </div>
                 </button>
-
 
                 <button
                   onClick={() => handleSelectTab('customer-questions')}
@@ -288,7 +306,20 @@ export function AppHeader({
             </button>
 
             {openDropdown === 'finance' && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-[#16202c] border border-slate-700 rounded-2xl shadow-2xl p-1.5 space-y-1 z-50 animate-scaleUp text-xs font-bold">
+              <div className="absolute top-full left-0 mt-2 w-72 bg-[#16202c] border border-slate-700 rounded-2xl shadow-2xl p-1.5 space-y-1 z-50 animate-scaleUp text-xs font-bold">
+                <button
+                  onClick={() => handleSelectTab('incoming-invoices')}
+                  className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
+                    activeTab === 'incoming-invoices' ? 'bg-rose-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4 text-rose-400" />
+                  <div className="flex-1">
+                    <span className="block font-bold text-rose-300">📥 Tarafınıza Kesilen Faturalar</span>
+                    <span className="text-[10px] text-rose-400/80 font-medium">Komisyon, Kargo & Reklam Kesintileri</span>
+                  </div>
+                </button>
+
                 <button
                   onClick={() => handleSelectTab('repricer')}
                   className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
@@ -309,7 +340,10 @@ export function AppHeader({
                   }`}
                 >
                   <Layers className="w-4 h-4 text-orange-400" />
-                  <span>Kâr & Maliyet Simülatörü</span>
+                  <div className="flex-1">
+                    <span className="block">Kâr & Maliyet Simülatörü</span>
+                    <span className="text-[10px] text-slate-400 font-medium">Komisyon & KDV dahil fiyatlama</span>
+                  </div>
                 </button>
 
                 <button
@@ -319,7 +353,10 @@ export function AppHeader({
                   }`}
                 >
                   <BarChart3 className="w-4 h-4 text-blue-400" />
-                  <span>Satış & Operasyon Raporları</span>
+                  <div className="flex-1">
+                    <span className="block">Satış & Operasyon Raporları</span>
+                    <span className="text-[10px] text-slate-400 font-medium">Kanal bazlı ciro & sipariş analizi</span>
+                  </div>
                 </button>
 
                 <button
@@ -329,7 +366,10 @@ export function AppHeader({
                   }`}
                 >
                   <Megaphone className="w-4 h-4 text-purple-400" />
-                  <span>Reklam Performansı & ROAS</span>
+                  <div className="flex-1">
+                    <span className="block">Reklam Performansı & ROAS</span>
+                    <span className="text-[10px] text-purple-300 font-medium">Trendyol & HB CPC Reklam Analizi</span>
+                  </div>
                 </button>
               </div>
             )}
@@ -617,7 +657,10 @@ export function AppHeader({
               <Boxes className="w-4 h-4 text-emerald-400" /> 📦 Stok Tahmini & Tedarik PO Fişi
             </button>
             <button onClick={() => handleSelectTab('invoices')} className="w-full px-3 py-2 text-emerald-300 hover:bg-slate-800 rounded-lg flex items-center gap-2">
-              <FileText className="w-4 h-4 text-emerald-400" /> 📄 E-Fatura & Barkod Yazdırma
+              <FileText className="w-4 h-4 text-emerald-400" /> 📄 E-Fatura & Müşteri Satış Faturaları
+            </button>
+            <button onClick={() => handleSelectTab('incoming-invoices')} className="w-full px-3 py-2 text-rose-300 hover:bg-slate-800 rounded-lg flex items-center gap-2 font-bold bg-rose-950/20 border border-rose-800/40">
+              <Building2 className="w-4 h-4 text-rose-400" /> 📥 Tarafınıza Kesilen Gider Faturaları
             </button>
             <button onClick={() => handleSelectTab('cargo-audit')} className="w-full px-3 py-2 text-amber-300 hover:bg-slate-800 rounded-lg flex items-center gap-2">
               <Scale className="w-4 h-4 text-amber-400" /> ⚖️ Kargo Kaçağı & Desi İtiraz

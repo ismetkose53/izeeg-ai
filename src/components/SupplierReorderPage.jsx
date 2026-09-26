@@ -24,179 +24,71 @@ import { jsPDF } from 'jspdf';
 import { PageGuideButton } from './PageHelpGuideModal';
 import { getCatalogProducts } from '../services/marketplaceSyncService';
 
-// Gerçek Mağaza Giyim Kataloğu Tedarik Sipariş Veri Havuzu
+// Canlı Mağaza Tedarik Sipariş Veri Havuzu (Varsayılan olarak boş veya gerçek ürünlerle başlar)
 function getDefaultReorderItems(products = []) {
   const catalog = (products && products.length > 0) ? products : getCatalogProducts();
 
-  const fallbackItems = [
-    {
-      id: 'REO-101',
-      title: "Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım",
-      sku: 'Modalsiyah2',
-      supplierId: 'SUP-1',
-      supplierName: 'Güngören Tekstil & İmalat San.',
-      currentStock: 4,
-      dailyVelocity: 2.5, // Günde 2.5 takım satılıyor
-      daysLeft: 1.6, // ~1.5 gün sonra stok 0 olacak!
-      unitCost: 780.00,
-      suggestedQuantity: 50,
-      leadTimeDays: 3,
-      safetyBufferDays: 5,
-      status: 'CRITICAL',
-      selectedForPo: true
-    },
-    {
-      id: 'REO-102',
-      title: 'Yıldız Taş Aksesuarlı, Vatkalı Oversize Tshirt',
-      sku: 'T.T.12',
-      supplierId: 'SUP-1',
-      supplierName: 'Güngören Tekstil & İmalat San.',
-      currentStock: 6,
-      dailyVelocity: 1.8,
-      daysLeft: 3.3,
-      unitCost: 640.00,
-      suggestedQuantity: 40,
-      leadTimeDays: 3,
-      safetyBufferDays: 5,
-      status: 'WARNING',
-      selectedForPo: true
-    },
-    {
-      id: 'REO-103',
-      title: 'Yüksek Bel Palazzo Jean Pantolon',
-      sku: 'PNT-PLZ-01',
-      supplierId: 'SUP-2',
-      supplierName: 'Merter Moda & Örme San. Ltd.',
-      currentStock: 3,
-      dailyVelocity: 2.8,
-      daysLeft: 1.1,
-      unitCost: 700.00,
-      suggestedQuantity: 60,
-      leadTimeDays: 2,
-      safetyBufferDays: 4,
-      status: 'CRITICAL',
-      selectedForPo: true
-    },
-    {
-      id: 'REO-104',
-      title: 'Keten Karışımlı Oversize Blazer Ceket',
-      sku: 'CKT-BLZ-02',
-      supplierId: 'SUP-1',
-      supplierName: 'Güngören Tekstil & İmalat San.',
-      currentStock: 5,
-      dailyVelocity: 1.0,
-      daysLeft: 5.0,
-      unitCost: 980.00,
-      suggestedQuantity: 25,
-      leadTimeDays: 3,
-      safetyBufferDays: 5,
-      status: 'WARNING',
-      selectedForPo: true
-    },
-    {
-      id: 'REO-105',
-      title: 'V Yaka Düğmeli Triko Hırka Ekru',
-      sku: 'TRK-HRK-V01',
-      supplierId: 'SUP-3',
-      supplierName: 'Bursa Dokuma & Kumaş Tedarik',
-      currentStock: 14,
-      dailyVelocity: 1.2,
-      daysLeft: 11.6,
-      unitCost: 500.00,
-      suggestedQuantity: 30,
-      leadTimeDays: 4,
-      safetyBufferDays: 6,
-      status: 'HEALTHY',
-      selectedForPo: false
-    },
-    {
-      id: 'REO-106',
-      title: 'Dökümlü Saten Midi Elbise',
-      sku: 'ELB-SAT-03',
-      supplierId: 'SUP-2',
-      supplierName: 'Merter Moda & Örme San. Ltd.',
-      currentStock: 12,
-      dailyVelocity: 0.9,
-      daysLeft: 13.3,
-      unitCost: 750.00,
-      suggestedQuantity: 25,
-      leadTimeDays: 2,
-      safetyBufferDays: 5,
-      status: 'HEALTHY',
-      selectedForPo: false
-    }
-  ];
-
-  if (catalog && catalog.length > 0) {
-    return catalog.slice(0, 6).map((p, idx) => {
-      const stock = Number(p.stock !== undefined ? p.stock : (idx === 0 ? 4 : (idx === 1 ? 6 : 14)));
-      const cost = Number(p.costPrice || 700);
-      const velocity = Number((1.2 + (idx * 0.4)).toFixed(1));
-      const days = velocity > 0 ? Number((stock / velocity).toFixed(1)) : 10;
-      const supplierId = idx % 2 === 0 ? 'SUP-1' : 'SUP-2';
-      const supplierName = supplierId === 'SUP-1' ? 'Güngören Tekstil & İmalat San.' : 'Merter Moda & Örme San. Ltd.';
-      const status = days < 2.5 ? 'CRITICAL' : (days < 6.0 ? 'WARNING' : 'HEALTHY');
-
-      return {
-        id: `REO-${100 + idx}`,
-        title: p.name || p.title || `Ürün #${idx + 1}`,
-        sku: p.sku || p.id || `SKU-${idx + 1}`,
-        supplierId,
-        supplierName,
-        currentStock: stock,
-        dailyVelocity: velocity,
-        daysLeft: days,
-        unitCost: cost,
-        suggestedQuantity: status === 'CRITICAL' ? 50 : 30,
-        leadTimeDays: 3,
-        safetyBufferDays: 5,
-        status,
-        selectedForPo: status !== 'HEALTHY'
-      };
-    });
+  if (!catalog || catalog.length === 0) {
+    return [];
   }
 
-  return fallbackItems;
+  return catalog.map((p, idx) => {
+    const stock = Number(p.stock !== undefined ? p.stock : 0);
+    const cost = Number(p.costPrice || p.cost || 0);
+    const velocity = Number(p.dailyVelocity || (stock > 0 ? (stock / 10).toFixed(1) : 1));
+    const days = velocity > 0 ? Number((stock / velocity).toFixed(1)) : 0;
+    const supplierId = p.supplierId || `SUP-${(idx % 3) + 1}`;
+    const supplierName = p.supplier || p.supplierName || 'Ana Tedarikçi';
+    const status = days < 2.5 ? 'CRITICAL' : (days < 6.0 ? 'WARNING' : 'HEALTHY');
+
+    return {
+      id: `REO-${p.id || 100 + idx}`,
+      title: p.name || p.title || `Ürün #${idx + 1}`,
+      sku: p.sku || p.stockCode || p.id || `SKU-${idx + 1}`,
+      supplierId,
+      supplierName,
+      currentStock: stock,
+      dailyVelocity: velocity,
+      daysLeft: days,
+      unitCost: cost,
+      suggestedQuantity: status === 'CRITICAL' ? 50 : 30,
+      leadTimeDays: 3,
+      safetyBufferDays: 5,
+      status,
+      selectedForPo: status !== 'HEALTHY'
+    };
+  });
 }
 
 export function SupplierReorderPage({ onNavigateBack, onOpenGuide, products = [] }) {
-  // Tedarikçi Listesi
-  const [suppliers, setSuppliers] = useState([
-    {
-      id: 'SUP-1',
-      name: 'Güngören Tekstil & İmalat San.',
-      contactPerson: 'Mehmet Bey',
-      phone: '0532 444 33 22',
-      category: 'Tekstil & Konfeksiyon',
-      leadTimeDays: 3
-    },
-    {
-      id: 'SUP-2',
-      name: 'Merter Moda & Örme San. Ltd.',
-      contactPerson: 'Ahmet Usta',
-      phone: '0542 555 66 77',
-      category: 'Örme & Jean İmalat',
-      leadTimeDays: 2
-    },
-    {
-      id: 'SUP-3',
-      name: 'Bursa Dokuma & Kumaş Tedarik',
-      contactPerson: 'Selim Bey',
-      phone: '0555 888 99 00',
-      category: 'Triko & Dokuma',
-      leadTimeDays: 4
-    }
-  ]);
+  // Tedarikçi Listesi (Varsayılan olarak boş veya yerel depodan gelir)
+  const [suppliers, setSuppliers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('izeeg_suppliers');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
 
-  const [selectedSupplierId, setSelectedSupplierId] = useState('SUP-1');
+  const [selectedSupplierId, setSelectedSupplierId] = useState(() => suppliers[0]?.id || 'SUP-1');
   const [copiedWhatsapp, setCopiedWhatsapp] = useState(false);
   const [customPoNote, setCustomPoNote] = useState('Acil sevkiyat rica olunur. Faturayı şirket adına düzenleyiniz.');
 
   // Stok Bitiş Tahminli Ürün Listesi
   const [reorderItems, setReorderItems] = useState(() => getDefaultReorderItems(products));
 
-  const activeSupplier = suppliers.find(s => s.id === selectedSupplierId) || suppliers[0];
-  const supplierItems = reorderItems.filter(item => item.supplierId === selectedSupplierId);
+  const activeSupplier = suppliers.find(s => s.id === selectedSupplierId) || suppliers[0] || {
+    id: 'SUP-1',
+    name: 'Ana Tedarikçi',
+    contactPerson: 'Yetkili',
+    phone: '',
+    leadTimeDays: 3
+  };
+
+  const supplierItems = reorderItems.filter(item => item.supplierId === selectedSupplierId || suppliers.length === 0);
   const selectedPoItems = supplierItems.filter(item => item.selectedForPo);
 
   // Toplam Tutar Hesaplama
@@ -257,6 +149,10 @@ _Bu sipariş fişi izeeg E-Ticaret Otomasyonu tarafından otomatik oluşturulmu�
   };
 
   const handleOpenDirectWhatsApp = () => {
+    if (!activeSupplier.phone) {
+      alert("Lütfen önce tedarikçi iletişim numarasını girin.");
+      return;
+    }
     const text = encodeURIComponent(generateWhatsAppPoText());
     const cleanPhone = activeSupplier.phone.replace(/\s+/g, '').replace(/^0/, '90');
     window.open(`https://wa.me/${cleanPhone}?text=${text}`, '_blank');
@@ -269,7 +165,7 @@ _Bu sipariş fişi izeeg E-Ticaret Otomasyonu tarafından otomatik oluşturulmu�
     doc.setFontSize(10);
     doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 20, 30);
     doc.text(`Tedarikci: ${activeSupplier.name}`, 20, 38);
-    doc.text(`Ilgili Kisi: ${activeSupplier.contactPerson} (${activeSupplier.phone})`, 20, 46);
+    doc.text(`Ilgili Kisi: ${activeSupplier.contactPerson} (${activeSupplier.phone || '-'})`, 20, 46);
 
     let y = 60;
     doc.setFontSize(11);
@@ -332,7 +228,7 @@ _Bu sipariş fişi izeeg E-Ticaret Otomasyonu tarafından otomatik oluşturulmu�
             </div>
           </div>
           <p className="text-xs text-slate-300 mt-2 max-w-2xl">
-            Son 7 günün satış hızına göre stoğunuzun ne zaman biteceğini önceden görün. Tedarik süresi gecikmeden tek tıkla WhatsApp ve PDF sipariş fişi hazırlayın.
+            Satış hızına göre stoğunuzun ne zaman biteceğini önceden görün. Tedarik süresi gecikmeden tek tıkla WhatsApp ve PDF sipariş fişi hazırlayın.
           </p>
         </div>
 
@@ -342,223 +238,241 @@ _Bu sipariş fişi izeeg E-Ticaret Otomasyonu tarafından otomatik oluşturulmu�
           <strong className="text-2xl font-black text-amber-400">
             {reorderItems.filter(i => i.status === 'CRITICAL').length} Ürün
           </strong>
-          <span className="text-[10px] text-rose-300 font-semibold block mt-0.5">3 Gün İçinde Bitecek</span>
+          <span className="text-[10px] text-rose-300 font-semibold block mt-0.5">Kritik Stok Seviyesi</span>
         </div>
 
         <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-emerald-600/20 rounded-full blur-3xl"></div>
       </div>
 
       {/* 2. Tedarikçi Seçimi ve Üst Bilgi */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {suppliers.map(sup => {
-          const supItems = reorderItems.filter(i => i.supplierId === sup.id);
-          const hasCritical = supItems.some(i => i.status === 'CRITICAL');
-          const isSelected = selectedSupplierId === sup.id;
+      {suppliers.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {suppliers.map(sup => {
+            const supItems = reorderItems.filter(i => i.supplierId === sup.id);
+            const hasCritical = supItems.some(i => i.status === 'CRITICAL');
+            const isSelected = selectedSupplierId === sup.id;
 
-          return (
-            <div
-              key={sup.id}
-              onClick={() => setSelectedSupplierId(sup.id)}
-              className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                isSelected
-                  ? 'bg-white border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <strong className="text-xs font-black text-slate-900">{sup.name}</strong>
-                {hasCritical && (
-                  <span className="text-[10px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
-                    ⚠️ Kritik Stok
-                  </span>
-                )}
-              </div>
+            return (
+              <div
+                key={sup.id}
+                onClick={() => setSelectedSupplierId(sup.id)}
+                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                  isSelected
+                    ? 'bg-white border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
+                    : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <strong className="text-xs font-black text-slate-900">{sup.name}</strong>
+                  {hasCritical && (
+                    <span className="text-[10px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
+                      ⚠️ Kritik Stok
+                    </span>
+                  )}
+                </div>
 
-              <div className="text-xs text-slate-500 mt-2 space-y-1">
-                <div>İlgili: <span className="font-bold text-slate-800">{sup.contactPerson}</span> ({sup.phone})</div>
-                <div>Tedarik Süresi: <span className="font-bold text-slate-800">{sup.leadTimeDays} Gün</span></div>
+                <div className="text-xs text-slate-500 mt-2 space-y-1">
+                  <div>İlgili: <span className="font-bold text-slate-800">{sup.contactPerson}</span> ({sup.phone || '-'})</div>
+                  <div>Tedarik Süresi: <span className="font-bold text-slate-800">{sup.leadTimeDays || 3} Gün</span></div>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* 3. Ana Gövde: Stok Tablosu ve Yanında Sipariş Fişi */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Sol: Tedarikçi Ürünleri & Stok Hızı Analizi (7 Kolon) */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                  <Building className="w-4 h-4 text-emerald-600" />
-                  {activeSupplier.name} Ürünleri
-                </h3>
-                <p className="text-xs text-slate-500">Stok tükenme gününü ve önerilen sipariş miktarını inceleyin.</p>
-              </div>
+      {reorderItems.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center shadow-sm">
+          <div className="max-w-md mx-auto space-y-3">
+            <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+              <Boxes className="w-8 h-8" />
             </div>
-
-            <div className="space-y-3">
-              {supplierItems.map((item) => (
-                <div 
-                  key={item.id} 
-                  className={`p-4 rounded-2xl border transition-all ${
-                    item.selectedForPo ? 'bg-slate-50/80 border-slate-300' : 'bg-white border-slate-200 opacity-60'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={item.selectedForPo}
-                        onChange={() => handleToggleSelectPo(item.id)}
-                        className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                      />
-                      <div>
-                        <strong className="text-xs font-black text-slate-900 block">{item.title}</strong>
-                        <span className="text-[11px] text-slate-500 font-mono">{item.sku}</span>
-                      </div>
-                    </div>
-
-                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
-                      item.status === 'CRITICAL' ? 'bg-rose-100 text-rose-800 border border-rose-300' :
-                      item.status === 'WARNING' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
-                      'bg-emerald-100 text-emerald-800'
-                    }`}>
-                      {item.status === 'CRITICAL' ? `🚨 ${item.daysLeft.toFixed(1)} Gün Kaldı!` :
-                       item.status === 'WARNING' ? `⚠️ ${item.daysLeft.toFixed(1)} Gün Kaldı` :
-                       `✅ ${item.daysLeft.toFixed(0)} Gün Yeterli`}
-                    </span>
-                  </div>
-
-                  {/* Metrikler ve Sipariş Adedi Kutusu */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-3 border-t border-slate-200/80 text-xs">
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Kalan Stok:</span>
-                      <strong className="font-black text-slate-900">{item.currentStock} Adet</strong>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Günlük Hız:</span>
-                      <strong className="font-black text-emerald-700">{item.dailyVelocity} Adet/Gün</strong>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Birim Alış:</span>
-                      <strong className="font-black text-slate-800">{item.unitCost.toFixed(2)} ₺</strong>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Sipariş Miktarı:</span>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <input
-                          type="number"
-                          value={item.suggestedQuantity}
-                          onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                          className="w-16 bg-white border border-slate-300 rounded-lg p-1 text-xs font-black text-emerald-800 text-center focus:outline-none focus:border-emerald-500"
-                          min="1"
-                        />
-                        <span className="text-[10px] text-slate-500 font-bold">Adet</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <h3 className="text-base font-black text-slate-900">
+              Henüz Stok ve Tedarik Verisi Bulunmuyor
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Ürün yüklediğinizde veya canlı pazar yeri API bağlantısı kurulduğunda stok tükenme günleri ve otomatik satın alma sipariş fişleri (PO) burada oluşturulacaktır.
+            </p>
           </div>
         </div>
-
-        {/* Sağ: Satın Alma Sipariş Fişi (PO) & WhatsApp / PDF (5 Kolon) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-600" />
-                  Satın Alma Sipariş Fişi (PO)
-                </h3>
-                <span className="text-xs text-slate-500">Tedarikçiye iletilecek özet fiş</span>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Sol: Tedarikçi Ürünleri & Stok Hızı Analizi (7 Kolon) */}
+          <div className="lg:col-span-7 space-y-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    <Building className="w-4 h-4 text-emerald-600" />
+                    {activeSupplier.name} Ürünleri
+                  </h3>
+                  <p className="text-xs text-slate-500">Stok tükenme gününü ve önerilen sipariş miktarını inceleyin.</p>
+                </div>
               </div>
-              <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                {selectedPoItems.length} Kalem Seçili
-              </span>
-            </div>
 
-            {/* Seçili Kalemler Özeti */}
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {selectedPoItems.map((item, idx) => (
-                <div key={item.id} className="p-2.5 bg-slate-50 rounded-xl text-xs flex items-center justify-between">
-                  <div>
-                    <strong className="text-slate-900 block line-clamp-1">{idx + 1}. {item.title}</strong>
-                    <span className="text-[11px] text-slate-500 font-mono">{item.suggestedQuantity} Adet × {item.unitCost.toFixed(2)} ₺</span>
+              <div className="space-y-3">
+                {supplierItems.map((item) => (
+                  <div 
+                    key={item.id} 
+                    className={`p-4 rounded-2xl border transition-all ${
+                      item.selectedForPo ? 'bg-slate-50/80 border-slate-300' : 'bg-white border-slate-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={item.selectedForPo}
+                          onChange={() => handleToggleSelectPo(item.id)}
+                          className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <div>
+                          <strong className="text-xs font-black text-slate-900 block">{item.title}</strong>
+                          <span className="text-[11px] text-slate-500 font-mono">{item.sku}</span>
+                        </div>
+                      </div>
+
+                      <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                        item.status === 'CRITICAL' ? 'bg-rose-100 text-rose-800 border border-rose-300' :
+                        item.status === 'WARNING' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                        'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {item.status === 'CRITICAL' ? `🚨 ${item.daysLeft.toFixed(1)} Gün Kaldı!` :
+                         item.status === 'WARNING' ? `⚠️ ${item.daysLeft.toFixed(1)} Gün Kaldı` :
+                         `✅ ${item.daysLeft.toFixed(0)} Gün Yeterli`}
+                      </span>
+                    </div>
+
+                    {/* Metrikler ve Sipariş Adedi Kutusu */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-3 border-t border-slate-200/80 text-xs">
+                      <div>
+                        <span className="text-[11px] text-slate-500 block">Kalan Stok:</span>
+                        <strong className="font-black text-slate-900">{item.currentStock} Adet</strong>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] text-slate-500 block">Günlük Hız:</span>
+                        <strong className="font-black text-emerald-700">{item.dailyVelocity} Adet/Gün</strong>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] text-slate-500 block">Birim Alış:</span>
+                        <strong className="font-black text-slate-800">{item.unitCost.toFixed(2)} ₺</strong>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] text-slate-500 block">Sipariş Miktarı:</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <input
+                            type="number"
+                            value={item.suggestedQuantity}
+                            onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                            className="w-16 bg-white border border-slate-300 rounded-lg p-1 text-xs font-black text-emerald-800 text-center focus:outline-none focus:border-emerald-500"
+                            min="1"
+                          />
+                          <span className="text-[10px] text-slate-500 font-bold">Adet</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <strong className="text-slate-900 font-black">
-                    {(item.unitCost * item.suggestedQuantity).toLocaleString('tr-TR')} ₺
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Sağ: Satın Alma Sipariş Fişi (PO) & WhatsApp / PDF (5 Kolon) */}
+          <div className="lg:col-span-5 space-y-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-600" />
+                    Satın Alma Sipariş Fişi (PO)
+                  </h3>
+                  <span className="text-xs text-slate-500">Tedarikçiye iletilecek özet fiş</span>
+                </div>
+                <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                  {selectedPoItems.length} Kalem Seçili
+                </span>
+              </div>
+
+              {/* Seçili Kalemler Özeti */}
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {selectedPoItems.map((item, idx) => (
+                  <div key={item.id} className="p-2.5 bg-slate-50 rounded-xl text-xs flex items-center justify-between">
+                    <div>
+                      <strong className="text-slate-900 block line-clamp-1">{idx + 1}. {item.title}</strong>
+                      <span className="text-[11px] text-slate-500 font-mono">{item.suggestedQuantity} Adet × {item.unitCost.toFixed(2)} ₺</span>
+                    </div>
+                    <strong className="text-slate-900 font-black">
+                      {(item.unitCost * item.suggestedQuantity).toLocaleString('tr-TR')} ₺
+                    </strong>
+                  </div>
+                ))}
+              </div>
+
+              {/* Fiş Notu */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Tedarikçi Özel Notu:</label>
+                <textarea
+                  value={customPoNote}
+                  onChange={(e) => setCustomPoNote(e.target.value)}
+                  rows="2"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                  placeholder="Özel talimat veya fatura bilgisi yazın..."
+                />
+              </div>
+
+              {/* Toplam Hesaplama */}
+              <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 space-y-1">
+                <div className="flex justify-between text-xs text-slate-600">
+                  <span>Toplam Ürün Adedi:</span>
+                  <strong className="text-slate-900">{totalPoPieces} Adet</strong>
+                </div>
+                <div className="flex justify-between text-sm pt-1 border-t border-emerald-200">
+                  <span className="font-bold text-slate-800">Tahmini Toplam Tutar:</span>
+                  <strong className="text-base font-black text-emerald-800">
+                    {totalPoAmount.toLocaleString('tr-TR')} ₺
                   </strong>
                 </div>
-              ))}
-            </div>
-
-            {/* Fiş Notu */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Tedarikçi Özel Notu:</label>
-              <textarea
-                value={customPoNote}
-                onChange={(e) => setCustomPoNote(e.target.value)}
-                rows="2"
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                placeholder="Özel talimat veya fatura bilgisi yazın..."
-              />
-            </div>
-
-            {/* Toplam Hesaplama */}
-            <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 space-y-1">
-              <div className="flex justify-between text-xs text-slate-600">
-                <span>Toplam Ürün Adedi:</span>
-                <strong className="text-slate-900">{totalPoPieces} Adet</strong>
               </div>
-              <div className="flex justify-between text-sm pt-1 border-t border-emerald-200">
-                <span className="font-bold text-slate-800">Tahmini Toplam Tutar:</span>
-                <strong className="text-base font-black text-emerald-800">
-                  {totalPoAmount.toLocaleString('tr-TR')} ₺
-                </strong>
-              </div>
-            </div>
 
-            {/* Aksiyon Butonları */}
-            <div className="space-y-2 pt-2">
-              <button
-                onClick={handleOpenDirectWhatsApp}
-                className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
-              >
-                <Smartphone className="w-4 h-4" />
-                <span>WhatsApp ile Doğrudan Sipariş İlet</span>
-              </button>
-
-              <div className="grid grid-cols-2 gap-2">
+              {/* Aksiyon Butonları */}
+              <div className="space-y-2 pt-2">
                 <button
-                  onClick={handleCopyWhatsAppPo}
-                  className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                  onClick={handleOpenDirectWhatsApp}
+                  className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
                 >
-                  {copiedWhatsapp ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedWhatsapp ? 'Kopyalandı!' : 'Metni Kopyala'}</span>
+                  <Smartphone className="w-4 h-4" />
+                  <span>WhatsApp ile Doğrudan Sipariş İlet</span>
                 </button>
 
-                <button
-                  onClick={handleDownloadPdfPo}
-                  className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>PDF Fiş İndir</span>
-                </button>
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleCopyWhatsAppPo}
+                    className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                  >
+                    {copiedWhatsapp ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedWhatsapp ? 'Kopyalandı!' : 'Metni Kopyala'}</span>
+                  </button>
 
+                  <button
+                    onClick={handleDownloadPdfPo}
+                    className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>PDF Fiş İndir</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
           </div>
-        </div>
 
-      </div>
+        </div>
+      )}
 
     </div>
   );

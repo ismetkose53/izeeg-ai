@@ -35,10 +35,10 @@ import confetti from 'canvas-confetti';
 
 export function Dashboard({ 
   metrics, 
-  products, 
-  orders, 
-  timelineData, 
-  cargoLeaks,
+  products = [], 
+  orders = [], 
+  timelineData = [], 
+  cargoLeaks = [],
   morningBrief, 
   onNavigateTab, 
   onOpenAIWithPrompt,
@@ -58,6 +58,7 @@ export function Dashboard({
   };
 
   const losingProducts = products.filter(p => p.status === 'losing');
+  const activeCargoLeaks = cargoLeaks.filter(l => l.status === 'ActionRequired');
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
@@ -75,12 +76,12 @@ export function Dashboard({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded-full border border-amber-400/20">
-                  {morningBrief.time} AI YÖNETİCİ BRİFİNGİ
+                  {morningBrief?.time || 'Canlı İzleme'} AI YÖNETİCİ BRİFİNGİ
                 </span>
                 <span className="text-xs text-slate-400">Canlı Analiz Motoru</span>
               </div>
               <h2 className="text-lg lg:text-xl font-extrabold text-white mt-0.5">
-                {morningBrief.headline}
+                {morningBrief?.headline || 'Canlı mağaza verileri takip ediliyor.'}
               </h2>
             </div>
           </div>
@@ -103,9 +104,9 @@ export function Dashboard({
           </div>
         </div>
 
-        {/* Brifing 3 Öncelikli Madde */}
+        {/* Brifing Öncelikli Maddeler */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-4">
-          {morningBrief.priorities.map((item, idx) => (
+          {(morningBrief?.priorities || []).map((item, idx) => (
             <div 
               key={idx}
               className={`p-3.5 rounded-xl border transition-all ${
@@ -124,7 +125,7 @@ export function Dashboard({
                     ? 'bg-amber-500/20 text-amber-300'
                     : 'bg-indigo-500/20 text-indigo-300'
                 }`}>
-                  {item.type === 'danger' ? '🔴 Acil Kaçak' : item.type === 'warning' ? '⚠️ Kargo Uyarısı' : '💡 Fırsat'}
+                  {item.type === 'danger' ? '🔴 Acil Kaçak' : item.type === 'warning' ? '⚠️ Kargo Uyarısı' : '💡 Bilgilendirme'}
                 </span>
               </div>
               <h4 className="text-xs font-bold text-white mb-1 line-clamp-1">{item.title}</h4>
@@ -138,10 +139,10 @@ export function Dashboard({
 
       </div>
 
-      {/* 2. Beş Ana Metrik Kartı (Trendyol & Hepsiburada Stili) */}
+      {/* 2. Beş Ana Metrik Kartı */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         
-        {/* Kart 1: Gerçek Net Kâr (EN KRİTİK KART) */}
+        {/* Kart 1: Gerçek Net Kâr */}
         <div className="glass-card glass-card-hover rounded-2xl p-4 border-emerald-500/30 bg-gradient-to-b from-emerald-950/20 to-dark-card relative overflow-hidden">
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium mb-2">
             <span>Gerçek Net Kâr (Cebine Kalan)</span>
@@ -190,8 +191,7 @@ export function Dashboard({
             {metrics.totalCommission.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} <span className="text-base text-slate-400">TL</span>
           </div>
           <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-400">
-            <span>Ort. Komisyon: </span>
-            <span className="text-amber-400 font-semibold">%18.8</span>
+            <span>Toplam Komisyon</span>
           </div>
         </div>
 
@@ -260,29 +260,36 @@ export function Dashboard({
           </div>
 
           <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="ciroGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="karGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f293d" vertical={false} />
-                <XAxis dataKey="day" stroke="#64748b" fontSize={12} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '12px', fontSize: '12px' }} 
-                  formatter={(value) => [`${value.toLocaleString('tr-TR')} TL`]}
-                />
-                <Area type="monotone" dataKey="ciro" name="Ciro" stroke="#818cf8" strokeWidth={2.5} fillOpacity={1} fill="url(#ciroGradient)" />
-                <Area type="monotone" dataKey="netKar" name="Net Kâr" stroke="#34d399" strokeWidth={2.5} fillOpacity={1} fill="url(#karGradient)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {timelineData.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs">
+                <TrendingUp className="w-8 h-8 text-slate-600 mb-2" />
+                <span>Canlı grafik verisi pazar yeri siparişleri aktıkça oluşacaktır.</span>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="ciroGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="karGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f293d" vertical={false} />
+                  <XAxis dataKey="day" stroke="#64748b" fontSize={12} tickLine={false} />
+                  <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '12px', fontSize: '12px' }} 
+                    formatter={(value) => [`${value.toLocaleString('tr-TR')} TL`]}
+                  />
+                  <Area type="monotone" dataKey="ciro" name="Ciro" stroke="#818cf8" strokeWidth={2.5} fillOpacity={1} fill="url(#ciroGradient)" />
+                  <Area type="monotone" dataKey="netKar" name="Net Kâr" stroke="#34d399" strokeWidth={2.5} fillOpacity={1} fill="url(#karGradient)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -295,62 +302,71 @@ export function Dashboard({
                 Canlı Kaçak Avcısı
               </h3>
               <span className="text-[11px] bg-rose-500/20 text-rose-300 font-bold px-2 py-0.5 rounded-full animate-pulse">
-                {losingProducts.length + cargoLeaks.filter(l => l.status === 'ActionRequired').length} Kaçak
+                {losingProducts.length + activeCargoLeaks.length} Kaçak
               </span>
             </div>
             
             <div className="space-y-3">
-              {/* Kaçak 1: Yüksek Reklam & İade Zararı */}
-              <div className="p-3 rounded-xl bg-dark-surface/90 border border-rose-500/30">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="text-xs font-bold text-white">Dökümlü Saten Midi Elbise (ELB-SAT-03)</div>
-                  <span className="text-[10px] font-extrabold text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded">ZARAR YAZIYOR</span>
+              {losingProducts.length === 0 && activeCargoLeaks.length === 0 ? (
+                <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-center space-y-1.5">
+                  <ShieldCheck className="w-6 h-6 text-emerald-400 mx-auto" />
+                  <div className="text-xs font-bold text-emerald-300">Aktif Kaçak Bulunmuyor</div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Kargo desileri ve ürün kârlılıkları anlık izleniyor. Herhangi bir anomali durumunda anında burada listelenir.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-300 mt-1">
-                  3.400 TL reklam + %18 iade oranı kârı sildi süpürdü.
-                </p>
-                <div className="mt-2.5 flex items-center justify-between">
-                  <span className="text-[11px] text-rose-400 font-bold">-1.059 TL/Hafta</span>
-                  <button 
-                    onClick={(e) => handleFixAlert('leak1', e)}
-                    disabled={fixedAlerts['leak1']}
-                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${
-                      fixedAlerts['leak1']
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-rose-600 hover:bg-rose-500 text-white'
-                    }`}
-                  >
-                    {fixedAlerts['leak1'] ? '✓ Reklam Kısıldı' : 'Reklamı %35 Kıs'}
-                  </button>
-                </div>
-              </div>
+              ) : (
+                <>
+                  {losingProducts.slice(0, 2).map((p, idx) => (
+                    <div key={p.id || idx} className="p-3 rounded-xl bg-dark-surface/90 border border-rose-500/30">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-xs font-bold text-white line-clamp-1">{p.name || p.title}</div>
+                        <span className="text-[10px] font-extrabold text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded flex-shrink-0">ZARAR YAZIYOR</span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 mt-1">
+                        Komisyon ve giderler satış fiyatının üzerinde.
+                      </p>
+                      <div className="mt-2.5 flex items-center justify-between">
+                        <span className="text-[11px] text-rose-400 font-bold">Fiyat Düşük</span>
+                        <button 
+                          onClick={() => onNavigateTab('pro-table')}
+                          className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer"
+                        >
+                          Fiyatı Düzelt
+                        </button>
+                      </div>
+                    </div>
+                  ))}
 
-              {/* Kaçak 2: Kargo Desi Hataları */}
-              <div className="p-3 rounded-xl bg-dark-surface/90 border border-amber-500/30">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="text-xs font-bold text-white">Siyah Modal Takım (Modalsiyah2)</div>
-                  <span className="text-[10px] font-extrabold text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded">DESİ CEZASI</span>
-                </div>
-                <p className="text-[11px] text-slate-300 mt-1">
-                  2 desi ürün 4 desi faturalandırılmış. Toplam 24 TL fazla kesinti.
-                </p>
-                <div className="mt-2.5 flex items-center justify-between">
-                  <span className="text-[11px] text-amber-400 font-bold">+24 TL İade Al</span>
-                  <button 
-                    onClick={() => onNavigateTab('cargo-audit')}
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 transition-all"
-                  >
-                    Dilekçeyi Gör ↳
-                  </button>
-                </div>
-              </div>
+                  {activeCargoLeaks.slice(0, 2).map((leak, idx) => (
+                    <div key={leak.id || idx} className="p-3 rounded-xl bg-dark-surface/90 border border-amber-500/30">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-xs font-bold text-white line-clamp-1">{leak.productName || `Sipariş #${leak.orderNumber}`}</div>
+                        <span className="text-[10px] font-extrabold text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded flex-shrink-0">DESİ CEZASI</span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 mt-1">
+                        {leak.billedDesi} desi fatura kesilmiş ({leak.registeredDesi} desi kayıtlı).
+                      </p>
+                      <div className="mt-2.5 flex items-center justify-between">
+                        <span className="text-[11px] text-amber-400 font-bold">+{leak.excessFee || 24} TL İade</span>
+                        <button 
+                          onClick={() => onNavigateTab('cargo-audit')}
+                          className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 transition-all cursor-pointer"
+                        >
+                          İtiraz Et ↳
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-white/10 text-center">
             <button 
               onClick={() => onOpenAIWithPrompt("Bana mağazamdaki tüm kaçakları ve bunları durdurmak için 1 haftalık eylem planını çıkar.")}
-              className="text-xs font-semibold text-brand-400 hover:text-brand-300 flex items-center justify-center gap-1 mx-auto"
+              className="text-xs font-semibold text-brand-400 hover:text-brand-300 flex items-center justify-center gap-1 mx-auto cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Tüm Kaçakları AI ile Analiz Et
@@ -372,7 +388,7 @@ export function Dashboard({
           </div>
           <button 
             onClick={() => onNavigateTab('cargo-audit')}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-brand-600/20 text-brand-300 border border-brand-500/30 hover:bg-brand-600/30 transition-all"
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-brand-600/20 text-brand-300 border border-brand-500/30 hover:bg-brand-600/30 transition-all cursor-pointer"
           >
             + Kâr Simülatöründe Fiyat Dene
           </button>
@@ -395,15 +411,19 @@ export function Dashboard({
             </thead>
             <tbody className="divide-y divide-white/5">
               {products.map(p => {
-                const commissionTL = (p.sellingPrice * p.commissionRate) / 100;
-                const netUnitProfit = p.sellingPrice - commissionTL - p.cargoCost - p.costPrice;
-                const margin = (netUnitProfit / p.sellingPrice) * 100;
+                const sp = Number(p.sellingPrice || p.salePrice || p.price || 0);
+                const cp = Number(p.costPrice || p.cost || 0);
+                const commRate = Number(p.commissionRate || 21.5);
+                const cargo = Number(p.cargoCost || 87);
+                const commissionTL = (sp * commRate) / 100;
+                const netUnitProfit = sp - commissionTL - cargo - cp;
+                const margin = sp > 0 ? (netUnitProfit / sp) * 100 : 0;
                 
                 return (
                   <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="py-3.5 px-3">
-                      <div className="font-bold text-white text-xs">{p.name}</div>
-                      <div className="text-[11px] text-slate-400">{p.id} • Stok: {p.stock} adet</div>
+                      <div className="font-bold text-white text-xs">{p.name || p.title}</div>
+                      <div className="text-[11px] text-slate-400">{p.id || p.sku} • Stok: {p.stock || 0} adet</div>
                     </td>
                     <td className="py-3.5 px-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ${
@@ -411,31 +431,31 @@ export function Dashboard({
                           ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                           : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                       }`}>
-                        {p.marketplace}
+                        {p.marketplace || 'Trendyol'}
                       </span>
                     </td>
                     <td className="py-3.5 px-3 text-right font-medium text-slate-300">
-                      {p.costPrice.toFixed(2)} TL
+                      {cp.toFixed(2)} TL
                     </td>
                     <td className="py-3.5 px-3 text-right font-bold text-white">
-                      {p.sellingPrice.toFixed(2)} TL
+                      {sp.toFixed(2)} TL
                     </td>
                     <td className="py-3.5 px-3 text-right text-slate-300">
                       <div>{commissionTL.toFixed(2)} TL</div>
-                      <div className="text-[10px] text-slate-500">%{p.commissionRate}</div>
+                      <div className="text-[10px] text-slate-500">%{commRate}</div>
                     </td>
                     <td className="py-3.5 px-3 text-right text-slate-300">
                       <div className={p.billedDesiAvg > p.registeredDesi ? 'text-amber-400 font-bold' : ''}>
-                        {p.cargoCost.toFixed(2)} TL
+                        {cargo.toFixed(2)} TL
                       </div>
                       <div className="text-[10px] text-slate-500">
-                        {p.billedDesiAvg > p.registeredDesi ? `⚠️ ${p.billedDesiAvg} Desi` : `${p.registeredDesi} Desi`}
+                        {p.billedDesiAvg > p.registeredDesi ? `⚠️ ${p.billedDesiAvg} Desi` : `${p.registeredDesi || 1} Desi`}
                       </div>
                     </td>
                     <td className="py-3.5 px-3 text-right">
-                      <div className="font-bold text-white">{p.monthlySalesCount} adet</div>
-                      <div className={`text-[10px] ${p.refundRate > 10 ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
-                        {p.refundCount} İade (%{p.refundRate})
+                      <div className="font-bold text-white">{p.monthlySalesCount || 0} adet</div>
+                      <div className={`text-[10px] ${(p.refundRate || 0) > 10 ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
+                        {p.refundCount || 0} İade (%{p.refundRate || 0})
                       </div>
                     </td>
                     <td className="py-3.5 px-3 text-right">
@@ -464,6 +484,14 @@ export function Dashboard({
                   </tr>
                 );
               })}
+
+              {products.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="text-center py-12 text-slate-400">
+                    Henüz ürün verisi bulunmuyor. Canlı API bağlantısı veya Ürün Yükleme sekmesinden ürün ekleyebilirsiniz.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

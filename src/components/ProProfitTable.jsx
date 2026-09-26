@@ -43,15 +43,15 @@ export function ProProfitTable({ products, onNavigateToOrders, onOpenGuide }) {
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   // Kâr Simülatörü State'i (Buraya taşındı!)
-  const [simSelectedProduct, setSimSelectedProduct] = useState(products[0]?.id || 'SKU-001');
+  const [simSelectedProduct, setSimSelectedProduct] = useState(products[0]?.id || '');
   const currentProduct = products.find(p => p.id === simSelectedProduct) || products[0];
 
-  const [simSellingPrice, setSimSellingPrice] = useState(currentProduct?.sellingPrice || 399.90);
-  const [simCostPrice, setSimCostPrice] = useState(currentProduct?.costPrice || 189.00);
-  const [simCommissionRate, setSimCommissionRate] = useState(currentProduct?.commissionRate || 14.5);
-  const [simCargoCost, setSimCargoCost] = useState(currentProduct?.cargoCost || 42.91);
-  const [simAdShare, setSimAdShare] = useState(15.00);
-  const [simSalesVolume, setSimSalesVolume] = useState(300);
+  const [simSellingPrice, setSimSellingPrice] = useState(currentProduct?.sellingPrice || currentProduct?.salePrice || 0);
+  const [simCostPrice, setSimCostPrice] = useState(currentProduct?.costPrice || currentProduct?.cost || 0);
+  const [simCommissionRate, setSimCommissionRate] = useState(currentProduct?.commissionRate || 21.5);
+  const [simCargoCost, setSimCargoCost] = useState(currentProduct?.cargoCost || 87.00);
+  const [simAdShare, setSimAdShare] = useState(0);
+  const [simSalesVolume, setSimSalesVolume] = useState(100);
 
   // Simülatör Hesaplama
   const simCommission = (simSellingPrice * simCommissionRate) / 100;

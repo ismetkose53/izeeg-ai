@@ -11,9 +11,9 @@ import {
   VolumeX, 
   Sparkles, 
   Send, 
-  ChevronRight,
-  ShieldCheck,
-  Smartphone
+  ChevronRight, 
+  ShieldCheck, 
+  Smartphone 
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -62,55 +62,19 @@ export function LiveMobileNotificationCenter({
   isOpen, 
   onClose, 
   onNavigateTab,
-  unreadCount = 3 
+  unreadCount = 0 
 }) {
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 'NOTIF-01',
-      type: 'ORDER_PROFIT',
-      title: 'Yeni Sipariş: +663.75 ₺ Net Kâr!',
-      marketplace: 'Trendyol',
-      description: "1x Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım siparişi geldi. Tüm komisyon ve kargo düşüldükten sonra net kârınız kasada.",
-      timeAgo: '2 dk önce',
-      isUnread: true,
-      targetTab: 'orders',
-      iconColor: 'bg-emerald-100 text-emerald-700'
-    },
-    {
-      id: 'NOTIF-02',
-      type: 'BUYBOX_WON',
-      title: 'Buybox Korundu (Fiyat: 1.599,00 ₺)',
-      marketplace: 'Trendyol',
-      description: 'Rakip "ModaTrend" fiyat kırdı. Akıllı Repricer anında 1 TL alta çekerek Buybox kutusunu %100 korudu.',
-      timeAgo: '15 dk önce',
-      isUnread: true,
-      targetTab: 'repricer',
-      iconColor: 'bg-amber-100 text-amber-800'
-    },
-    {
-      id: 'NOTIF-03',
-      type: 'LOW_STOCK',
-      title: 'Stok Uyarısı: 1.6 Gün Kaldı',
-      marketplace: 'Trendyol',
-      description: 'Siyah Modal Takım stoğunuz 4 adede düştü. Güngören Tekstil sipariş fişi tek tıkla hazırlandı.',
-      timeAgo: '45 dk önce',
-      isUnread: true,
-      targetTab: 'supplier-reorder',
-      iconColor: 'bg-rose-100 text-rose-800'
-    },
-    {
-      id: 'NOTIF-04',
-      type: 'CARGO_DISPUTE',
-      title: 'Kargo İtirazı Kabul: +124.50 ₺ İade',
-      marketplace: 'Trendyol Express',
-      description: 'Geçen ayki 3 siparişin fazla desi itiraz dilekçesi onaylandı, cari hesabınıza alacak kaydedildi.',
-      timeAgo: '3 saat önce',
-      isUnread: false,
-      targetTab: 'cargo-audit',
-      iconColor: 'bg-blue-100 text-blue-800'
-    }
-  ]);
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      const saved = localStorage.getItem('izeeg_live_notifications');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
 
   if (!isOpen) return null;
 
@@ -119,71 +83,74 @@ export function LiveMobileNotificationCenter({
     setNotifications(prev => prev.map(n => ({ ...n, isUnread: false })));
   };
 
-  // Yeni Test Kâr Bildirimi Simüle Et
+  // Bildirime Tıklayınca İlgili Sekmeye Git
+  const handleNotificationClick = (item) => {
+    setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, isUnread: false } : n));
+    if (item.targetTab && onNavigateTab) {
+      onNavigateTab(item.targetTab);
+    }
+    onClose();
+  };
+
+  // Test Amaçlı Canlı Bildirim Sesi ve Bildirim Tetikleme
   const handleTriggerTestProfitNotification = () => {
-    if (soundEnabled) playNotificationChime();
-
-    const sampleOrders = [
-      { name: "Siyah Modal Tshirt 2'li Takım", profit: '663.75 ₺', market: 'Trendyol' },
-      { name: 'Yıldız Taşlı Vatkalı Tişört', profit: '528.22 ₺', market: 'Trendyol' },
-      { name: 'Palazzo Jean Pantolon', profit: '586.75 ₺', market: 'Trendyol' }
-    ];
-    const picked = sampleOrders[Math.floor(Math.random() * sampleOrders.length)];
-
+    if (soundEnabled) {
+      playNotificationChime();
+    }
+    
     const newNotif = {
-      id: `NOTIF-${Date.now().toString().slice(-4)}`,
+      id: `NOTIF-${Date.now()}`,
       type: 'ORDER_PROFIT',
-      title: `Yeni Sipariş: +${picked.profit} Net Kâr!`,
-      marketplace: picked.market,
-      description: `1x ${picked.name} siparişi alındı. Net kâr anlık olarak bilançonuzla eşleştirildi.`,
+      title: 'Canlı Bildirim Testi Başarılı',
+      marketplace: 'izeeg AI',
+      description: 'Sistem bildirim ses ve push mekanizması aktif çalışıyor.',
       timeAgo: 'Az önce',
       isUnread: true,
       targetTab: 'orders',
       iconColor: 'bg-emerald-100 text-emerald-700'
     };
 
-    setNotifications([newNotif, ...notifications]);
-    confetti({ particleCount: 70, spread: 60 });
-  };
-
-  const handleNotificationClick = (item) => {
-    setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, isUnread: false } : n));
-    if (onNavigateTab && item.targetTab) {
-      onNavigateTab(item.targetTab);
-    }
-    onClose();
+    setNotifications(prev => [newNotif, ...prev]);
+    confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 } });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-end p-4 lg:p-6 bg-slate-950/60 backdrop-blur-sm animate-fadeIn font-sans">
-      <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-scaleUp text-slate-900 mt-12">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm flex justify-end animate-fadeIn">
+      <div 
+        className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 animate-slideLeft"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Çekmece Üst Başlık */}
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
-              <Bell className="w-4 h-4 text-amber-300" />
+        <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#f27a1a] flex items-center justify-center text-white">
+              <Bell className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-sm font-black text-white">Canlı Bildirim Merkezi</h3>
-              <span className="text-[10px] text-slate-400">Anlık Satış, Kâr & Buybox Alarmları</span>
+              <span className="text-[11px] text-slate-400">
+                {notifications.filter(n => n.isUnread).length} Okunmamış Bildirim
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`p-1.5 rounded-lg text-xs transition-colors ${
-                soundEnabled ? 'text-emerald-400 hover:bg-white/10' : 'text-slate-500 hover:bg-white/10'
+              title={soundEnabled ? 'Bildirim sesini kapat' : 'Bildirim sesini aç'}
+              className={`p-1.5 rounded-lg border transition-colors ${
+                soundEnabled 
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+                  : 'bg-slate-800 text-slate-400 border-slate-700'
               }`}
-              title={soundEnabled ? 'Bildirim Sesi Açık' : 'Bildirim Sesi Kapalı'}
             >
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+              className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -194,19 +161,21 @@ export function LiveMobileNotificationCenter({
         <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
           <button
             onClick={handleTriggerTestProfitNotification}
-            className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 shadow-sm transition-all text-[11px]"
+            className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 shadow-sm transition-all text-[11px] cursor-pointer"
           >
             <Sparkles className="w-3 h-3 text-emerald-200" />
             <span>+ Canlı Kâr Bildirimi Test Et</span>
           </button>
 
-          <button
-            onClick={handleMarkAllRead}
-            className="text-[11px] font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors"
-          >
-            <CheckCheck className="w-3.5 h-3.5 text-slate-400" />
-            <span>Tümünü Okundu Say</span>
-          </button>
+          {notifications.length > 0 && (
+            <button
+              onClick={handleMarkAllRead}
+              className="text-[11px] font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <CheckCheck className="w-3.5 h-3.5 text-slate-400" />
+              <span>Tümünü Okundu Say</span>
+            </button>
+          )}
         </div>
 
         {/* Bildirim Listesi */}
@@ -252,6 +221,14 @@ export function LiveMobileNotificationCenter({
               <ChevronRight className="w-4 h-4 text-slate-400 self-center flex-shrink-0" />
             </div>
           ))}
+
+          {notifications.length === 0 && (
+            <div className="py-16 text-center text-slate-400 text-xs px-4 space-y-2">
+              <Bell className="w-10 h-10 text-slate-300 mx-auto" />
+              <span className="font-bold text-slate-700 block text-sm">Henüz Yeni Bildirim Yok</span>
+              <p className="text-slate-500 max-w-xs mx-auto">Yeni sipariş, kârlılık uyarısı ve Buybox bildirimleri burada anlık olarak listelenir.</p>
+            </div>
+          )}
         </div>
 
         {/* Çekmece Alt Bilgi */}

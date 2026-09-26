@@ -21,7 +21,30 @@ import confetti from 'canvas-confetti';
 import { PageGuideButton } from './PageHelpGuideModal';
 
 export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [], setProducts }) {
-  const [mappings, setMappings] = useState(PRODUCT_MAPPINGS_DATA);
+  const [mappings, setMappings] = useState(() => {
+    if (PRODUCT_MAPPINGS_DATA && PRODUCT_MAPPINGS_DATA.length > 0) return PRODUCT_MAPPINGS_DATA;
+    if (products && products.length > 0) {
+      return products.map(p => ({
+        masterId: p.id,
+        masterName: p.name || p.title,
+        barcode: p.barcode || '-',
+        totalStockUnified: p.stock || 0,
+        matchConfidence: 100,
+        needsUserReview: false,
+        channels: [
+          { 
+            marketplace: p.marketplace || 'Trendyol', 
+            channelSku: p.sku || p.id, 
+            stock: p.stock || 0, 
+            price: Number(p.sellingPrice || p.salePrice || 0), 
+            status: 'SYNCED' 
+          }
+        ]
+      }));
+    }
+    return [];
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
@@ -33,13 +56,19 @@ export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [],
     // Haritalama listesine de otomatik ekle
     const newMappings = newProducts.map(p => ({
       masterId: p.id,
-      masterName: p.name,
-      barcode: p.barcode,
-      totalStockUnified: p.stock,
+      masterName: p.name || p.title,
+      barcode: p.barcode || '-',
+      totalStockUnified: p.stock || 0,
       matchConfidence: 100,
       needsUserReview: false,
       channels: [
-        { platform: 'Trendyol', sku: p.id, stock: p.stock, price: p.sellingPrice, status: 'SYNCED' }
+        { 
+          marketplace: p.marketplace || 'Trendyol', 
+          channelSku: p.sku || p.id, 
+          stock: p.stock || 0, 
+          price: Number(p.sellingPrice || p.salePrice || 0), 
+          status: 'SYNCED' 
+        }
       ]
     }));
 
@@ -68,8 +97,8 @@ export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [],
       const q = searchQuery.toLowerCase();
       return (
         m.masterName.toLowerCase().includes(q) ||
-        m.barcode.includes(q) ||
-        m.masterId.toLowerCase().includes(q)
+        (m.barcode && m.barcode.includes(q)) ||
+        (m.masterId && m.masterId.toLowerCase().includes(q))
       );
     }
     return true;
@@ -81,12 +110,14 @@ export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [],
       {/* 1. Üst Başlık & Geri Dön */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <button 
-            onClick={onNavigateBack}
-            className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all shadow-sm"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+          {onNavigateBack && (
+            <button 
+              onClick={onNavigateBack}
+              className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all shadow-sm cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-[#f27a1a] bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
@@ -102,81 +133,82 @@ export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [],
               )}
             </div>
             <h1 className="text-xl lg:text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
-              <Link2 className="w-6 h-6 text-[#f27a1a]" />
-              Çok Kanallı Ürün & SKU/Barkod Eşleştirici
+              <Layers className="w-6 h-6 text-[#f27a1a]" />
+              Çok Kanallı Ürün & SKU Eşleştirme (Mapping)
             </h1>
           </div>
         </div>
 
-        {/* Aksiyon Butonları & Arama */}
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+        {/* Hızlı Aksiyon Butonları */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setIsUploadModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-md shadow-orange-600/20 transition-all flex items-center gap-1.5 flex-shrink-0"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#f27a1a] hover:bg-[#d9670f] text-white text-xs font-black shadow-md shadow-orange-500/20 transition-all cursor-pointer"
           >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>+ Excel / Trendyol Ürün Yükle</span>
+            <Plus className="w-4 h-4" />
+            <span>+ Ürün / Excel Yükle</span>
           </button>
-
-          <div className="relative w-full sm:w-64">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Ürün, Barkod, SKU Ara..."
-              className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#f27a1a] shadow-sm"
-            />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-          </div>
         </div>
       </div>
 
-      {/* 2. Bilgilendirme Kartı */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#f27a1a]/10 text-[#f27a1a] flex items-center justify-center font-bold">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-slate-900">
-                Merkezi Stok Senkronizasyonu & Tekil Ürün Kataloğu
-              </h3>
-              <p className="text-xs text-slate-500">
-                Trendyol, Hepsiburada, Amazon ve Shopify'daki farklı SKU isimlerine sahip aynı ürünleri barkod ve yapay zeka ile tek bir ana stok havuzunda birleştirin.
-              </p>
-            </div>
+      {/* 2. Bilgi Bannerı */}
+      <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/10 border border-orange-200 rounded-3xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 rounded-2xl bg-[#f27a1a] text-white shadow-sm flex-shrink-0">
+            <Link2 className="w-5 h-5" />
           </div>
+          <div>
+            <h3 className="text-sm font-black text-slate-900">
+              Farklı Pazar Yerlerindeki Farklı Barkodlar Tek Merkezde Birleşsin!
+            </h3>
+            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+              Trendyol, Hepsiburada veya Amazon'da aynı ürün farklı başlık veya SKU ile satılıyor olabilir. Yapay zekamız ürünleri otomatik eşleştirerek ortak stoktan düşürür, fazla satışı (overselling) engeller.
+            </p>
+          </div>
+        </div>
 
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Eşleşme Oranı</span>
-              <strong className="text-sm font-black text-emerald-600">%98.4 Başarılı</strong>
-            </div>
-          </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+            {mappings.filter(m => m.matchConfidence === 100).length} Eşleşmiş Ürün
+          </span>
         </div>
       </div>
 
-      {/* 3. Eşleştirilmiş Ürün Kartları Listesi */}
+      {/* 3. Arama Çubuğu */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm flex items-center justify-between gap-3">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Ana Ürün Adı, Barkod veya Master SKU Ara..."
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#f27a1a]"
+          />
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+        </div>
+
+        <span className="text-xs font-bold text-slate-500">
+          Toplam {filtered.length} Ana Model
+        </span>
+      </div>
+
+      {/* 4. Haritalama Kartları Listesi */}
       <div className="space-y-4">
         {filtered.map(item => (
-          <div 
-            key={item.masterId} 
-            className={`bg-white border rounded-3xl p-5 shadow-sm transition-all ${
-              item.needsUserReview ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200'
-            }`}
-          >
+          <div key={item.masterId} className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all">
             
             {/* Üst Kısım: Ana Ürün Bilgisi */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
-                  📦
+                <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 font-black text-xs">
+                  SKU
                 </div>
                 <div>
                   <h4 className="text-sm font-black text-slate-900">{item.masterName}</h4>
-                  <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                    <span>Barkod: <strong className="font-mono text-slate-800">{item.barcode}</strong></span>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                    <span>Master SKU: <strong className="font-mono text-slate-700">{item.masterId}</strong></span>
+                    <span>•</span>
+                    <span>Barkod: <strong className="font-mono text-slate-700">{item.barcode}</strong></span>
                     <span>•</span>
                     <span>Toplam Ortak Stok: <strong className="text-slate-800">{item.totalStockUnified} Adet</strong></span>
                   </div>
@@ -196,7 +228,7 @@ export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [],
                 {item.needsUserReview && (
                   <button
                     onClick={() => handleApproveMatch(item.masterId)}
-                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-sm transition-all flex items-center gap-1"
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-sm transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>Eşleştirmeyi Onayla</span>
@@ -246,6 +278,30 @@ export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [],
 
           </div>
         ))}
+
+        {filtered.length === 0 && (
+          <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center shadow-sm">
+            <div className="max-w-md mx-auto space-y-3">
+              <div className="w-16 h-16 rounded-3xl bg-orange-50 border border-orange-200 text-[#f27a1a] flex items-center justify-center mx-auto shadow-sm">
+                <Layers className="w-8 h-8" />
+              </div>
+              <h3 className="text-base font-black text-slate-900">
+                Henüz Haritalanmış Ürün Bulunmuyor
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Excel/XML yükleyerek veya pazar yeri bağlayarak çok kanallı ortak SKU haritalamasını başlatabilirsiniz.
+              </p>
+              <div className="pt-2">
+                <button
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-[#f27a1a] hover:bg-orange-600 text-white font-bold text-xs shadow transition-all cursor-pointer"
+                >
+                  + Ürün / Excel Yükle
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Ürün & Excel Yükleme Modalı */}
@@ -258,3 +314,5 @@ export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [],
     </div>
   );
 }
+
+export default ProductMappingPage;

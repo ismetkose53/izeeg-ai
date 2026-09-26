@@ -24,221 +24,70 @@ import confetti from 'canvas-confetti';
 import { PageGuideButton } from './PageHelpGuideModal';
 import { getCatalogProducts, getCustomCargoSettings } from '../services/marketplaceSyncService';
 
-// Gerçek Mağaza Giyim Kataloğu Başlangıç Reprice Veri Havuzu
+// Canlı Mağaza Kataloğu Reprice Veri Havuzu (Varsayılan olarak boş veya gerçek ürünlerle başlar)
 function getDefaultRepricerItems(products = []) {
   const catalog = (products && products.length > 0) ? products : getCatalogProducts();
   const cargoSettings = getCustomCargoSettings();
   const tyCargo = Number(cargoSettings.trendyolCargoCost || 87.00);
 
-  const fallbackItems = [
-    {
-      id: 'REP-101',
-      title: "Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım",
-      marketplace: 'Trendyol',
-      sku: 'Modalsiyah2',
-      costPrice: 780.00,
-      commissionRate: 21.5,
-      shippingCost: tyCargo,
-      myCurrentPrice: 1950.00,
-      competitorPrice: 1940.00,
-      competitorName: 'ModaTrend Store',
-      hasBuybox: false,
-      recommendedPrice: 1939.00,
-      minPriceFloor: 1250.00,
-      status: 'UNDER_CUT_READY',
-      currentNetProfit: 663.75, // 1950 - 780 - (1950*0.215 = 419.25) - 87 = 663.75
-      projectedNetProfit: 655.12, // 1939 - 780 - (1939*0.215 = 416.88) - 87 = 655.12
-      projectedMargin: 33.8
-    },
-    {
-      id: 'REP-102',
-      title: 'Yıldız Taş Aksesuarlı, Vatkalı Oversize Tshirt',
-      marketplace: 'Trendyol',
-      sku: 'T.T.12',
-      costPrice: 640.00,
-      commissionRate: 21.5,
-      shippingCost: tyCargo,
-      myCurrentPrice: 1599.00,
-      competitorPrice: 1650.00,
-      competitorName: 'Aksesuar Deposu',
-      hasBuybox: true,
-      recommendedPrice: 1599.00,
-      minPriceFloor: 1050.00,
-      status: 'BUYBOX_WON',
-      currentNetProfit: 528.22,
-      projectedNetProfit: 528.22,
-      projectedMargin: 33.0
-    },
-    {
-      id: 'REP-103',
-      title: 'V Yaka Düğmeli Triko Hırka Ekru',
-      marketplace: 'Trendyol',
-      sku: 'TRK-HRK-V01',
-      costPrice: 500.00,
-      commissionRate: 21.5,
-      shippingCost: tyCargo,
-      myCurrentPrice: 1250.00,
-      competitorPrice: 1240.00,
-      competitorName: 'Giyim Trend',
-      hasBuybox: false,
-      recommendedPrice: 1239.00,
-      minPriceFloor: 850.00,
-      status: 'UNDER_CUT_READY',
-      currentNetProfit: 394.25,
-      projectedNetProfit: 385.61,
-      projectedMargin: 31.1
-    },
-    {
-      id: 'REP-104',
-      title: 'Yüksek Bel Palazzo Jean Pantolon',
-      marketplace: 'Trendyol',
-      sku: 'PNT-PLZ-01',
-      costPrice: 700.00,
-      commissionRate: 21.5,
-      shippingCost: tyCargo,
-      myCurrentPrice: 1750.00,
-      competitorPrice: 1750.00,
-      competitorName: 'Denim Club',
-      hasBuybox: true,
-      recommendedPrice: 1750.00,
-      minPriceFloor: 1150.00,
-      status: 'BUYBOX_WON',
-      currentNetProfit: 586.75,
-      projectedNetProfit: 586.75,
-      projectedMargin: 33.5
-    },
-    {
-      id: 'REP-105',
-      title: 'Keten Karışımlı Oversize Blazer Ceket',
-      marketplace: 'Trendyol',
-      sku: 'CKT-BLZ-02',
-      costPrice: 980.00,
-      commissionRate: 21.5,
-      shippingCost: tyCargo,
-      myCurrentPrice: 2450.00,
-      competitorPrice: 2420.00,
-      competitorName: 'Elite Butik',
-      hasBuybox: false,
-      recommendedPrice: 2419.00,
-      minPriceFloor: 1600.00,
-      status: 'UNDER_CUT_READY',
-      currentNetProfit: 856.25,
-      projectedNetProfit: 831.92,
-      projectedMargin: 34.4
-    },
-    {
-      id: 'REP-106',
-      title: 'Dökümlü Saten Midi Elbise',
-      marketplace: 'Trendyol',
-      sku: 'ELB-SAT-03',
-      costPrice: 750.00,
-      commissionRate: 21.5,
-      shippingCost: tyCargo,
-      myCurrentPrice: 1890.00,
-      competitorPrice: 1890.00,
-      competitorName: 'Saten Butik',
-      hasBuybox: true,
-      recommendedPrice: 1890.00,
-      minPriceFloor: 1250.00,
-      status: 'BUYBOX_WON',
-      currentNetProfit: 646.65,
-      projectedNetProfit: 646.65,
-      projectedMargin: 34.2
-    }
-  ];
-
-  if (catalog && catalog.length > 0) {
-    return catalog.slice(0, 6).map((prod, idx) => {
-      const cost = Number(prod.costPrice || 700);
-      const currentPrice = Number(prod.sellingPrice || 1750);
-      const commRate = Number(prod.commissionRate || 21.5);
-      const cargo = Number(prod.cargoCost || tyCargo);
-      const hasBuybox = idx % 2 === 1;
-      const compPrice = hasBuybox ? currentPrice : currentPrice - 10.00;
-      const recPrice = hasBuybox ? currentPrice : compPrice - 1.00;
-      
-      const currentComm = (currentPrice * commRate) / 100;
-      const currentProfit = currentPrice - cost - currentComm - cargo;
-      
-      const recComm = (recPrice * commRate) / 100;
-      const recProfit = recPrice - cost - recComm - cargo;
-      const recMargin = recPrice > 0 ? (recProfit / recPrice) * 100 : 0;
-
-      return {
-        id: `REP-${100 + idx}`,
-        title: prod.name || prod.title || `Ürün #${idx + 1}`,
-        marketplace: prod.marketplace || 'Trendyol',
-        sku: prod.sku || prod.id || `SKU-${idx + 1}`,
-        costPrice: cost,
-        commissionRate: commRate,
-        shippingCost: cargo,
-        myCurrentPrice: currentPrice,
-        competitorPrice: compPrice,
-        competitorName: hasBuybox ? 'Aksesuar Deposu' : 'ModaTrend Store',
-        hasBuybox,
-        recommendedPrice: recPrice,
-        minPriceFloor: cost * 1.35,
-        status: hasBuybox ? 'BUYBOX_WON' : 'UNDER_CUT_READY',
-        currentNetProfit: currentProfit,
-        projectedNetProfit: recProfit,
-        projectedMargin: Number(recMargin.toFixed(1))
-      };
-    });
+  if (!catalog || catalog.length === 0) {
+    return [];
   }
 
-  return fallbackItems;
+  return catalog.map((prod, idx) => {
+    const cost = Number(prod.costPrice || prod.cost || 0);
+    const currentPrice = Number(prod.sellingPrice || prod.salePrice || prod.price || 0);
+    const commRate = Number(prod.commissionRate || 21.5);
+    const cargo = Number(prod.cargoCost || tyCargo);
+    const hasBuybox = idx % 2 === 1;
+    const compPrice = hasBuybox ? currentPrice : Math.max(cost, currentPrice - 10.00);
+    const recPrice = hasBuybox ? currentPrice : Math.max(cost * 1.15, compPrice - 1.00);
+    
+    const currentComm = (currentPrice * commRate) / 100;
+    const currentNet = currentPrice - cost - currentComm - cargo;
+    
+    const recComm = (recPrice * commRate) / 100;
+    const recNet = recPrice - cost - recComm - cargo;
+    const recMargin = recPrice > 0 ? (recNet / recPrice) * 100 : 0;
+
+    return {
+      id: `REP-${prod.id || idx + 1}`,
+      title: prod.name || prod.title || `Ürün #${idx + 1}`,
+      marketplace: prod.marketplace || 'Trendyol',
+      sku: prod.sku || prod.stockCode || prod.id || `SKU-${idx + 1}`,
+      costPrice: cost,
+      commissionRate: commRate,
+      shippingCost: cargo,
+      myCurrentPrice: currentPrice,
+      competitorPrice: Number(compPrice.toFixed(2)),
+      competitorName: prod.competitorName || (hasBuybox ? 'Siz (Buybox)' : 'Rakip Satıcı'),
+      hasBuybox,
+      recommendedPrice: Number(recPrice.toFixed(2)),
+      minPriceFloor: Number((cost * 1.25).toFixed(2)),
+      status: hasBuybox ? 'BUYBOX_WON' : 'UNDER_CUT_READY',
+      currentNetProfit: Number(currentNet.toFixed(2)),
+      projectedNetProfit: Number(recNet.toFixed(2)),
+      projectedMargin: Number(recMargin.toFixed(1))
+    };
+  });
 }
 
 export function SmartRepricerPage({ onNavigateBack, onOpenGuide, products = [] }) {
-  const [botActive, setBotActive] = useState(true);
-  const [strategy, setStrategy] = useState('UNDERCUT_1TL'); // 'UNDERCUT_1TL' | 'MATCH_PRICE' | 'MAX_MARGIN'
-  const [minMarginPercent, setMinMarginPercent] = useState(18); // Minimum %18 kâr marjı tabanı
-  const [activeTab, setActiveTab] = useState('rules'); // 'rules' | 'logs' | 'simulator'
-
-  // Canlı Buybox & Rakip Fiyat Takip Listesi
+  const [activeTab, setActiveTab] = useState('rules'); // rules | simulator | logs | settings
+  const [strategy, setStrategy] = useState('UNDERCUT_1TL'); // UNDERCUT_1TL | MATCH_PRICE | MAX_MARGIN
+  const [minMarginPercent, setMinMarginPercent] = useState(18); // Asgari kâr marjı koruma tabanı
+  const [isBotRunning, setIsBotRunning] = useState(false);
+  const [syncFreqMinutes, setSyncFreqMinutes] = useState(5);
   const [repricerItems, setRepricerItems] = useState(() => getDefaultRepricerItems(products));
+  const [toastMessage, setToastMessage] = useState(null);
 
   // Simülatör Test Alanı State
   const [simProductIndex, setSimProductIndex] = useState(0);
-  const [simCompetitorPrice, setSimCompetitorPrice] = useState('1940.00');
+  const [simCompetitorPrice, setSimCompetitorPrice] = useState('');
   const [simResult, setSimResult] = useState(null);
 
-  // Canlı Log Kayıtları
-  const [logs, setLogs] = useState([
-    {
-      id: 'LOG-501',
-      time: '6 dk önce',
-      type: 'REPRICE_SUCCESS',
-      product: "Siyah Modal Tshirt ve Bol Paça Pantolon 2'li Takım",
-      oldPrice: '1.950,00 ₺',
-      newPrice: '1.939,00 ₺',
-      marketplace: 'Trendyol',
-      reason: 'Rakip "ModaTrend" fiyatı 1.940 ₺ yaptı. 1 TL altı ile Buybox korundu.',
-      profitGuard: '✅ Net Kâr: 655,12 ₺ (%33.8 Güvenli)'
-    },
-    {
-      id: 'LOG-502',
-      time: '24 dk önce',
-      type: 'FLOOR_PROTECTION',
-      product: 'Yıldız Taş Aksesuarlı, Vatkalı Oversize Tshirt',
-      oldPrice: '1.599,00 ₺',
-      newPrice: '1.599,00 ₺ (Değişmedi)',
-      marketplace: 'Trendyol',
-      reason: 'Rakip zararına 850 ₺ yaptı. Asgari Kâr Marjı Tabanı (%18) devreye girdi, fiyat düşürülmedi!',
-      profitGuard: '🛡️ Zarar Engellendi: +420,00 ₺ Kurtarıldı'
-    },
-    {
-      id: 'LOG-503',
-      time: '1 saat önce',
-      type: 'BUYBOX_WON',
-      product: 'Yüksek Bel Palazzo Jean Pantolon',
-      oldPrice: '1.750,00 ₺',
-      newPrice: '1.750,00 ₺',
-      marketplace: 'Trendyol',
-      reason: 'Trendyol Buybox kutusu %100 oranla mağazamıza geçti.',
-      profitGuard: '👑 Buybox Sahibi: Sizsiniz'
-    }
-  ]);
+  // Canlı Log Kayıtları (Varsayılan olarak boş başlar)
+  const [logs, setLogs] = useState([]);
 
   // Manuel Tekil Fiyat Güncelleme
   const handleApplySingleReprice = (item) => {
@@ -262,122 +111,147 @@ export function SmartRepricerPage({ onNavigateBack, onOpenGuide, products = [] }
       oldPrice: `${item.myCurrentPrice.toFixed(2)} ₺`,
       newPrice: `${item.recommendedPrice.toFixed(2)} ₺`,
       marketplace: item.marketplace,
-      reason: `Akıllı Repricer fiyatı ${item.recommendedPrice.toFixed(2)} ₺ olarak güncelledi ve Buybox'ı kazandı!`,
+      reason: `Önerilen fiyata güncellendi. Buybox hedeflendi.`,
       profitGuard: `✅ Net Kâr: ${item.projectedNetProfit.toFixed(2)} ₺ (%${item.projectedMargin})`
     };
+    setLogs(prev => [newLog, ...prev]);
 
-    setLogs([newLog, ...logs]);
-    confetti({ particleCount: 70, spread: 60 });
+    setToastMessage(`⚡ "${item.title}" fiyatı ${item.recommendedPrice.toFixed(2)} ₺ olarak güncellendi!`);
+    confetti({ particleCount: 60, spread: 70 });
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Simülatör Hesaplaması
+  // Toplu Tüm Fiyatları Uygula
+  const handleApplyAllReprice = () => {
+    setRepricerItems(prev => prev.map(p => ({
+      ...p,
+      myCurrentPrice: p.recommendedPrice,
+      hasBuybox: true,
+      status: 'BUYBOX_WON'
+    })));
+
+    setToastMessage(`🚀 Tüm ürünlerin fiyatı Buybox ve kârlılık koruma algoritmasına göre güncellendi!`);
+    confetti({ particleCount: 120, spread: 90 });
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  // Simülasyon Çalıştırma
   const handleRunSimulation = (e) => {
     e.preventDefault();
-    const item = repricerItems[simProductIndex];
-    const compPrice = parseFloat(simCompetitorPrice) || 0;
-
-    let targetPrice = compPrice - 1.00;
-    if (strategy === 'MATCH_PRICE') targetPrice = compPrice;
+    if (repricerItems.length === 0) return;
+    const targetItem = repricerItems[simProductIndex] || repricerItems[0];
+    const compPrice = parseFloat(simCompetitorPrice) || targetItem.myCurrentPrice;
     
-    // Zarar koruma marjı tabanı hesaplama
-    const commission = (targetPrice * item.commissionRate) / 100;
-    const stopaj = (targetPrice * 0.01);
-    const totalCost = item.costPrice + item.shippingCost + commission + stopaj;
-    const netProfit = targetPrice - totalCost;
-    const margin = (netProfit / targetPrice) * 100;
-
-    const isSafe = margin >= minMarginPercent && targetPrice >= item.minPriceFloor;
+    const targetPrice = compPrice - 1.00;
+    const comm = (targetPrice * targetItem.commissionRate) / 100;
+    const netProfit = targetPrice - targetItem.costPrice - comm - targetItem.shippingCost;
+    const margin = targetPrice > 0 ? ((netProfit / targetPrice) * 100).toFixed(1) : 0;
+    const isSafe = margin >= minMarginPercent;
 
     setSimResult({
       targetPrice,
       netProfit,
-      margin: margin.toFixed(1),
+      margin,
       isSafe,
-      diff: (item.myCurrentPrice - targetPrice).toFixed(2),
+      diff: (targetItem.myCurrentPrice - targetPrice).toFixed(2),
       message: isSafe 
-        ? `✅ Buybox Kazanılır! Fiyat ${targetPrice.toFixed(2)} ₺ yapılırsa %${margin.toFixed(1)} kâr ile ${netProfit.toFixed(2)} ₺ cebinize kalır.`
-        : `⚠️ Zarar Koruması Uyarısı! Fiyat ${targetPrice.toFixed(2)} ₺ olursa marjınız %${margin.toFixed(1)} seviyesine düşer. Minimum %${minMarginPercent} tabanının altına inilmez!`
+        ? `Tebrikler! ${targetPrice.toFixed(2)} ₺ ile rakibi geçip Buybox'ı alabilirsiniz. Net Kâr: ${netProfit.toFixed(2)} ₺ (%${margin} Marj).`
+        : `DİKKAT! Rakip fiyatı aşırı kırdı (${compPrice.toFixed(2)} ₺). Fiyat ${targetPrice.toFixed(2)} ₺ yapılırsa kâr marjınız (%${margin}) asgari tabanın (%${minMarginPercent}) altına düşer. Sistem fiyat kırmayı engelledi!`
     });
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12 font-sans">
+    <div className="space-y-6 animate-fadeIn pb-12">
       
-      {/* 1. Üst Başlık & Bot Durumu */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 text-white p-6 rounded-3xl shadow-xl relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            {onNavigateBack && (
+      {/* Toast Bildirimi */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700 text-xs font-bold flex items-center gap-2 animate-bounce">
+          <Sparkles className="w-4 h-4 text-amber-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* 1. Üst Başlık & Kontrol Paneli */}
+      <div className="bg-gradient-to-r from-slate-900 via-amber-950/60 to-slate-900 rounded-3xl p-6 text-white border border-amber-500/20 shadow-xl relative overflow-hidden">
+        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-2xl">
+            <div className="flex items-center gap-2">
               <button 
                 onClick={onNavigateBack}
-                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all"
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
-            )}
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider bg-[#f27a1a] text-white px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" /> Akıllı Algoritma v2.4
-                </span>
-                <span className="text-xs text-amber-300 font-bold flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Zarar Koruma Kalkanı
-                </span>
-                {onOpenGuide && (
-                  <PageGuideButton 
-                    onClick={onOpenGuide} 
-                    label="💡 Nasıl Kullanılır?" 
-                    className="bg-white/10 hover:bg-white/20 text-amber-300 border-white/20 py-1 px-3" 
-                  />
-                )}
-              </div>
-              <h1 className="text-xl lg:text-2xl font-black text-white mt-1 flex items-center gap-2">
-                <Bot className="w-6 h-6 text-[#f27a1a]" />
-                Otomatik Buybox & Fiyat Savaşçısı (Smart Repricer)
-              </h1>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-[#f27a1a] to-amber-500 text-white shadow-sm">
+                <Crown className="w-3.5 h-3.5" />
+                <span>Akıllı Repricer & Buybox Avcısı</span>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Zarar Koruma Kalkanı Devrede</span>
+              </span>
             </div>
-          </div>
-          <p className="text-xs text-slate-300 mt-2 max-w-2xl">
-            Rakiplerinizi 7/24 saniyelik takip edin. Kâr marjınızı koruyarak Buybox'ı 1 TL alt kırpma ile kazanın, zararına satışları otomatik engelleyin.
-          </p>
-        </div>
 
-        {/* Bot Açık/Kapalı Düğmesi */}
-        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20 relative z-10">
-          <div className="text-right">
-            <span className="text-[10px] text-slate-300 font-medium block">7/24 Reprice Botu</span>
-            <strong className={`text-xs font-black ${botActive ? 'text-emerald-400' : 'text-slate-400'}`}>
-              {botActive ? '● AKTİF & CANLI TAKİP' : '○ DURDURULDU'}
-            </strong>
-          </div>
-          <button
-            onClick={() => setBotActive(!botActive)}
-            className={`w-12 h-7 rounded-full transition-colors relative p-1 ${
-              botActive ? 'bg-emerald-500' : 'bg-slate-700'
-            }`}
-          >
-            <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
-              botActive ? 'translate-x-5' : 'translate-x-0'
-            }`} />
-          </button>
-        </div>
+            <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-white">
+              “Rakipler fiyat kırdığında uyuma, kârını koruyarak Buybox'ı kap!”
+            </h1>
 
-        {/* Dekoratif Işık Efekti */}
-        <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-[#f27a1a]/20 rounded-full blur-3xl"></div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Trendyol ve pazar yerlerinde rakiplerin fiyat değişimlerini saniye saniye izler. Zararına satış yapmadan asgari kâr marjınızı koruyarak fiyatınızı en optimum noktaya ayarlar.
+            </p>
+          </div>
+
+          {/* Bot Aç/Kapa & Hızlı Aksiyon */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+            {onOpenGuide && (
+              <PageGuideButton 
+                onClick={onOpenGuide} 
+                label="💡 Nasıl Çalışır?" 
+                className="bg-white/10 hover:bg-white/20 text-amber-300 border-white/20 py-3 px-4 rounded-2xl text-xs font-bold" 
+              />
+            )}
+
+            <button
+              onClick={() => {
+                setIsBotRunning(!isBotRunning);
+                setToastMessage(isBotRunning ? "⏸️ Otomatik Repricer Durduruldu" : "▶️ Canlı Repricer Botu Başlatıldı!");
+                setTimeout(() => setToastMessage(null), 3000);
+              }}
+              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-xs font-black shadow-lg transition-all cursor-pointer ${
+                isBotRunning 
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20 animate-pulse' 
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+              }`}
+            >
+              {isBotRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 text-emerald-400" />}
+              <span>{isBotRunning ? 'Oto-Reprice AKTİF (5 dk)' : 'Oto-Reprice Başlat'}</span>
+            </button>
+
+            {repricerItems.length > 0 && (
+              <button
+                onClick={handleApplyAllReprice}
+                className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#f27a1a] to-amber-600 hover:opacity-95 text-white text-xs font-black shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+              >
+                <Zap className="w-4 h-4 text-amber-200" />
+                <span>Tüm Önerileri Uygula</span>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* 2. Hızlı İstatistik Kartları */}
+      {/* 2. Reprice Özet İstatistik Kartları */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 text-xs font-bold mb-1">
-            <span>Buybox Sahibi Olduğunuz</span>
+            <span>Takip Edilen Ürün</span>
             <Crown className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-2xl font-black text-slate-900">
-            {repricerItems.filter(i => i.hasBuybox).length} / {repricerItems.length} Ürün
+            {repricerItems.length} Adet
           </div>
           <div className="text-[11px] text-emerald-600 font-bold mt-1">
-            +%50 Buybox Başarı Oranı
+            {repricerItems.filter(i => i.hasBuybox).length} Üründe Buybox Sizde
           </div>
         </div>
 
@@ -409,14 +283,14 @@ export function SmartRepricerPage({ onNavigateBack, onOpenGuide, products = [] }
 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 text-xs font-bold mb-1">
-            <span>Bu Ay Kurtarılan Kâr</span>
+            <span>Repricer Durumu</span>
             <DollarSign className="w-4 h-4 text-teal-600" />
           </div>
           <div className="text-2xl font-black text-teal-600">
-            +4.380 ₺
+            {isBotRunning ? 'Canlı Takip' : 'Beklemede'}
           </div>
           <div className="text-[11px] text-slate-500 font-semibold mt-1">
-            Boşuna fiyat kırmaktan kurtarıldı
+            Boşuna fiyat kırmaktan korur
           </div>
         </div>
       </div>
@@ -570,84 +444,96 @@ export function SmartRepricerPage({ onNavigateBack, onOpenGuide, products = [] }
                       ) : (
                         <button
                           onClick={() => handleApplySingleReprice(item)}
-                          className="px-3 py-1.5 rounded-xl bg-[#f27a1a] hover:bg-[#e06909] text-white font-black text-xs shadow-md shadow-orange-500/20 transition-all flex items-center gap-1 ml-auto"
+                          className="px-3 py-1.5 rounded-xl bg-[#f27a1a] hover:bg-orange-600 text-white font-black text-xs shadow-sm transition-all cursor-pointer"
                         >
-                          <Zap className="w-3.5 h-3.5" />
-                          <span>Fiyatı Güncelle</span>
+                          Buybox Fiyatına Çek
                         </button>
                       )}
                     </td>
                   </tr>
                 ))}
+
+                {repricerItems.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
+                      Henüz Reprice kuralı tanımlanmış ürün bulunmuyor. Ürün yüklediğinizde veya pazar yeri bağlandığında otomatik listelenir.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* 5. TAB 2: FİYAT VE MARJ SİMÜLATÖRÜ */}
+      {/* 5. TAB 2: FİYAT & MARJ SİMÜLATÖRÜ */}
       {activeTab === 'simulator' && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm max-w-3xl mx-auto space-y-6">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm max-w-2xl mx-auto space-y-6">
           <div>
-            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-[#f27a1a]" />
-              Canlı Fiyat Kırma & Buybox Simülasyonu
+            <h3 className="text-base font-black text-slate-900">
+              🧪 Canlı Fiyatlandırma & Kâr Simülatörü
             </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Pazar yerinde bir rakip fiyat kırdığında algoritmanın nasıl tepki vereceğini ve cebinize ne kadar kalacağını test edin.
+            <p className="text-xs text-slate-500">
+              Rakibin fiyatı aniden düşerse kârınızın ne olacağını ve botun nasıl tepki vereceğini test edin.
             </p>
           </div>
 
-          <form onSubmit={handleRunSimulation} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Test Edilecek Ürün:</label>
-              <select
-                value={simProductIndex}
-                onChange={(e) => setSimProductIndex(Number(e.target.value))}
-                className="w-full bg-slate-50 border border-slate-300 rounded-2xl p-3 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#f27a1a]"
-              >
-                {repricerItems.map((item, idx) => (
-                  <option key={item.id} value={idx}>
-                    {item.title} ({item.marketplace}) - Mevcut: {item.myCurrentPrice} ₺ / Alış: {item.costPrice} ₺
-                  </option>
-                ))}
-              </select>
+          {repricerItems.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 text-xs">
+              Simülasyon için sistemde en az bir adet ürün bulunmalıdır.
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          ) : (
+            <form onSubmit={handleRunSimulation} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Rakibin Yeni Düşürdüğü Fiyat (₺):
-                </label>
-                <input
-                  type="number"
-                  step="0.10"
-                  value={simCompetitorPrice}
-                  onChange={(e) => setSimCompetitorPrice(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-2xl p-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#f27a1a]"
-                  placeholder="329.90"
-                  required
-                />
+                <label className="block text-xs font-bold text-slate-700 mb-1">Test Edilecek Ürün:</label>
+                <select
+                  value={simProductIndex}
+                  onChange={(e) => setSimProductIndex(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-2xl p-3 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#f27a1a]"
+                >
+                  {repricerItems.map((item, idx) => (
+                    <option key={item.id} value={idx}>
+                      {item.title} ({item.marketplace}) - Mevcut: {item.myCurrentPrice} ₺ / Alış: {item.costPrice} ₺
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Uygulanacak Kural:
-                </label>
-                <div className="p-3 bg-slate-100 rounded-2xl text-xs font-black text-slate-800">
-                  ⚡ 1.00 ₺ Alt Kırpma (-1.00 TL)
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Rakibin Yeni Düşürdüğü Fiyat (₺):
+                  </label>
+                  <input
+                    type="number"
+                    step="0.10"
+                    value={simCompetitorPrice}
+                    onChange={(e) => setSimCompetitorPrice(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-2xl p-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#f27a1a]"
+                    placeholder="329.90"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Uygulanacak Kural:
+                  </label>
+                  <div className="p-3 bg-slate-100 rounded-2xl text-xs font-black text-slate-800">
+                    ⚡ 1.00 ₺ Alt Kırpma (-1.00 TL)
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#f27a1a] to-amber-600 text-white font-black text-sm shadow-lg shadow-orange-500/20 hover:opacity-95 transition-all flex items-center justify-center gap-2"
-            >
-              <Sparkles className="w-4 h-4 text-amber-200" />
-              <span>Algoritmayı Çalıştır & Kârı Hesapla</span>
-            </button>
-          </form>
+              <button
+                type="submit"
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#f27a1a] to-amber-600 text-white font-black text-sm shadow-lg shadow-orange-500/20 hover:opacity-95 transition-all flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-4 h-4 text-amber-200" />
+                <span>Algoritmayı Çalıştır & Kârı Hesapla</span>
+              </button>
+            </form>
+          )}
 
           {/* Simülasyon Sonucu */}
           {simResult && (
@@ -732,6 +618,12 @@ export function SmartRepricerPage({ onNavigateBack, onOpenGuide, products = [] }
                 </div>
               </div>
             ))}
+
+            {logs.length === 0 && (
+              <div className="py-8 text-center text-slate-400 font-medium text-xs">
+                Henüz Repricer işlem kaydı bulunmuyor. Otomatik fiyat güncellemeleri burada listelenecektir.
+              </div>
+            )}
           </div>
         </div>
       )}

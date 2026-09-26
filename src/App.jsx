@@ -112,6 +112,37 @@ export function App() {
     localStorage.setItem('izeeg_auto_sync_interval_mins', String(autoSyncIntervalMins));
   }, [autoSyncIntervalMins]);
 
+  // İlk açılışta eski test/deneme verilerini localStorage'dan tamamen temizle (100% Gerçek Veri Modu)
+  useEffect(() => {
+    try {
+      const PURGE_KEY = 'izeeg_mock_clean_v4';
+      if (!localStorage.getItem(PURGE_KEY)) {
+        const keysToClean = [
+          'izeeg_live_products',
+          'izeeg_live_orders',
+          'izeeg_live_cargo_leaks',
+          'izeeg_live_returns',
+          'izeeg_customer_returns_v2',
+          'izeeg_marketplace_questions',
+          'izeeg_marketplace_reviews',
+          'izeeg_marketplace_incoming_invoices',
+          'izeeg_product_image_cache',
+          'izeeg_demo_mode',
+          'ecompulse_audit_logs',
+          'izeeg_live_notifications'
+        ];
+        keysToClean.forEach(k => localStorage.removeItem(k));
+        localStorage.setItem(PURGE_KEY, 'true');
+        setProducts([]);
+        setOrders([]);
+        setCargoLeaks([]);
+        setIsDemoMode(false);
+      }
+    } catch (e) {
+      console.warn("Purge error:", e);
+    }
+  }, []);
+
   // Arka Planda Periyodik Otomatik API Taraması
   useEffect(() => {
     if (!autoSyncIntervalMins || autoSyncIntervalMins <= 0) return;
@@ -362,6 +393,7 @@ export function App() {
               onNavigateToReturns={() => setActiveTab('returns')}
               onNavigateToAds={() => setActiveTab('ads')}
               onNavigateToProTable={() => setActiveTab('pro-table')}
+              onNavigateToInvoices={() => setActiveTab('invoices')}
             />
           </div>
         )}
@@ -403,6 +435,8 @@ export function App() {
           <CustomerQuestionsAIPage
             onOpenGuide={() => setGuideModalPage('customer-questions')}
             onNavigateBack={() => setActiveTab('ai-worker')}
+            onNavigateToIntegrations={() => setActiveTab('integrations')}
+            onToast={showToast}
           />
         )}
 
@@ -425,11 +459,12 @@ export function App() {
           />
         )}
 
-        {/* 9. E-FATURA & FATURA YAZDIRMA MERKEZİ */}
-        {activeTab === 'invoices' && (
+        {/* 9. E-FATURA & FATURA YAZDIRMA MERKEZİ & TARAFINIZA KESİLEN FATURALAR */}
+        {(activeTab === 'invoices' || activeTab === 'incoming-invoices' || activeTab === 'incoming_invoices') && (
           <InvoiceManagementPage
             orders={orders}
             setOrders={setOrders}
+            initialTab={activeTab.startsWith('incoming') ? 'incoming_invoices' : 'pending'}
             autoInvoiceEnabled={autoInvoiceEnabled}
             setAutoInvoiceEnabled={setAutoInvoiceEnabled}
             onOpenGuide={() => setGuideModalPage('invoices')}
