@@ -1247,13 +1247,13 @@ export async function rejectTrendyolClaim({ claimId, claimLineItemId, reasonId =
  * Trendyol Talep / İade (Claims) Nesnesini İç Yapıya Dönüştürür
  */
 export function mapTrendyolClaimToInternal(rawClaim, baseCargoCost = 87.00, catalog = [], imageMap = {}) {
-  const items = rawClaim.items || (Array.isArray(rawClaim.claimLineItems) ? rawClaim.claimLineItems : [rawClaim]);
+  const items = rawClaim.claimItems || rawClaim.items || (Array.isArray(rawClaim.claimLineItems) ? rawClaim.claimLineItems : [rawClaim]);
   const firstItem = items[0] || {};
-  const barcode = String(firstItem.barcode || rawClaim.barcode || '').trim();
-  const sku = String(firstItem.merchantSku || firstItem.sku || rawClaim.merchantSku || '').trim();
-  const title = String(firstItem.productName || rawClaim.productName || 'Trendyol İade Ürünü').trim();
-  const color = firstItem.color || rawClaim.color || '';
-  const size = firstItem.size || rawClaim.size || '';
+  const barcode = String(firstItem.barcode || firstItem.itemBarcode || rawClaim.barcode || '').trim();
+  const sku = String(firstItem.merchantSku || firstItem.sku || rawClaim.merchantSku || rawClaim.sku || '').trim();
+  const title = String(firstItem.productName || firstItem.name || firstItem.title || rawClaim.productName || 'Trendyol İade Ürünü').trim();
+  const color = firstItem.color || firstItem.productColor || rawClaim.color || '';
+  const size = firstItem.size || firstItem.productSize || rawClaim.size || '';
   const quantity = Number(firstItem.quantity || rawClaim.quantity || 1);
 
   const matched = catalog.find(p => 
@@ -1263,14 +1263,14 @@ export function mapTrendyolClaimToInternal(rawClaim, baseCargoCost = 87.00, cata
   );
 
   const prodImg = resolveSmartProductImage({
-    directImage: firstItem.productImage || firstItem.imageUrl || rawClaim.imageUrl,
+    directImage: firstItem.productImage || firstItem.imageUrl || rawClaim.imageUrl || rawClaim.productImage,
     barcode,
     sku,
     title,
     category: matched?.category
   });
 
-  const productPrice = Number(firstItem.price || rawClaim.customerClaimAmount || rawClaim.totalPrice || 0);
+  const productPrice = Number(firstItem.price || firstItem.amount || rawClaim.customerClaimAmount || rawClaim.totalPrice || 0);
   const costPrice = matched?.costPrice ? Number(matched.costPrice) : Number((productPrice * 0.40).toFixed(2));
   const outboundCargo = baseCargoCost;
   const returnCargo = baseCargoCost; // Çift kargo maliyeti
@@ -1278,10 +1278,10 @@ export function mapTrendyolClaimToInternal(rawClaim, baseCargoCost = 87.00, cata
   const totalLoss = Number((outboundCargo + returnCargo + repackagingCost).toFixed(2));
 
   let reasonCat = 'Müşteri Cayma / İade';
-  const rawReason = String(firstItem.claimReason || rawClaim.claimReason || rawClaim.reason || '').toLowerCase();
+  const rawReason = String(firstItem.claimReason?.name || firstItem.claimReason || rawClaim.claimReason?.name || rawClaim.claimReason || rawClaim.reason || '').toLowerCase();
   if (rawReason.includes('beden') || rawReason.includes('kalıp') || rawReason.includes('küçük') || rawReason.includes('büyük') || rawReason.includes('dar') || rawReason.includes('ebat')) {
     reasonCat = 'Beden / Kalıp Uymadı';
-  } else if (rawReason.includes('hasar') || rawReason.includes('kırık') || rawReason.includes('yırtık') || rawReason.includes('ezik') || rawReason.includes('kusur')) {
+  } else if (rawReason.includes('hasar') || rawReason.includes('kırık') || rawReason.includes('yırtık') || rawReason.includes('ezik') || rawReason.includes('kusur') || rawReason.includes('defolu')) {
     reasonCat = 'Kargo Taşıma Hasarı';
   } else if (rawReason.includes('beğen') || rawReason.includes('cayma') || rawReason.includes('vazgeç')) {
     reasonCat = 'Cayma / Beğenilmeme';
@@ -1292,14 +1292,14 @@ export function mapTrendyolClaimToInternal(rawClaim, baseCargoCost = 87.00, cata
   let orderDateFormatted = 'Bilinmiyor';
   if (rawClaim.orderDate) {
     try {
-      orderDateFormatted = new Date(rawClaim.orderDate).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      orderDateFormatted = formatTrendyolOrderDate(rawClaim.orderDate);
     } catch {}
   }
 
   let claimDateFormatted = 'Bugün';
   if (rawClaim.claimDate || rawClaim.createdDate) {
     try {
-      claimDateFormatted = new Date(rawClaim.claimDate || rawClaim.createdDate).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      claimDateFormatted = formatTrendyolOrderDate(rawClaim.claimDate || rawClaim.createdDate);
     } catch {}
   }
 
@@ -1313,10 +1313,10 @@ export function mapTrendyolClaimToInternal(rawClaim, baseCargoCost = 87.00, cata
   } else if (rawStatus.includes('REJECT') || rawStatus.includes('RET')) {
     mappedStatus = 'REJECTED';
     statusText = 'Reddedilen';
-  } else if (rawStatus.includes('CREATE') || rawStatus.includes('TALEP')) {
+  } else if (rawStatus.includes('CREATE') || rawStatus.includes('TALEP') || rawStatus.includes('NEW')) {
     mappedStatus = 'CREATED';
     statusText = 'Talep Oluşturulan';
-  } else if (rawStatus.includes('TRANSIT') || rawStatus.includes('SHIP') || rawStatus.includes('KARGO')) {
+  } else if (rawStatus.includes('TRANSIT') || rawStatus.includes('SHIP') || rawStatus.includes('KARGO') || rawStatus.includes('IN_TRANSIT')) {
     mappedStatus = 'IN_TRANSIT';
     statusText = 'Kargoya Verilen';
   } else if (rawStatus.includes('ANALYSIS') || rawStatus.includes('ANALİZ')) {
@@ -1325,14 +1325,19 @@ export function mapTrendyolClaimToInternal(rawClaim, baseCargoCost = 87.00, cata
   } else if (rawStatus.includes('DISPUTE') || rawStatus.includes('İHTİLAF')) {
     mappedStatus = 'DISPUTED';
     statusText = 'İhtilaflı';
+  } else if (rawStatus.includes('WAITING') || rawStatus.includes('BEKLEYEN')) {
+    mappedStatus = 'WAITING_ACTION';
+    statusText = 'Aksiyon Bekleyen';
   }
 
+  const orderNumStr = String(rawClaim.orderNumber || rawClaim.orderId || firstItem.orderNumber || '');
+
   return {
-    id: `CLM-TY-${rawClaim.id || rawClaim.claimNumber || rawClaim.orderNumber || Date.now().toString().slice(-6)}`,
+    id: `CLM-TY-${rawClaim.id || rawClaim.claimNumber || orderNumStr || Date.now().toString().slice(-6)}`,
     claimId: String(rawClaim.id || rawClaim.claimNumber || ''),
     claimLineItemId: String(firstItem.id || firstItem.claimLineItemId || rawClaim.id || ''),
-    orderId: String(rawClaim.orderNumber || rawClaim.orderId || `TY-${Date.now().toString().slice(-6)}`),
-    orderNumber: String(rawClaim.orderNumber || rawClaim.orderId || ''),
+    orderId: orderNumStr || `TY-${Date.now().toString().slice(-6)}`,
+    orderNumber: orderNumStr,
     orderDate: orderDateFormatted,
     claimDate: claimDateFormatted,
     marketplace: 'Trendyol',
@@ -1350,14 +1355,14 @@ export function mapTrendyolClaimToInternal(rawClaim, baseCargoCost = 87.00, cata
     returnCargoFee: returnCargo,
     repackagingCost: repackagingCost,
     totalLossFromReturn: totalLoss,
-    cargoProvider: rawClaim.cargoProviderName || 'trendyol express',
-    cargoTrackingNumber: rawClaim.cargoTrackingNumber || rawClaim.shipmentPackageId || '7330037405260835',
+    cargoProvider: rawClaim.cargoProviderName || rawClaim.cargoProvider || 'Trendyol Express',
+    cargoTrackingNumber: rawClaim.cargoTrackingNumber || rawClaim.shipmentPackageId || rawClaim.packageNo || '7330037405260835',
     cargoType: 'Adresten İade',
     desi: Number(rawClaim.desi || 1),
-    claimReason: firstItem.claimReason || rawClaim.claimReason || reasonCat,
-    customerNote: firstItem.claimReasonDescription || rawClaim.claimReasonDescription || firstItem.claimReason || reasonCat,
+    claimReason: firstItem.claimReason?.name || firstItem.claimReason || rawClaim.claimReason?.name || rawClaim.claimReason || reasonCat,
+    customerNote: firstItem.claimReasonDescription || firstItem.customerNote || rawClaim.claimReasonDescription || rawClaim.customerNote || reasonCat,
     reasonCategory: reasonCat,
-    reasonDetail: firstItem.claimReasonDescription || rawClaim.claimReasonDescription || 'Müşteri iade talebi oluşturdu.',
+    reasonDetail: firstItem.claimReasonDescription || firstItem.customerNote || rawClaim.claimReasonDescription || 'Müşteri iade talebi oluşturdu.',
     status: mappedStatus,
     trendyolStatusText: statusText,
     remainingTime: '2 gün 14:27:41',
@@ -1369,6 +1374,45 @@ export function mapTrendyolClaimToInternal(rawClaim, baseCargoCost = 87.00, cata
       ? 'Kargo şubesi için tutanak talebi açıldı (Tazmin talep edilebilir).'
       : 'Stüdyo çekimi gün ışığı fotoğrafı ve detaylı ürün özellikleri ekleyin.'
   };
+}
+
+/**
+ * Trendyol Claims dizisini düzleştirip her iade maddesini ayrıştırır
+ */
+export function flattenAndMapTrendyolClaims(rawClaims = [], baseCargo = 87.00, catalog = [], imageMap = {}) {
+  const results = [];
+  if (!Array.isArray(rawClaims)) return results;
+
+  rawClaims.forEach((rawClaim, cIdx) => {
+    const subItems = rawClaim.claimItems || rawClaim.claimLineItems || rawClaim.items || rawClaim.lines;
+    if (Array.isArray(subItems) && subItems.length > 0) {
+      subItems.forEach((subItem, idx) => {
+        const merged = {
+          ...rawClaim,
+          ...subItem,
+          id: subItem.id || `${rawClaim.id || rawClaim.claimNumber || 'CLM'}-${idx + 1}`,
+          claimId: String(rawClaim.id || rawClaim.claimNumber || ''),
+          claimLineItemId: String(subItem.id || subItem.claimLineItemId || subItem.lineId || ''),
+          orderNumber: String(rawClaim.orderNumber || rawClaim.orderId || subItem.orderNumber || ''),
+          orderDate: rawClaim.orderDate || subItem.orderDate,
+          claimDate: subItem.claimDate || rawClaim.claimDate || subItem.createdDate || rawClaim.createdDate,
+          customerFirstName: rawClaim.customerFirstName || subItem.customerFirstName,
+          customerLastName: rawClaim.customerLastName || subItem.customerLastName,
+          customerName: rawClaim.customerName || (rawClaim.customerFirstName ? `${rawClaim.customerFirstName} ${rawClaim.customerLastName || ''}`.trim() : 'Trendyol Müşterisi'),
+          claimItemStatus: subItem.claimItemStatus || rawClaim.claimItemStatus || rawClaim.status || subItem.status,
+          claimReason: subItem.claimReason?.name || subItem.claimReason || rawClaim.claimReason?.name || rawClaim.claimReason,
+          customerNote: subItem.customerNote || subItem.claimReasonDescription || rawClaim.customerNote || rawClaim.claimReasonDescription,
+          cargoTrackingNumber: subItem.cargoTrackingNumber || rawClaim.cargoTrackingNumber || rawClaim.shipmentPackageId,
+          cargoProviderName: subItem.cargoProviderName || rawClaim.cargoProviderName
+        };
+        results.push(mapTrendyolClaimToInternal(merged, baseCargo, catalog, imageMap));
+      });
+    } else {
+      results.push(mapTrendyolClaimToInternal(rawClaim, baseCargo, catalog, imageMap));
+    }
+  });
+
+  return results;
 }
 
 /**
@@ -1436,7 +1480,11 @@ export function mapHepsiburadaReturnToInternal(rawReturn, baseCargoCost = 43.50,
  */
 export function extractReturnsFromOrders(ordersList = []) {
   const cargoSettings = getCustomCargoSettings();
-  const returnedOrders = ordersList.filter(o => o.status === 'RETURNED');
+  const returnedOrders = ordersList.filter(o => {
+    const st = String(o.status || '').toUpperCase();
+    const rawSt = String(o.shipmentPackageStatus || o.rawStatus || '').toUpperCase();
+    return st === 'RETURNED' || rawSt.includes('RETURN') || rawSt.includes('IADE') || rawSt.includes('CANCEL') || rawSt.includes('UNSUPPLIED');
+  });
   
   return returnedOrders.flatMap(order => {
     const isTy = (order.marketplace || '').includes('Trendyol');
@@ -1468,7 +1516,8 @@ export function extractReturnsFromOrders(ordersList = []) {
 
       return {
         id: `RET-${order.orderNumber || order.id}-${idx + 1}`,
-        orderId: order.orderNumber || order.id,
+        orderId: String(order.orderNumber || order.id),
+        orderNumber: String(order.orderNumber || order.id),
         marketplace: order.marketplace || 'Trendyol',
         customerName: order.customerName || 'Müşteri',
         customerCity: order.customerCity || 'İstanbul',
@@ -1476,8 +1525,8 @@ export function extractReturnsFromOrders(ordersList = []) {
         sku: it.sku || order.sku || 'SKU-RET',
         barcode: it.barcode || order.barcode || '8680000000',
         returnDate: order.orderDate || 'Bugün',
-        reasonCategory: order.returnReason || 'Beden / Kalıp Uymadı',
-        reasonDetail: order.returnReasonDetail || 'Müşteri teslimat sonrası iade talebi oluşturdu.',
+        reasonCategory: order.returnReason || 'Müşteri İadesi',
+        reasonDetail: order.returnReasonDetail || 'Pazaryeri üzerinden iade talebi oluşturuldu.',
         productPrice: productPrice,
         costPrice: costPrice,
         outboundCargoFee: outboundCargo,
@@ -1485,6 +1534,9 @@ export function extractReturnsFromOrders(ordersList = []) {
         repackagingCost: repackagingCost,
         totalLossFromReturn: totalLoss,
         status: 'IN_TRANSIT',
+        trendyolStatusText: 'Kargoya Verilen',
+        cargoTrackingNumber: order.cargoTrackingNumber || order.shipmentPackageId || '7330037405260835',
+        cargoProvider: order.cargoProvider || 'Trendyol Express',
         image: prodImg,
         aiActionRecommendation: 'Ürün açıklamasına "Dar Kalıp - 1 Beden Büyük Önerilir" ibaresi eklendiğinde çift kargo zararı %40 önlenir.'
       };
@@ -1493,7 +1545,7 @@ export function extractReturnsFromOrders(ordersList = []) {
 }
 
 /**
- * Trendyol Claims API'sinden İadeleri Çeker
+ * Trendyol Claims API'sinden İadeleri Çeker (Hem Claims hem Returned Orders)
  */
 export async function fetchTrendyolClaims({ sellerId, apiKey, apiSecret }) {
   const cleanSellerId = sellerId.toString().trim();
@@ -1504,6 +1556,9 @@ export async function fetchTrendyolClaims({ sellerId, apiKey, apiSecret }) {
   const cargoSettings = getCustomCargoSettings();
   const tyCargo = cargoSettings.trendyolCargoCost || 87.00;
 
+  let allMappedClaims = [];
+
+  // 1. Claims Endpoint Sorgulaması
   try {
     const res = await fetch('/api/trendyol', {
       method: 'POST',
@@ -1520,14 +1575,52 @@ export async function fetchTrendyolClaims({ sellerId, apiKey, apiSecret }) {
 
     if (res.ok) {
       const json = await res.json();
-      const rawClaims = json.data?.content || json.content || [];
-      const mapped = rawClaims.map(c => mapTrendyolClaimToInternal(c, tyCargo, catalog, imageMap));
-      return { success: true, returns: mapped, count: mapped.length };
+      const rawClaims = json.data?.content || json.content || json.data || (Array.isArray(json) ? json : []);
+      const mapped = flattenAndMapTrendyolClaims(rawClaims, tyCargo, catalog, imageMap);
+      allMappedClaims = [...allMappedClaims, ...mapped];
     }
   } catch (e) {
     console.warn("fetchTrendyolClaims notice:", e);
   }
-  return { success: false, returns: [], count: 0 };
+
+  // 2. Trendyol Returned / Cancelled Siparişlerinden İadeleri Çekme
+  try {
+    const resOrders = await fetch('/api/trendyol', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sellerId: cleanSellerId,
+        apiKey: cleanKey,
+        apiSecret: cleanSecret,
+        action: 'orders',
+        status: 'Returned,UnDelivered,Cancelled',
+        page: 0,
+        size: 100
+      })
+    });
+
+    if (resOrders.ok) {
+      const jsonOrders = await resOrders.json();
+      const rawOrders = jsonOrders.data?.content || jsonOrders.content || [];
+      const mappedOrders = rawOrders.map(raw => mapTrendyolOrderToInternal(raw, cleanSellerId, catalog, imageMap));
+      const orderReturns = extractReturnsFromOrders(mappedOrders);
+      allMappedClaims = [...allMappedClaims, ...orderReturns];
+    }
+  } catch (eOrder) {
+    console.warn("fetchTrendyolReturnedOrders notice:", eOrder);
+  }
+
+  // Tekilleştir
+  const claimMap = new Map();
+  allMappedClaims.forEach(c => {
+    const key = c.orderNumber || c.orderId || c.id;
+    if (!claimMap.has(key)) {
+      claimMap.set(key, c);
+    }
+  });
+
+  const finalReturns = Array.from(claimMap.values());
+  return { success: true, returns: finalReturns, count: finalReturns.length };
 }
 
 /**
@@ -1608,17 +1701,21 @@ export async function syncAllReturns() {
   const existingOrders = existingOrdersRaw ? JSON.parse(existingOrdersRaw) : [];
   const orderDerivedReturns = extractReturnsFromOrders(existingOrders);
 
+  // Mevcut kayıtlı iadeleri de alıp koru
+  const currentStored = getStoredReturns();
+
   // Birleştir ve tekilleştir
   const returnMap = new Map();
-  [...apiReturns, ...orderDerivedReturns].forEach(ret => {
-    const key = ret.orderId || ret.id;
-    returnMap.set(key, ret);
+  [...currentStored, ...apiReturns, ...orderDerivedReturns].forEach(ret => {
+    const key = ret.orderId || ret.orderNumber || ret.id;
+    if (key) {
+      returnMap.set(key, { ...(returnMap.get(key) || {}), ...ret });
+    }
   });
 
   const mergedReturns = Array.from(returnMap.values());
-  if (mergedReturns.length > 0) {
-    saveStoredReturns(mergedReturns);
-  }
+  saveStoredReturns(mergedReturns);
+  window.dispatchEvent(new CustomEvent('izeeg_returns_updated', { detail: { count: mergedReturns.length } }));
 
   return {
     success: true,

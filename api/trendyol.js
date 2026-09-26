@@ -124,7 +124,8 @@ export default async function handler(req, res) {
         description: body.description || 'Satıcı tarafından ret talebi oluşturuldu.'
       });
     } else if (cleanAction === 'claims') {
-      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/claims?page=${cleanPage}&size=${cleanSize}`;
+      const claimStatusParam = body.claimItemStatus ? `&claimItemStatus=${encodeURIComponent(body.claimItemStatus)}` : (body.status ? `&claimItemStatus=${encodeURIComponent(body.status)}` : '');
+      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/claims?page=${cleanPage}&size=${cleanSize}${claimStatusParam}`;
     } else if (cleanAction === 'questions') {
       const statusParam = status ? `&status=${encodeURIComponent(status)}` : '';
       const barcodeParam = cleanBarcode ? `&barcode=${encodeURIComponent(cleanBarcode)}` : '';
@@ -157,7 +158,8 @@ export default async function handler(req, res) {
       const endDateParam = body.endDate ? `&endDate=${body.endDate}` : '';
       targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/finance/otherfinancials?page=${cleanPage}&size=${cleanSize}${startDateParam}${endDateParam}`;
     } else {
-      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/orders?page=${cleanPage}&size=${cleanSize}&orderByDirection=DESC`;
+      const statusParam = body.status ? `&status=${encodeURIComponent(body.status)}` : '';
+      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/orders?page=${cleanPage}&size=${cleanSize}${statusParam}&orderByDirection=DESC`;
     }
 
     const controller = new AbortController();

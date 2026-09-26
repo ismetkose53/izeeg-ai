@@ -49,8 +49,8 @@ import {
 import { PageGuideButton } from './PageHelpGuideModal';
 
 export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval, onOpenGuide }) {
-  // Filtreler
-  const [activeTab, setActiveTab] = useState('WAITING_ACTION'); // 'ALL' | 'CREATED' | 'IN_TRANSIT' | 'WAITING_ACTION' | 'ACCEPTED' | 'REJECTED' | 'IN_ANALYSIS' | 'DISPUTED' | 'SUSPENDED'
+  // Filtreler (Varsayılan olarak 'ALL' - Tüm İadeleri Göster)
+  const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'CREATED' | 'IN_TRANSIT' | 'WAITING_ACTION' | 'ACCEPTED' | 'REJECTED' | 'IN_ANALYSIS' | 'DISPUTED' | 'SUSPENDED'
   const [customerSearch, setCustomerSearch] = useState('');
   const [orderNoSearch, setOrderNoSearch] = useState('');
   const [claimCodeSearch, setClaimCodeSearch] = useState('');
@@ -91,13 +91,23 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
 
   useEffect(() => {
     refreshData();
+    // Sayfa açıldığında arka planda canlı pazaryeri iadelerini hemen tara ve listeyi tazele
+    syncAllReturns().then(() => refreshData()).catch(() => {});
+
     const handleReturnsUpdated = () => refreshData();
     const handleImagesUpdated = () => refreshData();
+    const handleOrdersUpdated = () => {
+      syncAllReturns().then(() => refreshData()).catch(() => {});
+    };
+
     window.addEventListener('izeeg_returns_updated', handleReturnsUpdated);
     window.addEventListener('izeeg_images_updated', handleImagesUpdated);
+    window.addEventListener('izeeg_orders_updated', handleOrdersUpdated);
+
     return () => {
       window.removeEventListener('izeeg_returns_updated', handleReturnsUpdated);
       window.removeEventListener('izeeg_images_updated', handleImagesUpdated);
+      window.removeEventListener('izeeg_orders_updated', handleOrdersUpdated);
     };
   }, []);
 
