@@ -31,6 +31,7 @@ import { PageHelpGuideModal } from './components/PageHelpGuideModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { PortalEntrancePage } from './components/PortalEntrancePage';
 import { getCurrentUser, logoutUser, saveCurrentUser } from './services/authService';
+import { getNotificationSettings, sendWhatsAppMessage } from './services/notificationService';
 import { Analytics } from '@vercel/analytics/react';
 
 import { 
@@ -316,14 +317,61 @@ export function App() {
     showToast(`✅ "${logEntry.actionTitle}" onaylandı ve pazar yerine uygulandı!`);
   };
 
-  const handleSendWhatsAppTest = () => {
-    showToast("📱 09:00 WhatsApp sabah yönetici bülteni cep telefonunuza iletildi!");
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.2 }
-    });
+  const handleSendWhatsAppTest = (result) => {
+    if (result && result.message) {
+      showToast(result.message);
+    } else {
+      showToast("📱 09:00 WhatsApp sabah yönetici bülteni hazırlandı!");
+    }
   };
+
+  // Her sabah 09:00 (veya belirlenen saatte) otomatik Sabah Bülteni Zamanlayıcısı
+  useEffect(() => {
+    const checkMorningBrief = () => {
+      try {
+        const notifSettings = getNotificationSettings();
+        if (!notifSettings || !notifSettings.whatsappEnabled) return;
+
+        const now = new Date();
+        const currentHours = String(now.getHours()).padStart(2, '0');
+        const currentMins = String(now.getMinutes()).padStart(2, '0');
+        const currentTimeStr = `${currentHours}:${currentMins}`;
+        const targetTimeStr = notifSettings.morningBriefTime || '09:00';
+        const todayStr = now.toISOString().slice(0, 10);
+        const lastSentDate = localStorage.getItem('izeeg_morning_brief_last_sent_date');
+
+        if (currentTimeStr === targetTimeStr && lastSentDate !== todayStr) {
+          localStorage.setItem('izeeg_morning_brief_last_sent_date', todayStr);
+
+          // Masaüstü Web Push Bildirimi (Tarayıcı İzni Varsa)
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            new Notification("☀️ izeeg AI - Sabah Yönetici Bülteni Hazır!", {
+              body: `Günaydın ${notifSettings.fullName || 'İsmet Bey'}! Güncel ciro ve net kâr özetiniz hazır. WhatsApp'ta açmak için tıklayın.`
+            });
+          }
+
+          // Otomatik Bulut Gateway (UltraMsg / Webhook) Yapılandırılmışsa API'ye İlet
+          if (notifSettings.deliveryMethod === 'ULTRAMSG' || notifSettings.deliveryMethod === 'WEBHOOK') {
+            sendWhatsAppMessage({ settings: notifSettings, metrics })
+              .then(() => {
+                showToast("📱 09:00 Sabah Yönetici Bülteni telefonunuza otomatik iletildi!");
+              })
+              .catch(err => {
+                console.warn("Auto brief error:", err);
+              });
+          } else {
+            showToast("☀️ Saat 09:00! Sabah Yönetici Bülteniniz hazır. WhatsApp sekmesinden 1 tıkla iletebilirsiniz.");
+          }
+        }
+      } catch (e) {
+        console.warn("Morning brief scheduler error:", e);
+      }
+    };
+
+    const interval = setInterval(checkMorningBrief, 30000);
+    checkMorningBrief();
+    return () => clearInterval(interval);
+  }, [metrics]);
 
   // Sadece Yeni (NEW) ve İşleme Alınan (PREPARING) siparişlerin toplamı (Üst menü rozet sayısı)
   const activeActionableOrdersCount = useMemo(() => {
