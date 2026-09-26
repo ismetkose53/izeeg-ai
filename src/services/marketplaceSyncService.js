@@ -2625,10 +2625,14 @@ export async function syncAllMarketplaceIncomingInvoices({ onToast } = {}) {
  */
 export function calculateIncomingInvoicesSummary(invoices = [], period = 'ALL') {
   const now = new Date();
+  const safeInvoices = Array.isArray(invoices) ? invoices : [];
 
-  const filtered = invoices.filter(inv => {
+  const filtered = safeInvoices.filter(inv => {
+    if (!inv) return false;
     if (period === 'ALL') return true;
-    const invDate = new Date(inv.invoiceDate);
+    const dateStr = inv.invoiceDate || inv.date || inv.issueDate || inv.transactionDate;
+    if (!dateStr) return true;
+    const invDate = new Date(dateStr);
     if (isNaN(invDate.getTime())) return true;
 
     if (period === 'TODAY') {
@@ -2641,7 +2645,7 @@ export function calculateIncomingInvoicesSummary(invoices = [], period = 'ALL') 
 
     if (period === 'THIS_WEEK') {
       const diffMs = now.getTime() - invDate.getTime();
-      return diffMs <= 7 * 24 * 60 * 60 * 1000;
+      return diffMs >= 0 && diffMs <= 7 * 24 * 60 * 60 * 1000;
     }
 
     if (period === 'THIS_MONTH') {
@@ -2654,25 +2658,53 @@ export function calculateIncomingInvoicesSummary(invoices = [], period = 'ALL') 
     return true;
   });
 
-  const totalGross = filtered.reduce((sum, i) => sum + (Number(i.grossAmount) || 0), 0);
-  const totalNet = filtered.reduce((sum, i) => sum + (Number(i.netAmount) || 0), 0);
-  const totalVat = filtered.reduce((sum, i) => sum + (Number(i.vatAmount) || 0), 0);
+  const totalAmount = filtered.reduce((sum, i) => sum + (Number(i.totalAmount ?? i.grossAmount ?? i.netAmount ?? 0) || 0), 0);
+  const netMatrah = filtered.reduce((sum, i) => sum + (Number(i.netAmount ?? i.netMatrah ?? 0) || 0), 0);
+  const vatAmount = filtered.reduce((sum, i) => sum + (Number(i.vatAmount ?? 0) || 0), 0);
 
-  const commissionTotal = filtered.filter(i => i.category === 'COMMISSION').reduce((sum, i) => sum + Number(i.grossAmount || 0), 0);
-  const cargoTotal = filtered.filter(i => i.category === 'CARGO').reduce((sum, i) => sum + Number(i.grossAmount || 0), 0);
-  const adsTotal = filtered.filter(i => i.category === 'ADVERTISEMENT').reduce((sum, i) => sum + Number(i.grossAmount || 0), 0);
-  const platformTotal = filtered.filter(i => i.category === 'PLATFORM_FEE' || i.category === 'PENALTY').reduce((sum, i) => sum + Number(i.grossAmount || 0), 0);
+  const commissionTotal = filtered.filter(i => i.category === 'COMMISSION').reduce((sum, i) => sum + (Number(i.totalAmount ?? i.grossAmount ?? i.netAmount ?? 0) || 0), 0);
+  const cargoTotal = filtered.filter(i => i.category === 'CARGO').reduce((sum, i) => sum + (Number(i.totalAmount ?? i.grossAmount ?? i.netAmount ?? 0) || 0), 0);
+  const adTotal = filtered.filter(i => i.category === 'ADVERTISEMENT').reduce((sum, i) => sum + (Number(i.totalAmount ?? i.grossAmount ?? i.netAmount ?? 0) || 0), 0);
+  const platformFeeTotal = filtered.filter(i => i.category === 'PLATFORM_FEE' || i.category === 'PENALTY').reduce((sum, i) => sum + (Number(i.totalAmount ?? i.grossAmount ?? i.netAmount ?? 0) || 0), 0);
+  const otherTotal = filtered.filter(i => !['COMMISSION', 'CARGO', 'ADVERTISEMENT', 'PLATFORM_FEE', 'PENALTY'].includes(i.category)).reduce((sum, i) => sum + (Number(i.totalAmount ?? i.grossAmount ?? i.netAmount ?? 0) || 0), 0);
+
+  // Periyot bazlı sayaçlar
+  const todayCount = safeInvoices.filter(inv => {
+    const d = new Date(inv.invoiceDate || inv.date || inv.transactionDate || Date.now());
+    return !isNaN(d.getTime()) && d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  const weekCount = safeInvoices.filter(inv => {
+    const d = new Date(inv.invoiceDate || inv.date || inv.transactionDate || Date.now());
+    return !isNaN(d.getTime()) && (now.getTime() - d.getTime()) <= 7 * 24 * 60 * 60 * 1000;
+  }).length;
+
+  const monthCount = safeInvoices.filter(inv => {
+    const d = new Date(inv.invoiceDate || inv.date || inv.transactionDate || Date.now());
+    return !isNaN(d.getTime()) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
 
   return {
     period,
     count: filtered.length,
-    totalGross,
-    totalNet,
-    totalVat,
+    allCount: safeInvoices.length,
+    todayCount,
+    weekCount,
+    monthCount,
+    totalAmount,
+    totalGross: totalAmount,
+    netMatrah,
+    totalNet: netMatrah,
+    vatAmount,
+    totalVat: vatAmount,
     commissionTotal,
     cargoTotal,
-    adsTotal,
-    platformTotal,
-    invoices: filtered
+    adTotal,
+    adsTotal: adTotal,
+    platformFeeTotal,
+    platformTotal: platformFeeTotal,
+    otherTotal,
+    invoices: filtered,
+    filteredInvoices: filtered
   };
 }

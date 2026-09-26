@@ -452,7 +452,9 @@ export function InvoiceManagementPage({
 
   // Filtrelenmiş Tarafımıza Kesilen Faturalar Listesi
   const filteredIncomingInvoices = useMemo(() => {
-    return (incomingSummary.filteredInvoices || []).filter(inv => {
+    const list = incomingSummary?.filteredInvoices || incomingSummary?.invoices || [];
+    return list.filter(inv => {
+      if (!inv) return false;
       // Kategori Filtresi
       if (incomingCategory !== 'ALL' && inv.category !== incomingCategory) {
         return false;
@@ -467,7 +469,7 @@ export function InvoiceManagementPage({
         return (
           (inv.invoiceNumber && inv.invoiceNumber.toLowerCase().includes(q)) ||
           (inv.issuerName && inv.issuerName.toLowerCase().includes(q)) ||
-          (inv.issuerTaxId && inv.issuerTaxId.includes(q)) ||
+          (inv.issuerTaxId && String(inv.issuerTaxId).includes(q)) ||
           (inv.description && inv.description.toLowerCase().includes(q)) ||
           (inv.categoryLabel && inv.categoryLabel.toLowerCase().includes(q))
         );
@@ -1069,7 +1071,7 @@ export function InvoiceManagementPage({
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Tümü ({incomingSummary.allCount})
+                  Tümü ({incomingSummary?.allCount ?? incomingSummary?.count ?? 0})
                 </button>
                 <button
                   onClick={() => setIncomingPeriod('TODAY')}
@@ -1079,7 +1081,7 @@ export function InvoiceManagementPage({
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Bugün ({incomingSummary.todayCount})
+                  Bugün ({incomingSummary?.todayCount ?? 0})
                 </button>
                 <button
                   onClick={() => setIncomingPeriod('THIS_WEEK')}
@@ -1089,7 +1091,7 @@ export function InvoiceManagementPage({
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Bu Hafta ({incomingSummary.weekCount})
+                  Bu Hafta ({incomingSummary?.weekCount ?? 0})
                 </button>
                 <button
                   onClick={() => setIncomingPeriod('THIS_MONTH')}
@@ -1099,7 +1101,7 @@ export function InvoiceManagementPage({
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Bu Ay ({incomingSummary.monthCount})
+                  Bu Ay ({incomingSummary?.monthCount ?? 0})
                 </button>
               </div>
             </div>
@@ -1115,11 +1117,11 @@ export function InvoiceManagementPage({
                   <Receipt className="w-4 h-4 text-rose-600" />
                 </div>
                 <div className="text-2xl font-black text-rose-700 mt-1">
-                  {incomingSummary.totalAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                  {Number(incomingSummary?.totalAmount || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1 flex justify-between font-medium">
-                  <span>Matrah: {incomingSummary.netMatrah.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
-                  <span className="text-blue-700 font-bold">KDV (%20): {incomingSummary.vatAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
+                  <span>Matrah: {Number(incomingSummary?.netMatrah || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
+                  <span className="text-blue-700 font-bold">KDV (%20): {Number(incomingSummary?.vatAmount || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
                 </div>
               </div>
 
@@ -1132,7 +1134,7 @@ export function InvoiceManagementPage({
                   <Percent className="w-4 h-4 text-amber-600" />
                 </div>
                 <div className="text-2xl font-black text-slate-900 mt-1">
-                  {incomingSummary.commissionTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                  {Number(incomingSummary?.commissionTotal || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1 font-medium">
                   Pazaryeri satış komisyon bedelleri
@@ -1148,7 +1150,7 @@ export function InvoiceManagementPage({
                   <Truck className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="text-2xl font-black text-slate-900 mt-1">
-                  {incomingSummary.cargoTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                  {Number(incomingSummary?.cargoTotal || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1 font-medium">
                   Taşıma & barem kargo bedelleri
@@ -1164,7 +1166,7 @@ export function InvoiceManagementPage({
                   <Megaphone className="w-4 h-4 text-purple-600" />
                 </div>
                 <div className="text-2xl font-black text-purple-700 mt-1">
-                  {(incomingSummary.adTotal + incomingSummary.platformFeeTotal).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                  {Number((incomingSummary?.adTotal || 0) + (incomingSummary?.platformFeeTotal || 0)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1 font-medium">
                   CPC reklam, entegrasyon & listeleme
