@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { askAIAssistant } from '../services/aiAdvisorService';
 
-export function AIChatModal({ isOpen, onClose, storeContext, initialPrompt = '', onNavigateTab }) {
+export function AIChatModal({ isOpen, onClose, storeContext, products = [], orders = [], cargoLeaks = [], initialPrompt = '', onNavigateTab }) {
   const [messages, setMessages] = useState([
     {
       sender: 'ai',
@@ -47,25 +47,29 @@ export function AIChatModal({ isOpen, onClose, storeContext, initialPrompt = '',
     setIsTyping(true);
 
     setTimeout(() => {
-      const response = askAIAssistant(query, storeContext);
+      const response = askAIAssistant(query, storeContext, products, orders, cargoLeaks);
       setMessages(prev => [
         ...prev, 
         { 
           sender: 'ai', 
           text: response.text, 
           suggestedAction: response.suggestedAction,
+          actionTab: response.actionTab || 'ai-worker',
           time: 'Şimdi' 
         }
       ]);
       setIsTyping(false);
-    }, 600);
+    }, 450);
   };
 
   const quickQuestions = [
     "📉 Geçen haftaya göre kârım neden düştü?",
     "🏆 En çok kâr bırakan ürünüm hangisi?",
     "💰 Fiyatları 50 TL artırırsam net kârım ne olur?",
-    "📦 Kargo desi itirazını nasıl yapmalıyım?"
+    "📦 Kargo desi itirazını nasıl yapmalıyım?",
+    "🔄 İadelerim neden yükseliyor?",
+    "⚠️ Kritik stoktaki ürünler hangileri?",
+    "💬 Bekleyen müşteri soruları var mı?"
   ];
 
   return (
@@ -124,9 +128,11 @@ export function AIChatModal({ isOpen, onClose, storeContext, initialPrompt = '',
                     <button
                       onClick={() => {
                         onClose();
-                        onNavigateTab('cargo-audit');
+                        if (onNavigateTab) {
+                          onNavigateTab(m.actionTab || 'ai-worker');
+                        }
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#f27a1a]/10 hover:bg-[#f27a1a]/20 text-[#f27a1a] text-[11px] font-black border border-[#f27a1a]/30 transition-all"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#f27a1a]/10 hover:bg-[#f27a1a]/20 text-[#f27a1a] text-[11px] font-black border border-[#f27a1a]/30 transition-all cursor-pointer"
                     >
                       <Zap className="w-3 h-3" />
                       {m.suggestedAction} ↳

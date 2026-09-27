@@ -716,6 +716,9 @@ export function App() {
         isOpen={isAIModalOpen}
         onClose={() => setIsAIModalOpen(false)}
         storeContext={metrics}
+        products={products}
+        orders={orders}
+        cargoLeaks={cargoLeaks}
         initialPrompt={initialAIPrompt}
         onNavigateTab={(tab) => setActiveTab(tab)}
       />
