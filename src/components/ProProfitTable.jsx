@@ -32,6 +32,7 @@ import {
   HAKEDIS_DATA 
 } from '../services/mockData';
 import { PageGuideButton } from './PageHelpGuideModal';
+import { resolveSmartProductName } from '../services/marketplaceSyncService';
 
 export function ProProfitTable({ products, onNavigateToOrders, onOpenGuide }) {
   // Sub-tabs: 'main' | 'simulator' | 'cargo' | 'plus' | 'commission' | 'profitable' | 'flash' | 'hakedis' | 'kilavuz'
@@ -80,10 +81,11 @@ export function ProProfitTable({ products, onNavigateToOrders, onOpenGuide }) {
       if (missingDataOnly && p.costPrice > 0) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
+        const displayName = resolveSmartProductName(p).toLowerCase();
         return (
-          p.name.toLowerCase().includes(q) ||
-          p.barcode.toLowerCase().includes(q) ||
-          p.variant.toLowerCase().includes(q)
+          displayName.includes(q) ||
+          (p.barcode || '').toLowerCase().includes(q) ||
+          (p.variant || '').toLowerCase().includes(q)
         );
       }
       return true;
@@ -265,7 +267,7 @@ export function ProProfitTable({ products, onNavigateToOrders, onOpenGuide }) {
                     className="bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#f27a1a]"
                   >
                     {products.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.sellingPrice} ₺)</option>
+                      <option key={p.id} value={p.id}>{resolveSmartProductName(p)} ({p.sellingPrice} ₺)</option>
                     ))}
                   </select>
                 </div>
@@ -672,7 +674,7 @@ export function ProProfitTable({ products, onNavigateToOrders, onOpenGuide }) {
                           </td>
 
                           <td className="py-3 px-3">
-                            <div className="font-extrabold text-slate-900 text-xs">{p.name}</div>
+                            <div className="font-extrabold text-slate-900 text-xs">{resolveSmartProductName(p)}</div>
                             <div className="text-[11px] text-slate-500">{p.variant} • <span className="text-[#f27a1a] font-bold">{p.marketplace}</span></div>
                           </td>
 

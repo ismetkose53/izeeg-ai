@@ -41,7 +41,7 @@ import {
   Tooltip, 
   CartesianGrid 
 } from 'recharts';
-import { getStoredReturns } from '../services/marketplaceSyncService';
+import { getStoredReturns, resolveSmartProductName } from '../services/marketplaceSyncService';
 import confetti from 'canvas-confetti';
 
 export function SalesReportsPage({ 
@@ -277,7 +277,7 @@ export function SalesReportsPage({
         if (!productMap.has(key)) {
           productMap.set(key, {
             id: key,
-            name: item.productName || item.name || 'Satılan Ürün',
+            name: resolveSmartProductName(item, 'Özel Tasarım Giyim Ürünü'),
             barcode: item.barcode || key,
             sku: item.sku || key,
             variant: item.variant || item.size || 'Standart',
@@ -308,7 +308,7 @@ export function SalesReportsPage({
       if (!productMap.has(key)) {
         productMap.set(key, {
           id: p.id || key,
-          name: p.name || 'Katalog Ürünü',
+          name: resolveSmartProductName(p, 'Özel Tasarım Giyim Ürünü'),
           barcode: p.barcode || p.id || 'BAR-001',
           sku: p.id || 'SKU-001',
           variant: p.variant || 'Standart',

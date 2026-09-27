@@ -45,7 +45,7 @@ import {
   generateTrendyolOfficialCsvContent, 
   generateIzeegMasterCsvContent 
 } from '../services/excelImportService';
-import { saveStoredImageCache } from '../services/marketplaceSyncService';
+import { saveStoredImageCache, resolveSmartProductName } from '../services/marketplaceSyncService';
 import { ProductUploadModal } from './ProductUploadModal';
 
 // Desteklenen Pazar Yerleri & Kanallar Tanımı
@@ -632,7 +632,10 @@ export function MultiChannelProductPublisher({
   };
 
   // Katalog Listesi Filtreleme
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = products.map(p => ({
+    ...p,
+    name: resolveSmartProductName(p)
+  })).filter(p => {
     if (selectedChannelFilter !== 'ALL') {
       if (p.publishedChannels && !p.publishedChannels.includes(selectedChannelFilter) && p.marketplace !== selectedChannelFilter) {
         return false;
@@ -642,8 +645,8 @@ export function MultiChannelProductPublisher({
       const q = searchQuery.toLowerCase();
       return (
         p.name.toLowerCase().includes(q) ||
-        p.barcode.includes(q) ||
-        p.id.toLowerCase().includes(q)
+        (p.barcode && p.barcode.includes(q)) ||
+        (p.id && p.id.toLowerCase().includes(q))
       );
     }
     return true;

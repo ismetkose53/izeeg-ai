@@ -59,12 +59,7 @@ export function App() {
   
   // Canlı & Temiz Veri Havuzları (Varsayılan olarak sıfır verili temiz başlar; gerçek satış modu)
   const [products, setProducts] = useState(() => {
-    try {
-      const saved = localStorage.getItem('izeeg_live_products');
-      return saved !== null ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+    return getCatalogProducts();
   });
 
   const [orders, setOrders] = useState(() => {

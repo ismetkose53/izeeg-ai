@@ -29,7 +29,7 @@ import {
   DEMO_STOCK_MOVEMENTS, 
   DEMO_PRODUCTS
 } from '../services/mockData';
-import { getCatalogProducts } from '../services/marketplaceSyncService';
+import { getCatalogProducts, resolveSmartProductName } from '../services/marketplaceSyncService';
 import { 
   generateTrendyolOfficialCsvContent, 
   generateIzeegMasterCsvContent, 
@@ -71,11 +71,12 @@ export function WarehouseInventoryPage({
     if (selectedWarehouse !== 'ALL' && p.warehouse !== selectedWarehouse) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
+      const displayName = resolveSmartProductName(p).toLowerCase();
       return (
-        p.name.toLowerCase().includes(q) ||
-        p.barcode.includes(q) ||
-        p.id.toLowerCase().includes(q) ||
-        p.shelfLocation?.toLowerCase().includes(q)
+        displayName.includes(q) ||
+        (p.barcode || '').toLowerCase().includes(q) ||
+        (p.id || '').toLowerCase().includes(q) ||
+        (p.shelfLocation || '').toLowerCase().includes(q)
       );
     }
     return true;
@@ -430,7 +431,7 @@ export function WarehouseInventoryPage({
                         </td>
 
                         <td className="py-3 px-3">
-                          <div className="font-bold text-slate-900 text-xs">{p.name}</div>
+                          <div className="font-bold text-slate-900 text-xs">{resolveSmartProductName(p)}</div>
                           <div className="text-[11px] text-slate-500">{p.variant}</div>
                         </td>
 

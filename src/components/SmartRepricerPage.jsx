@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { PageGuideButton } from './PageHelpGuideModal';
-import { getCatalogProducts, getCustomCargoSettings } from '../services/marketplaceSyncService';
+import { getCatalogProducts, getCustomCargoSettings, resolveSmartProductName } from '../services/marketplaceSyncService';
 
 // Canlı Mağaza Kataloğu Reprice Veri Havuzu (Varsayılan olarak boş veya gerçek ürünlerle başlar)
 function getDefaultRepricerItems(products = []) {
@@ -52,7 +52,7 @@ function getDefaultRepricerItems(products = []) {
 
     return {
       id: `REP-${prod.id || idx + 1}`,
-      title: prod.name || prod.title || `Ürün #${idx + 1}`,
+      title: resolveSmartProductName(prod, `Özel Tasarım Giyim Ürünü #${idx + 1}`),
       marketplace: prod.marketplace || 'Trendyol',
       sku: prod.sku || prod.stockCode || prod.id || `SKU-${idx + 1}`,
       costPrice: cost,

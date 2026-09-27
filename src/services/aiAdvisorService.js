@@ -2,7 +2,7 @@
 // Kural: "Ne Oldu?", "Neden Oldu?", "Finansal Etkisi Ne?", "Ne Yapılabilir?"
 
 import { AI_EMPLOYEE_CASES } from './mockData';
-import { getCatalogProducts, getCustomCargoSettings } from './marketplaceSyncService';
+import { getCatalogProducts, getCustomCargoSettings, resolveSmartProductName } from './marketplaceSyncService';
 
 /**
  * Yardımcı: Yerel depodan güvenli veri çekici
@@ -52,9 +52,10 @@ export function generateMorningBrief(metrics = {}, productsInput = [], leaksInpu
 
   if (losingProducts.length > 0) {
     const p = losingProducts[0];
+    const pTitle = resolveSmartProductName(p, 'Özel Tasarım Giyim Ürünü');
     priorities.push({
       type: 'danger',
-      title: `Aşırı Reklam / Kâr Kaçağı Uyarısı: ${p.name || p.title || 'Ürün'}`,
+      title: `Aşırı Reklam / Kâr Kaçağı Uyarısı: ${pTitle}`,
       description: `Bu üründe maliyet, komisyon ve kargo toplamı satış fiyatını aşmaktadır.`,
       action: `Akıllı Fiyatlandırıcı sekmesinden fiyatı optimize edin.`
     });
@@ -72,9 +73,10 @@ export function generateMorningBrief(metrics = {}, productsInput = [], leaksInpu
 
   if (lowStockProducts.length > 0) {
     const p = lowStockProducts[0];
+    const pTitle = resolveSmartProductName(p, 'Özel Tasarım Giyim Ürünü');
     priorities.push({
       type: 'info',
-      title: `Kritik Stok Uyarısı: ${p.name || p.title || 'Ürün'}`,
+      title: `Kritik Stok Uyarısı: ${pTitle}`,
       description: `Kalan stok: ${p.stock || p.quantity || 0} adet. Bu satış hızıyla stok tükenebilir.`,
       action: `Tedarikçi Sipariş sekmesinden sipariş geçerek Buybox kaybını önleyin.`
     });
@@ -117,11 +119,12 @@ export function getAIEmployeeInsights(productsInput = [], ordersInput = [], carg
   const losing = (products || []).filter(p => p.status === 'losing');
   if (losing.length > 0) {
     const p = losing[0];
+    const pTitle = resolveSmartProductName(p, 'Özel Tasarım Giyim Ürünü');
     cases.push({
       id: `AI-CASE-${p.id || '01'}`,
       severity: 'CRITICAL',
       badgeText: 'Zarar Eden Ürün / Kâr Kaçağı',
-      title: `${p.name || p.title} Ürününde Gizli Zarar Tespiti`,
+      title: `${pTitle} Ürününde Gizli Zarar Tespiti`,
       q1_whatHappened: `Bu üründe satış fiyatı maliyet, komisyon (%21.5) ve kargo giderlerini karşılamıyor.`,
       q2_whyHappened: `Yüksek komisyon veya ek operasyon giderleri kâr marjını eksiye çekmektedir.`,
       q3_financialImpact: `Ürün başına net kâr eksiye düşmüştür.`,
@@ -217,7 +220,7 @@ export function askAIAssistant(question, storeContext = {}, productsInput = [], 
     const cpB = Number(b.costPrice || 0);
     return (spB - cpB) - (spA - cpA);
   });
-  const bestProduct = sortedByProfit[0] || { name: 'Katalog Ürünü', sellingPrice: 599, costPrice: 220 };
+  const bestProduct = sortedByProfit[0] || { name: 'Özel Tasarım Giyim Ürünü', sellingPrice: 599, costPrice: 220 };
 
   // Kargo Kaçakları
   const pendingLeaks = cargoLeaks.filter(l => l.status === 'ActionRequired');
@@ -282,7 +285,7 @@ Kâr kaçakları ve komisyon/kargo baskısı sebebiyle potansiyel kârınızdan 
 
     return {
       text: `🔍 **Ne Oldu?**
-Mağazanızın birim başına en yüksek net kâr bırakan şampiyon ürünü: **${bestProduct.name || bestProduct.title}**.
+Mağazanızın birim başına en yüksek net kâr bırakan şampiyon ürünü: **${resolveSmartProductName(bestProduct, 'Özel Tasarım Giyim Ürünü')}**.
 
 🧠 **Neden Oldu?**
 • **Satış Fiyatı:** ${sp.toLocaleString('tr-TR')} ₺

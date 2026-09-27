@@ -22,7 +22,7 @@ import {
 import confetti from 'canvas-confetti';
 import { jsPDF } from 'jspdf';
 import { PageGuideButton } from './PageHelpGuideModal';
-import { getCatalogProducts } from '../services/marketplaceSyncService';
+import { getCatalogProducts, resolveSmartProductName } from '../services/marketplaceSyncService';
 
 // Canlı Mağaza Tedarik Sipariş Veri Havuzu (Varsayılan olarak boş veya gerçek ürünlerle başlar)
 function getDefaultReorderItems(products = []) {
@@ -43,7 +43,7 @@ function getDefaultReorderItems(products = []) {
 
     return {
       id: `REO-${p.id || 100 + idx}`,
-      title: p.name || p.title || `Ürün #${idx + 1}`,
+      title: resolveSmartProductName(p, `Özel Tasarım Giyim Ürünü #${idx + 1}`),
       sku: p.sku || p.stockCode || p.id || `SKU-${idx + 1}`,
       supplierId,
       supplierName,

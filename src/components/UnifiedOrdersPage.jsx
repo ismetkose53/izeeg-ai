@@ -40,7 +40,7 @@ import {
 import { ShippingLabelModal } from './ShippingLabelModal';
 import { OrderDocsModal } from './OrderDocsModal';
 import { calculateOrderProfit } from '../services/marketplaceEngine';
-import { getStoredImageCache, resolveSmartProductImage, saveCustomProductImage } from '../services/marketplaceSyncService';
+import { getStoredImageCache, resolveSmartProductImage, resolveSmartProductName, saveCustomProductImage } from '../services/marketplaceSyncService';
 import confetti from 'canvas-confetti';
 
 export function UnifiedOrdersPage({ 
@@ -188,10 +188,20 @@ export function UnifiedOrdersPage({
         });
 
         if (!found && (barcode || sku)) {
+          let originalItemName = '';
+          for (const ord of (orders || [])) {
+            const matchIt = (ord.items || []).find(it => (barcode && it.barcode === barcode) || (sku && it.sku === sku));
+            if (matchIt && (matchIt.title || matchIt.name || matchIt.productName)) {
+              originalItemName = matchIt.title || matchIt.name || matchIt.productName;
+              break;
+            }
+          }
+          const smartName = resolveSmartProductName({ barcode, sku, title: originalItemName });
+
           updated.push({
             id: sku || `SKU-${Date.now().toString().slice(-4)}`,
             barcode: barcode || `868000${Date.now().toString().slice(-4)}`,
-            name: 'Katalog Ürünü',
+            name: smartName,
             costPrice: costNumber,
             sellingPrice: 0,
             stock: 10,
@@ -1104,7 +1114,7 @@ export function UnifiedOrdersPage({
                   const itemsList = rawItems.map(item => {
                     const barcode = String(item.barcode || '').trim();
                     const sku = String(item.sku || '').trim();
-                    const title = String(item.title || '').trim();
+                    const title = String(item.title || item.name || item.productName || '').trim();
                     const titleLower = title.toLowerCase();
 
                     const matchedProd = (products || []).find(p => 
@@ -1113,16 +1123,26 @@ export function UnifiedOrdersPage({
                       (titleLower && p.name && p.name.toLowerCase().trim() === titleLower)
                     );
 
+                    const smartTitle = resolveSmartProductName({
+                      name: item.title || item.name || item.productName || matchedProd?.name,
+                      title: item.title || item.name || item.productName || matchedProd?.name,
+                      barcode,
+                      sku,
+                      category: matchedProd?.category
+                    });
+
                     const resolvedImage = resolveSmartProductImage({
                       directImage: item.image || order.image,
                       barcode,
                       sku,
-                      title,
+                      title: smartTitle,
                       category: matchedProd?.category
                     });
 
                     return {
                       ...item,
+                      title: smartTitle,
+                      name: smartTitle,
                       image: resolvedImage
                     };
                   });

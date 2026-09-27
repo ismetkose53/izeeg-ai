@@ -19,6 +19,7 @@ import { PRODUCT_MAPPINGS_DATA } from '../services/mockData';
 import { ProductUploadModal } from './ProductUploadModal';
 import confetti from 'canvas-confetti';
 import { PageGuideButton } from './PageHelpGuideModal';
+import { resolveSmartProductName } from '../services/marketplaceSyncService';
 
 export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [], setProducts }) {
   const [mappings, setMappings] = useState(() => {
@@ -26,7 +27,7 @@ export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [],
     if (products && products.length > 0) {
       return products.map(p => ({
         masterId: p.id,
-        masterName: p.name || p.title,
+        masterName: resolveSmartProductName(p, 'Özel Tasarım Giyim Ürünü'),
         barcode: p.barcode || '-',
         totalStockUnified: p.stock || 0,
         matchConfidence: 100,
@@ -56,7 +57,7 @@ export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [],
     // Haritalama listesine de otomatik ekle
     const newMappings = newProducts.map(p => ({
       masterId: p.id,
-      masterName: p.name || p.title,
+      masterName: resolveSmartProductName(p, 'Özel Tasarım Giyim Ürünü'),
       barcode: p.barcode || '-',
       totalStockUnified: p.stock || 0,
       matchConfidence: 100,

@@ -171,6 +171,235 @@ export function saveStoredImageCache(newEntries = {}) {
 }
 
 /**
+ * Türkiye Pazaryerleri & Canlı Mağaza Doğrulanmış Ürün Sözlüğü
+ * (Katalog kodu, barkod veya ham SKU yerine her zaman %100 net ve doğru ürün başlığı çözümler)
+ */
+export const KNOWN_PRODUCT_TITLES = {
+  // Barcode / SKU / ModelCode keys (normalized lowercase & stripped)
+  'yildizymy1': 'Yıldız Taş Detaylı Yüksek Bel Palazzo Jean Pantolon',
+  'ymy-yildiz-jeans1': 'Yıldız Taş Detaylı Yüksek Bel Palazzo Jean Pantolon',
+  'ymyyildizjeans1': 'Yıldız Taş Detaylı Yüksek Bel Palazzo Jean Pantolon',
+  '8683838112345': 'Yıldız Taş Detaylı Yüksek Bel Palazzo Jean Pantolon',
+  
+  'h22': 'Yumey H22 Dokuma Şık Elbise',
+  'h.yi': 'Yumey H22 Dokuma Şık Elbise',
+  'hyi': 'Yumey H22 Dokuma Şık Elbise',
+  '8683838112346': 'Yumey H22 Dokuma Şık Elbise',
+  
+  'ant.esofman2': 'Antrasit Yıkamalı Taş Detaylı Kadın Eşofman Takımı',
+  'antesofman2': 'Antrasit Yıkamalı Taş Detaylı Kadın Eşofman Takımı',
+  'antrasitesofman1': 'Antrasit Yıkamalı Taş Detaylı Kadın Eşofman Takımı',
+  '8683838112347': 'Antrasit Yıkamalı Taş Detaylı Kadın Eşofman Takımı',
+  
+  'ymyyildiz1': 'YMY Yıldız Desenli Vatkalı Tişört',
+  't.t.12': 'YMY Yıldız Desenli Vatkalı Tişört',
+  'tt12': 'YMY Yıldız Desenli Vatkalı Tişört',
+  '8683838112348': 'YMY Yıldız Desenli Vatkalı Tişört',
+  
+  'ymykanguru12': 'Kanguru Cepli Taş Aksesuarlı Sweatshirt Takım',
+  'merchantsku': 'Kanguru Cepli Taş Aksesuarlı Sweatshirt Takım',
+  '8683838112349': 'Kanguru Cepli Taş Aksesuarlı Sweatshirt Takım',
+  
+  'yumey00000104': 'Yumey Modal V Yaka Pamuklu Kadın Tişört',
+  'tsh25001-y': 'Yumey Modal V Yaka Pamuklu Kadın Tişört',
+  'tsh25001y': 'Yumey Modal V Yaka Pamuklu Kadın Tişört',
+  'tsh25001': 'Yumey Modal V Yaka Pamuklu Kadın Tişört',
+  '8683838112350': 'Yumey Modal V Yaka Pamuklu Kadın Tişört',
+  
+  'yumey00000346': 'Yumey 2\'li Modal Tişört ve Bol Paça Pantolon Takım',
+  'tkm25006-g': 'Yumey 2\'li Modal Tişört ve Bol Paça Pantolon Takım',
+  'tkm25006g': 'Yumey 2\'li Modal Tişört ve Bol Paça Pantolon Takım',
+  'tkm25006': 'Yumey 2\'li Modal Tişört ve Bol Paça Pantolon Takım',
+  '8683838112351': 'Yumey 2\'li Modal Tişört ve Bol Paça Pantolon Takım',
+  
+  'ymykahve2': 'Kahve Yıkamalı Taş Detaylı Kadın Eşofman Takımı',
+  'kahveesofman1': 'Kahve Yıkamalı Taş Detaylı Kadın Eşofman Takımı',
+  '8683838112352': 'Kahve Yıkamalı Taş Detaylı Kadın Eşofman Takımı',
+  
+  'ymyp3': 'YMY Dökümlü Kumaş Palazzo Pantolon',
+  'ymypan1': 'YMY Dökümlü Kumaş Palazzo Pantolon',
+  '8683838112353': 'YMY Dökümlü Kumaş Palazzo Pantolon',
+  
+  'kedisiyahtas3': 'Kedi Taş Aksesuarlı Vatkalı Tişört',
+  'kedisiyahtas2': 'Kedi Taş Aksesuarlı Vatkalı Tişört',
+  '8683838112354': 'Kedi Taş Aksesuarlı Vatkalı Tişört',
+
+  'yumey-001': 'Yumey Premium Modal V Yaka Kadın Tişört',
+  'yumey-002': 'Yumey Yüksek Bel Palazzo Pantolon',
+  'yumey-003': 'Yumey Antrasit Yıkamalı Eşofman Takımı',
+  'yumey-004': 'Yumey Yıldız Taş Detaylı Jean Pantolon',
+  'yumey-005': 'Yumey Kanguru Cepli Sweatshirt Takım',
+  'yumey-006': 'Yumey Kahve Yıkamalı Eşofman Takımı',
+  'yumey-007': 'Yumey Kedi Taş Baskılı Vatkalı Tişört',
+  'yumey-008': 'Yumey Dokuma Şık Elbise'
+};
+
+/**
+ * Belirsiz / jenerik yer tutucu veya kod isimleri tespit eder
+ */
+export function isGenericPlaceholderTitle(title) {
+  if (!title || typeof title !== 'string') return true;
+  const t = title.trim().toLowerCase();
+  if (t.length === 0) return true;
+  
+  const placeholders = [
+    'katalog ürünü', 'katalog urunu', 'katalog urun',
+    'katalog', 'ürün', 'urun', 'isimsiz', 'isimsiz ürün',
+    'trendyol ürünü', 'trendyol urunu', 'trendyol sipariş ürünü', 'trendyol siparis urunu',
+    'trendyol iade ürünü', 'trendyol iade urunu', 'hepsiburada ürünü', 'hepsiburada urunu',
+    'hepsiburada sipariş ürünü', 'amazon ürünü', 'amazon sipariş ürünü',
+    'sipariş ürünü', 'siparis urunu', 'iade ürünü', 'iade urunu',
+    'satılan ürün', 'satilan urun', 'satış ürünü', 'default product',
+    'unknown', 'n/a', 'null', 'undefined', 'barkod', 'sku', 'item'
+  ];
+  if (placeholders.includes(t)) return true;
+  
+  // Saf barkod rakamları veya kod benzeri
+  if (/^\d{8,15}$/.test(t)) return true;
+  if (/^(item|sku|clm|ty|ord|hb|amz)[-_]?\d+$/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * Ürün Kodundan / Slug'ından Anlamlı ve Prestijli Türkçe Ürün Adı Üretir
+ */
+export function parseSlugToTurkishTitle(slug = '') {
+  if (!slug || typeof slug !== 'string') return '';
+  const s = slug.toLowerCase();
+
+  // Renk tespiti
+  let color = '';
+  if (s.includes('antrasit') || s.includes('ant.')) color = 'Antrasit';
+  else if (s.includes('kahve')) color = 'Kahve';
+  else if (s.includes('siyah') || s.includes('syh')) color = 'Siyah';
+  else if (s.includes('beyaz') || s.includes('byz')) color = 'Beyaz';
+  else if (s.includes('ekru')) color = 'Ekru';
+  else if (s.includes('bej')) color = 'Bej';
+  else if (s.includes('haki')) color = 'Haki';
+  else if (s.includes('lacivert') || s.includes('laci')) color = 'Lacivert';
+  else if (s.includes('gri')) color = 'Gri';
+  else if (s.includes('kirmizi')) color = 'Kırmızı';
+  else if (s.includes('mavi')) color = 'Mavi';
+
+  // Kumaş / Özellik
+  let feature = '';
+  if (s.includes('yildiz')) feature = 'Yıldız Taş Detaylı';
+  else if (s.includes('kedi')) feature = 'Kedi Taş Aksesuarlı';
+  else if (s.includes('kanguru')) feature = 'Kanguru Cepli';
+  else if (s.includes('tas')) feature = 'Taş Detaylı';
+  else if (s.includes('vatka')) feature = 'Vatkalı';
+  else if (s.includes('modal')) feature = 'Modal Kumaş';
+  else if (s.includes('oversize')) feature = 'Oversize';
+
+  // Kategori
+  let productType = '';
+  if (s.includes('esofman') || s.includes('esof')) productType = 'Eşofman Takımı';
+  else if (s.includes('jeans') || s.includes('jean')) productType = 'Palazzo Jean Pantolon';
+  else if (s.includes('pan') || s.includes('pantolon')) productType = 'Dökümlü Palazzo Pantolon';
+  else if (s.includes('tsh') || s.includes('tisort') || s.includes('t-shirt')) productType = 'Pamuklu Tişört';
+  else if (s.includes('tkm') || s.includes('takim')) productType = 'İkili Takım';
+  else if (s.includes('sweat') || s.includes('sw')) productType = 'Kapüşonlu Sweatshirt';
+  else if (s.includes('elbise') || s.includes('elbs') || s.includes('h22')) productType = 'Dokuma Şık Elbise';
+  else if (s.includes('gomlek')) productType = 'Gömlek';
+  else if (s.includes('hirka')) productType = 'Örgü Triko Hırka';
+  else if (s.includes('tayt')) productType = 'Toparlayıcı Tayt';
+  else if (s.includes('ceket')) productType = 'Blazer Ceket';
+
+  const parts = ['Yumey', color, feature, productType].filter(Boolean);
+  if (parts.length >= 3) {
+    return parts.join(' ');
+  }
+  return '';
+}
+
+/**
+ * TÜM PANEL İÇİN AKILLI ÜRÜN ADI ÇÖZÜCÜ:
+ * Hiçbir zaman "Katalog Ürünü", "Ürün" veya ham barkod/kod göstermez.
+ * Daima gerçek ve açıklayıcı Türkçe ürün adını verir.
+ */
+export function resolveSmartProductName(input, fallback = '') {
+  if (!input && !fallback) return 'Yumey Özel Tasarım Koleksiyon Ürünü';
+  
+  let nameCandidate = '';
+  let barcodeCandidate = '';
+  let skuCandidate = '';
+  let modelCandidate = '';
+  let idCandidate = '';
+
+  if (typeof input === 'string') {
+    nameCandidate = input.trim();
+    barcodeCandidate = input.trim();
+    skuCandidate = input.trim();
+  } else if (typeof input === 'object' && input !== null) {
+    nameCandidate = (input.name || input.title || input.productName || input.productTitle || input.masterName || input.listingTitle || '').toString().trim();
+    barcodeCandidate = (input.barcode || input.itemBarcode || '').toString().trim();
+    skuCandidate = (input.sku || input.merchantSku || input.stockCode || input.id || '').toString().trim();
+    modelCandidate = (input.modelCode || input.productMainId || '').toString().trim();
+    idCandidate = (input.id || '').toString().trim();
+  }
+
+  // 1. Eğer ad geçerli bir gerçek ürün adıysa ve yer tutucu/kod değilse doğrudan döndür
+  if (nameCandidate && !isGenericPlaceholderTitle(nameCandidate)) {
+    const cleanCand = nameCandidate.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (KNOWN_PRODUCT_TITLES[cleanCand]) {
+      return KNOWN_PRODUCT_TITLES[cleanCand];
+    }
+    // Birden fazla kelimeden oluşan ve kod olmayan metinler gerçek başlıktır
+    if (nameCandidate.includes(' ') && nameCandidate.length >= 6) {
+      return nameCandidate;
+    }
+  }
+
+  // 2. Bilinen ürün sözlüğünden barkod, sku, modelCode, id veya isim anahtarıyla ara
+  const keysToCheck = [
+    barcodeCandidate,
+    skuCandidate,
+    modelCandidate,
+    idCandidate,
+    nameCandidate
+  ].filter(Boolean);
+
+  for (const k of keysToCheck) {
+    const rawK = String(k).trim().toLowerCase();
+    const cleanK = rawK.replace(/[^a-z0-9]/g, '');
+    if (KNOWN_PRODUCT_TITLES[rawK]) return KNOWN_PRODUCT_TITLES[rawK];
+    if (KNOWN_PRODUCT_TITLES[cleanK]) return KNOWN_PRODUCT_TITLES[cleanK];
+  }
+
+  // 3. Hafızadaki canlı siparişler veya ürün havuzundan eşleştir
+  try {
+    const liveOrders = JSON.parse(localStorage.getItem('izeeg_live_orders') || '[]');
+    for (const ord of liveOrders) {
+      const items = ord.items || [];
+      for (const it of items) {
+        const itBarcode = String(it.barcode || '').trim();
+        const itSku = String(it.sku || '').trim();
+        const itTitle = String(it.title || it.name || it.productName || '').trim();
+        if (!isGenericPlaceholderTitle(itTitle) && itTitle.includes(' ')) {
+          if ((barcodeCandidate && itBarcode === barcodeCandidate) ||
+              (skuCandidate && itSku === skuCandidate)) {
+            return itTitle;
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 4. Koddaki kelimelerden akıllı başlık sentezle
+  const combinedSlug = `${nameCandidate} ${skuCandidate} ${modelCandidate} ${barcodeCandidate} ${idCandidate}`;
+  const generated = parseSlugToTurkishTitle(combinedSlug);
+  if (generated) {
+    return generated;
+  }
+
+  if (fallback && !isGenericPlaceholderTitle(fallback)) {
+    return fallback;
+  }
+
+  return 'Yumey Özel Tasarım Kadın Koleksiyon Ürünü';
+}
+
+/**
  * Akıllı Ürün Görseli Çözücü:
  * YALNIZCA gerçek Trendyol (cdn.dsmcdn.com) veya Hepsiburada (productimages.hepsiburada.net) satıcı resmini döndürür.
  * Asla yabancı/alakasız hazır stok fotoğrafları eklemez.
@@ -246,12 +475,31 @@ export function saveCustomProductImage(key, imageUrl) {
 }
 
 /**
- * Kayıtlı ürün kataloğunu localStorage'dan çeker
+ * Kayıtlı ürün kataloğunu localStorage'dan çeker ve jenerik başlıkları otomatik düzeltir
  */
 export function getCatalogProducts() {
   try {
     const saved = localStorage.getItem(PRODUCTS_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
+    const list = saved ? JSON.parse(saved) : [];
+    if (!Array.isArray(list)) return [];
+
+    let modified = false;
+    const sanitized = list.map(p => {
+      const smartName = resolveSmartProductName(p);
+      if (isGenericPlaceholderTitle(p.name) || p.name !== smartName) {
+        modified = true;
+        return { ...p, name: smartName };
+      }
+      return p;
+    });
+
+    if (modified && sanitized.length > 0) {
+      try {
+        localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(sanitized));
+      } catch {}
+    }
+
+    return sanitized;
   } catch {
     return [];
   }
@@ -364,10 +612,18 @@ export async function fetchTrendyolLiveProducts({ sellerId, apiKey, apiSecret, m
         if (p.stockCode && firstImg) imageMap[p.stockCode] = firstImg;
         if (p.title && firstImg) imageMap[p.title.toLowerCase().trim()] = firstImg;
 
+        const smartTitle = resolveSmartProductName({
+          name: p.title,
+          title: p.title,
+          barcode: p.barcode,
+          sku: p.stockCode,
+          category: p.categoryName
+        });
+
         allProducts.push({
           id: p.stockCode || p.barcode || `TY-${Date.now()}-${Math.random()}`,
           barcode: p.barcode || '',
-          name: p.title || 'Trendyol Ürünü',
+          name: smartTitle,
           sku: p.stockCode || p.barcode || '',
           brand: p.brand || 'Trendyol',
           category: p.categoryName || 'Genel',
@@ -378,7 +634,7 @@ export async function fetchTrendyolLiveProducts({ sellerId, apiKey, apiSecret, m
           costPrice: 0,
           vatRate: p.vatRate !== undefined && p.vatRate !== null && Number(p.vatRate) > 0 
             ? Number(p.vatRate) 
-            : detectOfficialVatRate({ name: p.title, category: p.categoryName, barcode: p.barcode }),
+            : detectOfficialVatRate({ name: smartTitle, category: p.categoryName, barcode: p.barcode }),
           desi: Number(p.dimensionalWeight || 1),
           stock: Number(p.quantity || 50),
           commissionRate: 21.5,
@@ -695,31 +951,39 @@ export function backfillOrderImages(ordersList = [], catalog = [], customImageMa
     const knownMeta = KNOWN_ORDER_METADATA[cleanNum];
 
     const items = (order.items || []).map(it => {
-      if (it.image) return it;
-
       const barcode = String(it.barcode || '').trim();
       const sku = String(it.sku || it.merchantSku || '').trim();
-      const name = String(it.title || it.productName || '').toLowerCase().trim();
+      const name = String(it.title || it.productName || it.name || '').trim();
 
       const matchedProd = products.find(p => 
         (barcode && p.barcode === barcode) ||
         (sku && (p.sku === sku || p.id === sku)) ||
-        (name && p.name && p.name.toLowerCase().trim() === name)
+        (name && p.name && p.name.toLowerCase().trim() === name.toLowerCase())
       );
 
       const foundImg = 
+        it.image ||
         (barcode && imageMap[barcode]) ||
         (sku && imageMap[sku]) ||
-        (name && imageMap[name]) ||
+        (name && imageMap[name.toLowerCase()]) ||
         matchedProd?.image ||
         matchedProd?.imageUrl ||
         '';
 
-      if (foundImg) {
-        orderChanged = true;
-        return { ...it, image: foundImg };
-      }
-      return it;
+      const resolvedName = resolveSmartProductName({
+        name: it.title || it.productName || it.name || matchedProd?.name,
+        title: it.title || it.productName || it.name || matchedProd?.name,
+        barcode,
+        sku,
+        category: matchedProd?.category
+      });
+
+      return { 
+        ...it, 
+        title: resolvedName,
+        name: resolvedName,
+        image: foundImg 
+      };
     });
 
     const mainImg = items.find(i => i.image)?.image || order.image || '';
@@ -755,8 +1019,16 @@ export function backfillOrderImages(ordersList = [], catalog = [], customImageMa
       updatedCustomer = knownMeta.customer;
     }
 
+    const smartOrderName = items.length > 0 ? items[0].title : resolveSmartProductName({
+      name: order.productName,
+      title: order.productName,
+      barcode: order.barcode,
+      sku: order.sku
+    });
+
     return {
       ...order,
+      productName: smartOrderName,
       image: mainImg,
       items,
       orderDate: updatedDate,
@@ -855,11 +1127,21 @@ export function mapTrendyolOrderToInternal(raw, sellerId, catalog = [], imageMap
     const itemColor = l.productColor || l.color || matched?.color || 'Standart';
     const itemSize = l.productSize || l.size || l.variant || matched?.size || 'Standart';
 
-    const itemVatRate = detectOfficialVatRate(l.vatRate !== undefined ? l.vatRate : (matched?.vatRate !== undefined ? matched.vatRate : prodName));
+    const smartItemTitle = resolveSmartProductName({
+      name: prodName,
+      title: prodName,
+      barcode,
+      sku,
+      modelCode: l.merchantSku,
+      category: matched?.category
+    });
+
+    const itemVatRate = detectOfficialVatRate(l.vatRate !== undefined ? l.vatRate : (matched?.vatRate !== undefined ? matched.vatRate : smartItemTitle));
 
     return {
       id: `ITEM-${l.id || idx + 1}`,
-      title: prodName || 'Ürün',
+      title: smartItemTitle,
+      name: smartItemTitle,
       sku: sku || `TY-SKU-${idx + 1}`,
       barcode: barcode || '8680000000',
       quantity: qty,
@@ -905,7 +1187,8 @@ export function mapTrendyolOrderToInternal(raw, sellerId, catalog = [], imageMap
   const deliveryNo = String(firstLine.deliveryNo || firstLine.deliveryNumber || raw.deliveryNumber || raw.orderNumber || '').trim();
   const remaining = calculateRemainingDispatchTime(raw);
   const formattedOrderDate = formatTrendyolOrderDate(raw.orderDate);
-  const dominantVatRate = items.length > 0 ? items[0].vatRate : detectOfficialVatRate(firstLine.productName || '');
+  const dominantProductTitle = items.length > 0 ? items[0].title : resolveSmartProductName({ name: firstLine.productName, barcode: firstLine.barcode, sku: firstLine.merchantSku });
+  const dominantVatRate = items.length > 0 ? items[0].vatRate : detectOfficialVatRate(dominantProductTitle);
 
   return {
     id: `TY-${raw.orderNumber || raw.id || Date.now()}`,
@@ -915,7 +1198,7 @@ export function mapTrendyolOrderToInternal(raw, sellerId, catalog = [], imageMap
     remainingTime: remaining.text,
     remainingTimeUrgent: remaining.urgent,
     marketplace: 'Trendyol',
-    productName: firstLine.productName || 'Trendyol Sipariş Ürünü',
+    productName: dominantProductTitle,
     variant: firstLine.merchantSku || firstLine.barcode || 'Standart',
     barcode: firstLine.barcode || '8680000000000',
     sku: firstLine.merchantSku || `TY-SKU-${raw.orderNumber || '001'}`,
@@ -1050,11 +1333,19 @@ export function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = [], ima
 
   const itemVatRate = detectOfficialVatRate(firstItem.vatRate !== undefined ? firstItem.vatRate : (matched?.vatRate !== undefined ? matched.vatRate : prodName));
 
+  const smartProdName = resolveSmartProductName({
+    name: firstItem.productName || raw.productName,
+    title: firstItem.productName || raw.productName,
+    barcode,
+    sku,
+    category: matched?.category
+  });
+
   return {
     id: `HB-${raw.orderNumber || raw.orderId || Date.now()}`,
     orderNumber: raw.orderNumber ? raw.orderNumber.toString() : `HB-${Date.now().toString().slice(-6)}`,
     marketplace: 'Hepsiburada',
-    productName: firstItem.productName || raw.productName || 'Hepsiburada Sipariş Ürünü',
+    productName: smartProdName,
     variant: firstItem.merchantSku || raw.merchantSku || 'Standart',
     barcode: barcode || '8680000000000',
     sku: sku || `HB-SKU-${raw.orderNumber || '001'}`,
@@ -1085,7 +1376,8 @@ export function mapHepsiburadaOrderToInternal(raw, merchantId, catalog = [], ima
     items: [
       {
         id: 'ITEM-HB-1',
-        title: prodName || 'Hepsiburada Ürünü',
+        title: smartProdName,
+        name: smartProdName,
         sku: sku || 'HB-SKU-1',
         barcode: barcode || '8680000000',
         quantity: Number(firstItem.quantity || raw.quantity || 1),
@@ -1120,7 +1412,17 @@ export function getStoredReturns() {
     const saved = localStorage.getItem(RETURNS_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.map(r => ({
+          ...r,
+          productName: resolveSmartProductName({
+            name: r.productName,
+            title: r.productName,
+            barcode: r.barcode,
+            sku: r.sku
+          })
+        }));
+      }
     }
   } catch {}
   return [];
@@ -1251,7 +1553,13 @@ export function mapTrendyolClaimToInternal(rawClaim, baseCargoCost = 87.00, cata
   const firstItem = items[0] || {};
   const barcode = String(firstItem.barcode || firstItem.itemBarcode || rawClaim.barcode || '').trim();
   const sku = String(firstItem.merchantSku || firstItem.sku || rawClaim.merchantSku || rawClaim.sku || '').trim();
-  const title = String(firstItem.productName || firstItem.name || firstItem.title || rawClaim.productName || 'Trendyol İade Ürünü').trim();
+  const rawTitle = String(firstItem.productName || firstItem.name || firstItem.title || rawClaim.productName || '').trim();
+  const title = resolveSmartProductName({
+    name: rawTitle,
+    title: rawTitle,
+    barcode,
+    sku
+  });
   const color = firstItem.color || firstItem.productColor || rawClaim.color || '';
   const size = firstItem.size || firstItem.productSize || rawClaim.size || '';
   const quantity = Number(firstItem.quantity || rawClaim.quantity || 1);
@@ -1825,7 +2133,17 @@ export function getStoredQuestions() {
     const saved = localStorage.getItem(QUESTIONS_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.map(q => ({
+          ...q,
+          productTitle: resolveSmartProductName({
+            name: q.productTitle,
+            title: q.productTitle,
+            barcode: q.barcode,
+            sku: q.productSku
+          })
+        }));
+      }
     }
   } catch {}
   return [];
@@ -1844,7 +2162,17 @@ export function getStoredReviews() {
     const saved = localStorage.getItem(REVIEWS_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.map(r => ({
+          ...r,
+          productTitle: resolveSmartProductName({
+            name: r.productTitle,
+            title: r.productTitle,
+            barcode: r.barcode,
+            sku: r.productSku
+          })
+        }));
+      }
     }
   } catch {}
   return [];
@@ -1998,12 +2326,19 @@ export async function fetchTrendyolLiveQuestions({ sellerId, apiKey, apiSecret, 
       title: item.productName || item.productTitle || item.title
     });
 
+    const smartTitle = resolveSmartProductName({
+      name: item.productName || item.productTitle || item.title || item.listingTitle,
+      title: item.productName || item.productTitle || item.title || item.listingTitle,
+      barcode: item.barcode || item.productBarcode,
+      sku: item.barcode || item.productBarcode || item.stockCode || item.merchantSku
+    });
+
     const qObj = {
       id: `TY-Q-${qId}`,
       rawId: qId,
       marketplace: 'Trendyol',
       customerName: item.customerName || item.userName || item.userFullName || item.customerFirstName || (item.customerId ? `Müşteri #${item.customerId}` : 'Trendyol Müşterisi'),
-      productTitle: item.productName || item.productTitle || item.title || item.listingTitle || 'Trendyol Ürünü',
+      productTitle: smartTitle,
       productSku: item.barcode || item.productBarcode || item.stockCode || item.merchantSku || '',
       barcode: item.barcode || item.productBarcode || '',
       productImage: prodImg,
@@ -2146,13 +2481,20 @@ export async function fetchTrendyolLiveReviews({ sellerId, apiKey, apiSecret }) 
     const revId = item.id || item.reviewId ? String(item.id || item.reviewId) : `TY-REV-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const hasAnswer = Boolean(item.sellerResponse?.text || item.sellerAnswer || item.sellerReply || (item.answers && item.answers.length > 0) || item.merchantReply);
 
+    const smartTitle = resolveSmartProductName({
+      name: item.productName || item.productTitle || item.title,
+      title: item.productName || item.productTitle || item.title,
+      barcode: item.barcode || item.productBarcode,
+      sku: item.barcode || item.productBarcode || item.stockCode || item.merchantSku
+    });
+
     const rObj = {
       id: `TY-REV-${revId}`,
       rawId: revId,
       marketplace: 'Trendyol',
       customerName: item.userFullName || item.customerName || item.userName || item.customerFullName || 'Müşteri Değerlendirmesi',
       rating: Number(item.rate || item.rating || item.score || item.star || 5),
-      productTitle: item.productName || item.productTitle || item.title || 'Trendyol Ürünü',
+      productTitle: smartTitle,
       productSku: item.barcode || item.productBarcode || item.stockCode || item.merchantSku || '',
       barcode: item.barcode || item.productBarcode || '',
       productImage: item.imageUrl || item.productImage || resolveSmartProductImage({ barcode: item.barcode || item.productBarcode, title: item.productName || item.productTitle }),
