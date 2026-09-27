@@ -75,6 +75,7 @@ export default async function handler(req, res) {
   const allowedActions = [
     'orders', 
     'products', 
+    'create-product',
     'claims', 
     'claims-approve', 
     'claims-reject',
@@ -106,7 +107,11 @@ export default async function handler(req, res) {
     let method = 'GET';
     let requestPayload = null;
 
-    if (cleanAction === 'products') {
+    if (cleanAction === 'create-product') {
+      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/v2/products`;
+      method = 'POST';
+      requestPayload = JSON.stringify(body.payload || { items: body.items || [body.product] });
+    } else if (cleanAction === 'products') {
       targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/products?page=${cleanPage}&size=${cleanSize}${cleanBarcode ? `&barcode=${encodeURIComponent(cleanBarcode)}` : ''}`;
     } else if (cleanAction === 'claims-approve') {
       const claimId = body.claimId || '';
