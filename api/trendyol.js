@@ -127,9 +127,9 @@ export default async function handler(req, res) {
       const claimStatusParam = body.claimItemStatus ? `&claimItemStatus=${encodeURIComponent(body.claimItemStatus)}` : (body.status ? `&claimItemStatus=${encodeURIComponent(body.status)}` : '');
       targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/claims?page=${cleanPage}&size=${cleanSize}${claimStatusParam}`;
     } else if (cleanAction === 'questions') {
-      const statusParam = status ? `&status=${encodeURIComponent(status)}` : '';
+      const statusParam = (status && status !== 'ALL') ? `&status=${encodeURIComponent(status)}` : '';
       const barcodeParam = cleanBarcode ? `&barcode=${encodeURIComponent(cleanBarcode)}` : '';
-      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/questions/filter?page=${cleanPage}&size=${cleanSize}${statusParam}${barcodeParam}`;
+      targetUrl = `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/questions/filter?page=${cleanPage}&size=${cleanSize}${statusParam}${barcodeParam}&orderByProperty=CreationDate&orderByDirection=DESC`;
     } else if (cleanAction === 'question-answer') {
       const cleanQId = String(questionId || body.id || '').replace(/[^0-9]/g, '');
       if (!cleanQId) {
@@ -180,6 +180,24 @@ export default async function handler(req, res) {
     }
 
     let response = await fetch(targetUrl, fetchOptions);
+
+    // Fallback denemeleri: Eğer questions 404/400 döndüyse alternatif endpointleri dene
+    if (!response.ok && cleanAction === 'questions') {
+      const fallbackUrls = [
+        `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/questions?page=${cleanPage}&size=${cleanSize}`,
+        `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/questions/filter?page=${cleanPage}&size=${cleanSize}`,
+        `https://api.trendyol.com/sapigw/suppliers/${cleanSellerId}/product-questions?page=${cleanPage}&size=${cleanSize}`
+      ];
+      for (const fbUrl of fallbackUrls) {
+        try {
+          const fbRes = await fetch(fbUrl, fetchOptions);
+          if (fbRes.ok) {
+            response = fbRes;
+            break;
+          }
+        } catch {}
+      }
+    }
 
     // Fallback denemeleri: Eğer reviews 404/400 döndüyse alternatif endpointleri dene
     if (!response.ok && cleanAction === 'reviews') {

@@ -1920,84 +1920,118 @@ export function generateSmartAIAnswer({ type = 'question', item, tone = 'FRIENDL
 }
 
 /**
- * Trendyol Canlı Müşteri Sorularını Çeker
+ * Trendyol Canlı Müşteri Sorularını Çeker (Bekleyen + Cevaplanan Tüm Sorular)
  */
 export async function fetchTrendyolLiveQuestions({ sellerId, apiKey, apiSecret, status }) {
   const cleanSellerId = sellerId.toString().trim();
   const cleanKey = apiKey.trim();
   const cleanSecret = apiSecret.trim();
 
-  try {
-    const res = await fetch('/api/trendyol', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sellerId: cleanSellerId,
-        apiKey: cleanKey,
-        apiSecret: cleanSecret,
-        action: 'questions',
-        status: status || '',
-        page: 0,
-        size: 50
-      })
-    });
+  const statusesToFetch = status ? [status] : ['WAITING_FOR_ANSWER', 'ANSWERED', 'ALL'];
+  let allRaw = [];
 
-    if (!res.ok) {
-      return { success: false, questions: getStoredQuestions(), message: `Trendyol HTTP ${res.status}` };
-    }
-
-    const json = await res.json().catch(() => ({}));
-    const rawList = json.data?.content || json.content || json.data || [];
-
-    if (!Array.isArray(rawList) || rawList.length === 0) {
-      return { success: true, questions: getStoredQuestions(), count: 0 };
-    }
-
-    const imageCache = getStoredImageCache();
-    const catalog = getCatalogProducts();
-
-    const normalized = rawList.map(item => {
-      const qId = item.id ? String(item.id) : `TY-${Date.now()}`;
-      const hasAnswer = Boolean(item.answer?.text || item.status === 'ANSWERED' || item.sellerAnswer);
-      const prodImg = item.imageUrl || resolveSmartProductImage({
-        barcode: item.barcode,
-        title: item.productName
+  for (const st of statusesToFetch) {
+    try {
+      const res = await fetch('/api/trendyol', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sellerId: cleanSellerId,
+          apiKey: cleanKey,
+          apiSecret: cleanSecret,
+          action: 'questions',
+          status: st === 'ALL' ? '' : st,
+          page: 0,
+          size: 50
+        })
       });
 
-      const qObj = {
-        id: `TY-Q-${qId}`,
-        rawId: qId,
-        marketplace: 'Trendyol',
-        customerName: item.customerName || (item.customerId ? `Müşteri #${item.customerId}` : 'Trendyol Müşterisi'),
-        productTitle: item.productName || 'Trendyol Ürünü',
-        productSku: item.barcode || item.stockCode || '',
-        barcode: item.barcode || '',
-        productImage: prodImg,
-        questionText: item.text || item.questionText || '',
-        creationDate: item.creationDate ? new Date(item.creationDate).toISOString() : new Date().toISOString(),
-        timeAgo: item.creationDate ? formatRelativeTime(item.creationDate) : 'Yakın zamanda',
-        status: hasAnswer ? 'ANSWERED' : 'PENDING',
-        sellerAnswer: item.answer?.text || item.sellerAnswer || '',
-        answeredDate: item.answer?.creationDate ? new Date(item.answer.creationDate).toISOString() : null,
-        aiSuggestedAnswer: ''
-      };
+      if (res.ok) {
+        const json = await res.json().catch(() => ({}));
+        const list = json.data?.content || json.data?.items || json.data?.elements || json.data?.data || json.content || json.items || json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(list) && list.length > 0) {
+          allRaw = [...allRaw, ...list];
+        }
+      }
+    } catch (e) {
+      console.warn(`fetchTrendyolLiveQuestions (${st}) notice:`, e);
+    }
+  }
 
-      qObj.aiSuggestedAnswer = generateSmartAIAnswer({ type: 'question', item: qObj, tone: 'FRIENDLY_SALES' });
-      return qObj;
+  // Eğer genel sorgudan soru dönmediyse kayıtlı ürün barkodları ile özel soru kontrolü yap
+  if (allRaw.length === 0) {
+    try {
+      const products = getCatalogProducts();
+      const topBarcodes = products.map(p => p.barcode).filter(Boolean).slice(0, 10);
+      for (const bc of topBarcodes) {
+        try {
+          const res = await fetch('/api/trendyol', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sellerId: cleanSellerId,
+              apiKey: cleanKey,
+              apiSecret: cleanSecret,
+              action: 'questions',
+              barcode: bc,
+              page: 0,
+              size: 20
+            })
+          });
+          if (res.ok) {
+            const json = await res.json().catch(() => ({}));
+            const list = json.data?.content || json.data?.items || json.content || json.data || (Array.isArray(json) ? json : []);
+            if (Array.isArray(list) && list.length > 0) {
+              allRaw = [...allRaw, ...list];
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+
+  const normalized = allRaw.map(item => {
+    const qId = item.id || item.questionId ? String(item.id || item.questionId) : `TY-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const hasAnswer = Boolean(item.answer?.text || item.answerText || item.status === 'ANSWERED' || item.sellerAnswer || (item.answers && item.answers.length > 0) || item.answered === true);
+    const prodImg = item.imageUrl || item.productImage || item.productMainImage || resolveSmartProductImage({
+      barcode: item.barcode || item.productBarcode,
+      title: item.productName || item.productTitle || item.title
     });
 
-    // Kayıtlı sorularla birleştir
-    const stored = getStoredQuestions();
-    const map = new Map(stored.map(q => [q.id, q]));
-    normalized.forEach(n => map.set(n.id, n));
-    const merged = Array.from(map.values());
-    saveStoredQuestions(merged);
+    const qObj = {
+      id: `TY-Q-${qId}`,
+      rawId: qId,
+      marketplace: 'Trendyol',
+      customerName: item.customerName || item.userName || item.userFullName || item.customerFirstName || (item.customerId ? `Müşteri #${item.customerId}` : 'Trendyol Müşterisi'),
+      productTitle: item.productName || item.productTitle || item.title || item.listingTitle || 'Trendyol Ürünü',
+      productSku: item.barcode || item.productBarcode || item.stockCode || item.merchantSku || '',
+      barcode: item.barcode || item.productBarcode || '',
+      productImage: prodImg,
+      questionText: item.text || item.questionText || item.question || item.content || item.userQuestion || item.comment || '',
+      creationDate: item.creationDate ? new Date(item.creationDate).toISOString() : (item.createdDate ? new Date(item.createdDate).toISOString() : (item.createdAt ? new Date(item.createdAt).toISOString() : new Date().toISOString())),
+      timeAgo: (item.creationDate || item.createdDate || item.createdAt) ? formatRelativeTime(item.creationDate || item.createdDate || item.createdAt) : 'Yakın zamanda',
+      status: hasAnswer ? 'ANSWERED' : 'PENDING',
+      sellerAnswer: item.answer?.text || (item.answers && item.answers[0]?.text) || item.sellerAnswer || item.answerText || item.sellerResponse?.text || '',
+      answeredDate: item.answer?.creationDate ? new Date(item.answer.creationDate).toISOString() : (item.answeredDate ? new Date(item.answeredDate).toISOString() : null),
+      aiSuggestedAnswer: ''
+    };
 
-    return { success: true, questions: merged, count: normalized.length };
-  } catch (e) {
-    console.warn("fetchTrendyolLiveQuestions fallback:", e);
-    return { success: false, questions: getStoredQuestions(), count: 0 };
-  }
+    qObj.aiSuggestedAnswer = generateSmartAIAnswer({ type: 'question', item: qObj, tone: 'FRIENDLY_SALES' });
+    return qObj;
+  });
+
+  // Kayıtlı sorularla birleştir ve tekilleştir
+  const stored = getStoredQuestions();
+  const map = new Map();
+  [...stored, ...normalized].forEach(q => {
+    const key = q.rawId || q.id;
+    if (key) map.set(key, { ...(map.get(key) || {}), ...q });
+  });
+
+  const merged = Array.from(map.values());
+  saveStoredQuestions(merged);
+
+  return { success: true, questions: merged, count: normalized.length };
 }
 
 /**
@@ -2053,6 +2087,7 @@ export async function fetchTrendyolLiveReviews({ sellerId, apiKey, apiSecret }) 
   const cleanKey = apiKey.trim();
   const cleanSecret = apiSecret.trim();
 
+  let rawList = [];
   try {
     const res = await fetch('/api/trendyol', {
       method: 'POST',
@@ -2067,54 +2102,83 @@ export async function fetchTrendyolLiveReviews({ sellerId, apiKey, apiSecret }) 
       })
     });
 
-    if (!res.ok) {
-      return { success: false, reviews: getStoredReviews(), message: `Trendyol HTTP ${res.status}` };
+    if (res.ok) {
+      const json = await res.json().catch(() => ({}));
+      rawList = json.data?.content || json.data?.items || json.data?.reviews || json.data?.elements || json.data?.data || json.content || json.items || json.reviews || json.data || (Array.isArray(json) ? json : []);
     }
-
-    const json = await res.json().catch(() => ({}));
-    const rawList = json.data?.content || json.content || json.data || [];
-
-    if (!Array.isArray(rawList) || rawList.length === 0) {
-      return { success: true, reviews: getStoredReviews(), count: 0 };
-    }
-
-    const normalized = rawList.map(item => {
-      const revId = item.id ? String(item.id) : `TY-REV-${Date.now()}`;
-      const hasAnswer = Boolean(item.sellerResponse?.text || item.sellerAnswer);
-
-      const rObj = {
-        id: `TY-REV-${revId}`,
-        rawId: revId,
-        marketplace: 'Trendyol',
-        customerName: item.userFullName || item.customerName || 'Müşteri Değerlendirmesi',
-        rating: Number(item.rate || item.rating || 5),
-        productTitle: item.productName || item.productTitle || 'Trendyol Ürünü',
-        productSku: item.barcode || item.stockCode || '',
-        barcode: item.barcode || '',
-        productImage: item.imageUrl || resolveSmartProductImage({ barcode: item.barcode, title: item.productName }),
-        reviewText: item.comment || item.reviewText || '',
-        creationDate: item.createDate ? new Date(item.createDate).toISOString() : new Date().toISOString(),
-        timeAgo: item.createDate ? formatRelativeTime(item.createDate) : 'Yakın zamanda',
-        status: hasAnswer ? 'ANSWERED' : 'PENDING',
-        sellerAnswer: item.sellerResponse?.text || item.sellerAnswer || '',
-        aiSuggestedAnswer: ''
-      };
-
-      rObj.aiSuggestedAnswer = generateSmartAIAnswer({ type: 'review', item: rObj, tone: 'FRIENDLY_SALES' });
-      return rObj;
-    });
-
-    const stored = getStoredReviews();
-    const map = new Map(stored.map(r => [r.id, r]));
-    normalized.forEach(n => map.set(n.id, n));
-    const merged = Array.from(map.values());
-    saveStoredReviews(merged);
-
-    return { success: true, reviews: merged, count: normalized.length };
   } catch (e) {
-    console.warn("fetchTrendyolLiveReviews fallback:", e);
-    return { success: false, reviews: getStoredReviews(), count: 0 };
+    console.warn("fetchTrendyolLiveReviews notice:", e);
   }
+
+  // Eğer genel incelemeden yorum dönmediyse barkod bazlı incelemeyi dene
+  if (!Array.isArray(rawList) || rawList.length === 0) {
+    try {
+      const products = getCatalogProducts();
+      const topBarcodes = products.map(p => p.barcode).filter(Boolean).slice(0, 10);
+      for (const bc of topBarcodes) {
+        try {
+          const res = await fetch('/api/trendyol', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sellerId: cleanSellerId,
+              apiKey: cleanKey,
+              apiSecret: cleanSecret,
+              action: 'reviews',
+              barcode: bc,
+              page: 0,
+              size: 20
+            })
+          });
+          if (res.ok) {
+            const json = await res.json().catch(() => ({}));
+            const list = json.data?.content || json.data?.items || json.data?.reviews || json.content || json.items || json.data || (Array.isArray(json) ? json : []);
+            if (Array.isArray(list) && list.length > 0) {
+              rawList = [...rawList, ...list];
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+
+  const normalized = (Array.isArray(rawList) ? rawList : []).map(item => {
+    const revId = item.id || item.reviewId ? String(item.id || item.reviewId) : `TY-REV-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const hasAnswer = Boolean(item.sellerResponse?.text || item.sellerAnswer || item.sellerReply || (item.answers && item.answers.length > 0) || item.merchantReply);
+
+    const rObj = {
+      id: `TY-REV-${revId}`,
+      rawId: revId,
+      marketplace: 'Trendyol',
+      customerName: item.userFullName || item.customerName || item.userName || item.customerFullName || 'Müşteri Değerlendirmesi',
+      rating: Number(item.rate || item.rating || item.score || item.star || 5),
+      productTitle: item.productName || item.productTitle || item.title || 'Trendyol Ürünü',
+      productSku: item.barcode || item.productBarcode || item.stockCode || item.merchantSku || '',
+      barcode: item.barcode || item.productBarcode || '',
+      productImage: item.imageUrl || item.productImage || resolveSmartProductImage({ barcode: item.barcode || item.productBarcode, title: item.productName || item.productTitle }),
+      reviewText: item.comment || item.customerComment || item.reviewText || item.text || item.review || item.content || '',
+      creationDate: item.createDate ? new Date(item.createDate).toISOString() : (item.creationDate ? new Date(item.creationDate).toISOString() : (item.createdAt ? new Date(item.createdAt).toISOString() : new Date().toISOString())),
+      timeAgo: (item.createDate || item.creationDate || item.createdAt) ? formatRelativeTime(item.createDate || item.creationDate || item.createdAt) : 'Yakın zamanda',
+      status: hasAnswer ? 'ANSWERED' : 'PENDING',
+      sellerAnswer: item.sellerResponse?.text || (item.answers && item.answers[0]?.text) || item.sellerAnswer || item.sellerReply || item.merchantReply || '',
+      aiSuggestedAnswer: ''
+    };
+
+    rObj.aiSuggestedAnswer = generateSmartAIAnswer({ type: 'review', item: rObj, tone: 'FRIENDLY_SALES' });
+    return rObj;
+  });
+
+  const stored = getStoredReviews();
+  const map = new Map();
+  [...stored, ...normalized].forEach(r => {
+    const key = r.rawId || r.id;
+    if (key) map.set(key, { ...(map.get(key) || {}), ...r });
+  });
+
+  const merged = Array.from(map.values());
+  saveStoredReviews(merged);
+
+  return { success: true, reviews: merged, count: normalized.length };
 }
 
 /**

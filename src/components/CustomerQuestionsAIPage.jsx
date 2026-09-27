@@ -160,15 +160,19 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
   const connectedApiInfo = useMemo(() => {
     try {
       const credsRaw = localStorage.getItem('izeeg_core_api_credentials');
-      if (!credsRaw) return { trendyol: false, hepsiburada: false };
+      if (!credsRaw) return { trendyol: false, hepsiburada: false, sellerId: '' };
       const creds = JSON.parse(credsRaw);
+      const tyKey = creds.trendyol?.apiKey || creds.tyApiKey || creds.apiKey;
+      const tySeller = creds.trendyol?.sellerId || creds.tySellerId || creds.sellerId;
+      const hbMerchant = creds.hepsiburada?.merchantId || creds.hbMerchantId || creds.merchantId;
+      const hbSecret = creds.hepsiburada?.secretKey || creds.hbSecretKey || creds.secretKey;
       return {
-        trendyol: Boolean(creds.tyApiKey && creds.tySellerId),
-        hepsiburada: Boolean(creds.hbMerchantId && creds.hbSecretKey),
-        sellerId: creds.tySellerId || ''
+        trendyol: Boolean(tyKey && tySeller),
+        hepsiburada: Boolean(hbMerchant && hbSecret),
+        sellerId: tySeller || ''
       };
     } catch {
-      return { trendyol: false, hepsiburada: false };
+      return { trendyol: false, hepsiburada: false, sellerId: '' };
     }
   }, []);
 
@@ -183,6 +187,21 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
     });
     setEditableAnswers(prev => ({ ...initialMap, ...prev }));
   }, [questions, reviews, selectedTone]);
+
+  // Sayfaya ilk girişte bağlı pazaryerlerinden otomatik canlı verileri çek
+  useEffect(() => {
+    const credsRaw = localStorage.getItem('izeeg_core_api_credentials');
+    if (credsRaw) {
+      try {
+        const creds = JSON.parse(credsRaw);
+        const hasTy = Boolean((creds.trendyol?.apiKey || creds.tyApiKey || creds.apiKey) && (creds.trendyol?.sellerId || creds.tySellerId || creds.sellerId));
+        const hasHb = Boolean((creds.hepsiburada?.merchantId || creds.hbMerchantId || creds.merchantId) && (creds.hepsiburada?.secretKey || creds.hbSecretKey || creds.secretKey));
+        if (hasTy || hasHb) {
+          handleLiveSync();
+        }
+      } catch {}
+    }
+  }, []);
 
   // Canlı Senkronizasyon (Pazaryeri API'lerinden tüm soruları ve yorumları tam kapsamlı çek)
   const handleLiveSync = async () => {
