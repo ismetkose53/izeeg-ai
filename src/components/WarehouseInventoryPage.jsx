@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   Upload, 
@@ -45,8 +45,15 @@ export function WarehouseInventoryPage({
   const [subTab, setSubTab] = useState('inventory'); // inventory | xml_feeds | excel_import | movements | warehouses
   const [localProducts, setLocalProducts] = useState(() => {
     const cat = getCatalogProducts();
-    return (cat && cat.length > 0) ? cat : [];
+    return (cat && cat.length > 0) ? cat : DEMO_PRODUCTS;
   });
+
+  useEffect(() => {
+    if (parentProducts && Array.isArray(parentProducts) && parentProducts.length > 0) {
+      setLocalProducts(parentProducts);
+    }
+  }, [parentProducts]);
+
   const products = (parentProducts && parentProducts.length > 0) ? parentProducts : localProducts;
   const setProducts = setParentProducts || setLocalProducts;
 

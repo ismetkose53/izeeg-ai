@@ -93,13 +93,14 @@ export function ProductMappingPage({ onNavigateBack, onOpenGuide, products = [],
     confetti({ particleCount: 70, spread: 60 });
   };
 
-  const filtered = mappings.filter(m => {
+  const filtered = (mappings || []).filter(m => {
+    if (!m) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       return (
-        m.masterName.toLowerCase().includes(q) ||
-        (m.barcode && m.barcode.includes(q)) ||
-        (m.masterId && m.masterId.toLowerCase().includes(q))
+        String(m.masterName || '').toLowerCase().includes(q) ||
+        String(m.barcode || '').toLowerCase().includes(q) ||
+        String(m.masterId || '').toLowerCase().includes(q)
       );
     }
     return true;

@@ -187,9 +187,9 @@ export function calculateOrderProfit(order, products = []) {
 }
 
 /**
- * Mağaza genel metriklerini hesaplar
+ * Mağaza genel metriklerini hesaplar (Siparişler havuzunu ve Ürün kataloğunu harmanlar)
  */
-export function calculateStoreMetrics(products = [], cargoLeaks = []) {
+export function calculateStoreMetrics(products = [], cargoLeaks = [], orders = []) {
   let totalRevenue = 0;
   let totalCost = 0;
   let totalCommission = 0;
@@ -198,21 +198,49 @@ export function calculateStoreMetrics(products = [], cargoLeaks = []) {
   let totalSalesCount = 0;
   let totalRefunds = 0;
 
-  products.forEach(p => {
-    const units = p.monthlySalesCount || 0;
-    const revenue = units * p.sellingPrice;
-    const cost = units * p.costPrice;
-    const commission = (revenue * p.commissionRate) / 100;
-    const cargo = units * p.cargoCost;
-    
-    totalRevenue += revenue;
-    totalCost += cost;
-    totalCommission += commission;
-    totalCargo += cargo;
-    totalAdSpend += (p.adSpend || 0);
-    totalSalesCount += units;
-    totalRefunds += (p.refundCount || 0);
-  });
+  // Eğer sipariş havuzunda siparişler varsa, doğrudan gerçek sipariş verilerini baz al
+  if (Array.isArray(orders) && orders.length > 0) {
+    totalSalesCount = orders.length;
+
+    orders.forEach(order => {
+      const orderCalc = calculateOrderProfit(order, products) || {};
+      const gross = Number(orderCalc.grossPrice || order.grossPrice || order.totalAmount || 0);
+      const cost = Number(orderCalc.totalCostPrice !== undefined ? orderCalc.totalCostPrice : (order.costPrice || 0));
+      const commission = Number(orderCalc.totalCommission !== undefined ? orderCalc.totalCommission : (order.commission || ((gross * (order.commissionRate || 21.5)) / 100) || 0));
+      const cargo = Number(orderCalc.cargoFee !== undefined ? orderCalc.cargoFee : (order.cargoCost || order.cargoFee || 87.00));
+
+      totalRevenue += gross;
+      totalCost += cost;
+      totalCommission += commission;
+      totalCargo += cargo;
+
+      if (order.status === 'RETURNED' || order.status === 'CANCELLED') {
+        totalRefunds++;
+      }
+    });
+
+    // Ürünlerdeki reklam harcamalarını ekle
+    products.forEach(p => {
+      totalAdSpend += (p.adSpend || 0);
+    });
+  } else {
+    // Sipariş havuzu boşsa ürün kataloğundaki aylık tahmini satışlardan hesapla
+    products.forEach(p => {
+      const units = p.monthlySalesCount || 0;
+      const revenue = units * (Number(p.sellingPrice) || 0);
+      const cost = units * (Number(p.costPrice) || 0);
+      const commission = (revenue * (Number(p.commissionRate) || 21.5)) / 100;
+      const cargo = units * (Number(p.cargoCost) || 87.00);
+      
+      totalRevenue += revenue;
+      totalCost += cost;
+      totalCommission += commission;
+      totalCargo += cargo;
+      totalAdSpend += (p.adSpend || 0);
+      totalSalesCount += units;
+      totalRefunds += (p.refundCount || 0);
+    });
+  }
 
   const totalDeductions = totalCost + totalCommission + totalCargo + totalAdSpend;
   const netProfit = totalRevenue - totalDeductions;
@@ -220,9 +248,11 @@ export function calculateStoreMetrics(products = [], cargoLeaks = []) {
   const refundRate = totalSalesCount > 0 ? (totalRefunds / totalSalesCount) * 100 : 0;
 
   // Toplam kurtarılabilir kargo kaçağı
-  const totalRecoverableCargo = cargoLeaks
-    .filter(l => l.status === 'ActionRequired')
-    .reduce((sum, l) => sum + l.leakAmount, 0);
+  const totalRecoverableCargo = Array.isArray(cargoLeaks)
+    ? cargoLeaks
+        .filter(l => l.status === 'ActionRequired' || l.status === 'PENDING')
+        .reduce((sum, l) => sum + (Number(l.leakAmount) || 0), 0)
+    : 0;
 
   return {
     totalRevenue: Number(totalRevenue.toFixed(2)),

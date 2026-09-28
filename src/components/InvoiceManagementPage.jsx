@@ -441,10 +441,15 @@ export function InvoiceManagementPage({
   const hasLiveApiCredentials = useMemo(() => {
     try {
       const creds = JSON.parse(localStorage.getItem('izeeg_core_api_credentials') || '{}');
-      return !!(
-        (creds.trendyol?.sellerId && creds.trendyol?.apiKey) ||
-        (creds.hepsiburada?.merchantId && creds.hepsiburada?.secretKey)
+      const hasTy = Boolean(
+        (creds.trendyol?.sellerId || creds.tySellerId || creds.sellerId) &&
+        (creds.trendyol?.apiKey || creds.tyApiKey || creds.apiKey)
       );
+      const hasHb = Boolean(
+        (creds.hepsiburada?.merchantId || creds.hbMerchantId || creds.merchantId) &&
+        (creds.hepsiburada?.secretKey || creds.hbSecretKey || creds.secretKey)
+      );
+      return hasTy || hasHb;
     } catch {
       return false;
     }

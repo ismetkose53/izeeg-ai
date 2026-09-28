@@ -60,8 +60,14 @@ function getDefaultReorderItems(products = []) {
   });
 }
 
+const DEFAULT_SUPPLIERS = [
+  { id: 'SUP-1', name: 'Ana Tekstil & Konfeksiyon Atölyesi', contactPerson: 'Ahmet Bey', phone: '0532 100 20 30', leadTimeDays: 3 },
+  { id: 'SUP-2', name: 'Yumey Kumaş & Aksesuar Ltd.', contactPerson: 'Merve Hanım', phone: '0544 200 40 50', leadTimeDays: 2 },
+  { id: 'SUP-3', name: 'Ege Koli & Ambalaj Sanayi', contactPerson: 'Mustafa Bey', phone: '0555 300 60 70', leadTimeDays: 1 }
+];
+
 export function SupplierReorderPage({ onNavigateBack, onOpenGuide, products = [] }) {
-  // Tedarikçi Listesi (Varsayılan olarak boş veya yerel depodan gelir)
+  // Tedarikçi Listesi
   const [suppliers, setSuppliers] = useState(() => {
     try {
       const saved = localStorage.getItem('izeeg_suppliers');
@@ -70,7 +76,7 @@ export function SupplierReorderPage({ onNavigateBack, onOpenGuide, products = []
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return [];
+    return DEFAULT_SUPPLIERS;
   });
 
   const [selectedSupplierId, setSelectedSupplierId] = useState(() => suppliers[0]?.id || 'SUP-1');
@@ -79,6 +85,13 @@ export function SupplierReorderPage({ onNavigateBack, onOpenGuide, products = []
 
   // Stok Bitiş Tahminli Ürün Listesi
   const [reorderItems, setReorderItems] = useState(() => getDefaultReorderItems(products));
+
+  // Ürünler güncellendiğinde tedarik sipariş listesini senkronize et
+  React.useEffect(() => {
+    if (products && products.length > 0) {
+      setReorderItems(getDefaultReorderItems(products));
+    }
+  }, [products]);
 
   const activeSupplier = suppliers.find(s => s.id === selectedSupplierId) || suppliers[0] || {
     id: 'SUP-1',

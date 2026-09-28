@@ -139,6 +139,46 @@ export function App() {
     }
   }, []);
 
+  // Buluttan Kullanıcı Verilerini (API Anahtarları, Siparişler, Ürünler) Otomatik Yükle
+  useEffect(() => {
+    if (!currentUser || !currentUser.isLoggedIn || !currentUser.email) return;
+
+    fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'get-user-data',
+        userId: currentUser.id,
+        email: currentUser.email
+      })
+    })
+    .then(res => res.json())
+    .then(json => {
+      if (json.success && json.storeData) {
+        if (json.storeData.credentials) {
+          try {
+            const currentCreds = JSON.parse(localStorage.getItem('izeeg_core_api_credentials') || '{}');
+            const mergedCreds = { ...json.storeData.credentials, ...currentCreds };
+            localStorage.setItem('izeeg_core_api_credentials', JSON.stringify(mergedCreds));
+          } catch {}
+        }
+        if (json.storeData.orders && Array.isArray(json.storeData.orders) && json.storeData.orders.length > 0) {
+          setOrders(prev => {
+            if (prev.length === 0) return json.storeData.orders;
+            return prev;
+          });
+        }
+        if (json.storeData.products && Array.isArray(json.storeData.products) && json.storeData.products.length > 0) {
+          setProducts(prev => {
+            if (prev.length === 0) return json.storeData.products;
+            return prev;
+          });
+        }
+      }
+    })
+    .catch(() => {});
+  }, [currentUser?.email, currentUser?.isLoggedIn]);
+
   // Arka Planda Periyodik Otomatik API Taraması
   useEffect(() => {
     if (!autoSyncIntervalMins || autoSyncIntervalMins <= 0) return;
@@ -287,16 +327,21 @@ export function App() {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Seçilen Pazar Yerine Göre Ürün Filtresi
+  // Seçilen Pazar Yerine Göre Ürün ve Sipariş Filtresi
   const filteredProducts = useMemo(() => {
     if (selectedMarketplace === 'ALL') return products;
     return products.filter(p => p.marketplace === selectedMarketplace);
   }, [products, selectedMarketplace]);
 
+  const filteredOrders = useMemo(() => {
+    if (selectedMarketplace === 'ALL') return orders;
+    return orders.filter(o => o.marketplace === selectedMarketplace);
+  }, [orders, selectedMarketplace]);
+
   // Metrik Hesaplamaları
   const metrics = useMemo(() => {
-    return calculateStoreMetrics(filteredProducts, cargoLeaks);
-  }, [filteredProducts, cargoLeaks]);
+    return calculateStoreMetrics(filteredProducts, cargoLeaks, filteredOrders);
+  }, [filteredProducts, cargoLeaks, filteredOrders]);
 
   const showToast = (msg) => {
     setToastMessage(msg);

@@ -71,6 +71,38 @@ function apiDevMiddleware() {
           }
         }
 
+        if (req.url && req.url.startsWith('/api/cloud-sync')) {
+          try {
+            const mod = await import('./api/cloud-sync.js');
+            const handler = mod.default;
+            let bodyStr = '';
+            req.on('data', chunk => { bodyStr += chunk; });
+            req.on('end', async () => {
+              try {
+                req.body = bodyStr ? JSON.parse(bodyStr) : {};
+              } catch {
+                req.body = bodyStr;
+              }
+              res.status = (code) => {
+                res.statusCode = code;
+                return res;
+              };
+              res.json = (data) => {
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify(data));
+              };
+              await handler(req, res);
+            });
+            return;
+          } catch (err) {
+            console.error('Dev API Cloud Sync Error:', err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: false, message: err.message }));
+            return;
+          }
+        }
+
         next();
       });
     }

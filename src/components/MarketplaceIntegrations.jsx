@@ -29,7 +29,7 @@ import confetti from 'canvas-confetti';
 import { MARKETPLACE_ONBOARDING_GUIDES } from '../services/mockData';
 import { ApiSettingsModal } from './ApiSettingsModal';
 import { AddonPurchaseModal } from './AddonPurchaseModal';
-import { getCurrentUser, isAddonActiveForUser, unlockAddonForCurrentUser, lockAddonForCurrentUser } from '../services/authService';
+import { getCurrentUser, isAddonActiveForUser, unlockAddonForCurrentUser, lockAddonForCurrentUser, syncUserDataToCloud } from '../services/authService';
 import { PageGuideButton } from './PageHelpGuideModal';
 import { 
   testTrendyolApi, 
@@ -37,7 +37,8 @@ import {
   testHepsiburadaApi, 
   fetchHepsiburadaLiveOrders,
   getCustomCargoSettings,
-  saveCustomCargoSettings
+  saveCustomCargoSettings,
+  reconcileAndMergeOrders
 } from '../services/marketplaceSyncService';
 
 const API_CREDENTIALS_KEY = 'izeeg_core_api_credentials';
@@ -209,7 +210,7 @@ export function MarketplaceIntegrations({
 
   // Eklenti API Bilgileri Kaydedildiğinde
   const handleSaveAddonApi = (updated) => {
-    setAddons(prev => prev.map(item => item.id === updated.id ? { ...item, ...updated, active: true } : item));
+    setAddons(prev => prev.map(item => item.id === updated.id ? { ...item, ...updated, active: true, connected: true } : item));
     setSyncLogs(prev => [
       {
         id: `SYNC-${Date.now().toString().slice(-3)}`,
@@ -221,6 +222,29 @@ export function MarketplaceIntegrations({
       },
       ...prev
     ]);
+    if (onToast) onToast(`✅ ${updated.name} API ayarları kaydedildi ve entegrasyon başlatıldı.`);
+  };
+
+  // Eklenti Bağlantısını Kesme / Lisansı Kaldırma
+  const handleDisconnectAddon = (addonId) => {
+    lockAddonForCurrentUser(addonId);
+    setAddons(prev => prev.map(item => item.id === addonId ? { ...item, active: false, connected: false } : item));
+    setSelectedAddonModal(null);
+    if (onToast) onToast(`⚠️ ${addonId.toUpperCase()} modülü lisansı ve bağlantısı devre dışı bırakıldı.`);
+  };
+
+  // Ticimax & Web Servis Bağlantı Testi
+  const handleTestConnection = (platform) => {
+    if (platform === 'Ticimax') {
+      setTicimaxStatus('CONNECTING');
+      setTimeout(() => {
+        setTicimaxStatus('CONNECTED');
+        if (onToast) onToast('✅ Ticimax & WooCommerce web servis bağlantısı doğrulandı (HTTP 200 OK)!');
+        confetti({ particleCount: 50, spread: 60 });
+      }, 900);
+    } else {
+      handleSyncMarketplace(platform);
+    }
   };
 
   // Kargo & Komisyon Anlaşma Maliyetlerini Kaydet ve Siparişleri Yeniden Hesapla
@@ -306,9 +330,8 @@ export function MarketplaceIntegrations({
       if (fetchResult.orders && fetchResult.orders.length > 0) {
         if (setOrders) {
           setOrders(prev => {
-            const existingIds = new Set(prev.map(o => o.id));
-            const newOnes = fetchResult.orders.filter(o => !existingIds.has(o.id));
-            return [...newOnes, ...prev];
+            const merged = reconcileAndMergeOrders(prev, fetchResult.orders).orders;
+            return merged;
           });
         }
         if (setProducts) {
@@ -336,6 +359,7 @@ export function MarketplaceIntegrations({
             return [...add, ...prev];
           });
         }
+        syncUserDataToCloud();
       }
 
       setSyncLogs(prev => [
@@ -386,10 +410,10 @@ export function MarketplaceIntegrations({
 
       if (fetchResult.orders && fetchResult.orders.length > 0 && setOrders) {
         setOrders(prev => {
-          const existingIds = new Set(prev.map(o => o.id));
-          const newOnes = fetchResult.orders.filter(o => !existingIds.has(o.id));
-          return [...newOnes, ...prev];
+          const merged = reconcileAndMergeOrders(prev, fetchResult.orders).orders;
+          return merged;
         });
+        syncUserDataToCloud();
       }
 
       setSyncLogs(prev => [

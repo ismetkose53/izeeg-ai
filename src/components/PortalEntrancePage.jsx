@@ -46,7 +46,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { IzeegLogo } from './IzeegLogo';
-import { loginUser } from '../services/authService';
+import { loginUser, loginUserAsync, registerUserAsync } from '../services/authService';
 
 export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
   // Aktif Auth Sekmesi: 'REGISTER' (Ücretsiz Kayıt) | 'LOGIN' (Giriş Yap)
@@ -128,30 +128,28 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
 
     setIsLoading(true);
 
-    setTimeout(() => {
+    registerUserAsync({
+      storeName: formData.storeName,
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password
+    }).then(res => {
       setIsLoading(false);
-      const newUser = {
-        id: `USR-${Date.now().toString().slice(-5)}`,
-        storeName: formData.storeName,
-        ownerName: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        role: 'merchant',
-        plan: 'TRIAL',
-        planName: '7 Günlük Ücretsiz Deneme',
-        trialDaysLeft: 7,
-        daysRemaining: 7,
-        isLoggedIn: true,
-        activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
-      };
-
-      confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } });
-      onLoginSuccess(newUser, `🎉 7 Günlük Ücretsiz Denemeniz Başlatıldı! Panelinize hoş geldiniz ${formData.fullName}.`);
-    }, 800);
+      if (res.success && res.user) {
+        confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } });
+        onLoginSuccess(res.user, `🎉 7 Günlük Ücretsiz Denemeniz Başlatıldı! Panelinize hoş geldiniz ${formData.fullName}.`);
+      } else {
+        setAuthError(res.message || "Kayıt işlemi gerçekleştirilemedi.");
+      }
+    }).catch(err => {
+      setIsLoading(false);
+      setAuthError(err.message || "Bağlantı hatası oluştu.");
+    });
   };
 
   // 2. Güvenli Giriş Yap İşlemi (Satıcı & Kurucu Admin Doğrulama)
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setAuthError(null);
 
@@ -162,10 +160,10 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
 
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const res = await loginUserAsync(loginEmail, loginPassword);
       setIsLoading(false);
-      const res = loginUser(loginEmail, loginPassword);
-      if (res.success) {
+      if (res.success && res.user) {
         confetti({ particleCount: 90, spread: 80, origin: { y: 0.4 } });
         onLoginSuccess(res.user, res.user.role === 'admin' 
           ? "👑 Hoş geldiniz İsmet Bey! Kurucu Süper Admin Yetkisiyle Giriş Yapıldı." 
@@ -174,7 +172,10 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
       } else {
         setAuthError(res.message || "Giriş bilgileri doğrulanamadı. Lütfen e-posta ve şifrenizi kontrol ediniz.");
       }
-    }, 700);
+    } catch (err) {
+      setIsLoading(false);
+      setAuthError(err.message || "Sunucuya bağlanılamadı.");
+    }
   };
 
   // SSS Verileri

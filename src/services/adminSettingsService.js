@@ -1,4 +1,4 @@
-// izeeg Süper Admin, Ödeme Altyapısı & Lisans Yönetim Servisi
+// izeeg Süper Admin, Ödeme Altyapısı & Lisans Yönetim Servisi (Bulut Destekli)
 
 const STORAGE_KEYS = {
   BANK_SETTINGS: 'izeeg_admin_bank_settings',
@@ -8,7 +8,7 @@ const STORAGE_KEYS = {
   CONTACT_LEADS: 'izeeg_admin_contact_leads'
 };
 
-// 1. Varsayılan Banka & IBAN Bilgileri (Admin Panelinden Değiştirilebilir)
+// 1. Varsayılan Banka & IBAN Bilgileri
 const DEFAULT_BANK_SETTINGS = {
   bankName: 'Ziraat Bankası',
   accountHolder: 'İsmet Köse',
@@ -17,10 +17,10 @@ const DEFAULT_BANK_SETTINGS = {
   fastEasyAddress: '0543 697 07 55 (Telefon ile Kolay Adres - İsmet Köse)',
   paymentNoteInstructions: 'Lütfen FAST / Havale açıklama kısmına SADECE yukarıdaki Sipariş / Referans Kodunuzu yazınız.',
   whatsappSupportNumber: '905436970755',
-  discountRateHavale: 15 // %15 Havale indirimi
+  discountRateHavale: 15
 };
 
-// 2. Varsayılan Shopier & Kartla Ödeme Linkleri (Admin Panelinden Değiştirilebilir)
+// 2. Varsayılan Shopier & Kartla Ödeme Linkleri
 const DEFAULT_SHOPIER_SETTINGS = {
   standardMonthlyUrl: 'https://www.shopier.com/izeeg-standart-aylik',
   standardAnnualUrl: 'https://www.shopier.com/izeeg-standart-yillik',
@@ -34,15 +34,50 @@ const DEFAULT_SHOPIER_SETTINGS = {
 // 3. Başlangıç Müşteri & Lisans Veritabanı
 const DEFAULT_USERS_DB = [
   {
+    id: 'ADMIN-001',
+    storeName: '👑 izeeg Kurucu & Süper Admin',
+    ownerName: 'İsmet Köse',
+    email: 'ismetnote2@gmail.com',
+    phone: '0543 697 07 55',
+    role: 'admin',
+    plan: 'SUPER_ADMIN',
+    planName: 'Süper Yönetici & Kurucu Lisansı',
+    trialDaysLeft: 9999,
+    daysRemaining: 9999,
+    status: 'ACTIVE',
+    createdAt: '01.01.2026',
+    paidUntil: '01.01.2036',
+    activeAddons: ['trendyol', 'hepsiburada', 'amazon', 'n11', 'ciceksepeti', 'parasut', 'bizimhesap', 'kolaybi', 'sovos', 'ticimax', 'woocommerce', 'shopify']
+  },
+  {
+    id: 'USR-YUMEY01',
+    storeName: 'Yumey Concept',
+    ownerName: 'İsmet Köse',
+    email: 'yumey@izeeg.com',
+    phone: '0543 697 07 55',
+    role: 'merchant',
+    plan: 'PRO_PLUS',
+    planName: 'Pro Plus Paket (Trendyol + Hepsiburada + Sovos)',
+    price: 1760,
+    status: 'ACTIVE',
+    trialDaysLeft: 0,
+    paidUntil: '01.01.2027',
+    daysRemaining: 95,
+    createdAt: '20.09.2026',
+    activeAddons: ['trendyol', 'hepsiburada', 'amazon', 'parasut', 'sovos', 'ticimax', 'woocommerce'],
+    paymentMethod: 'HAVALE_FAST'
+  },
+  {
     id: 'USR-849201',
     storeName: 'Trend Butik & Ayakkabı',
     ownerName: 'Ahmet Yılmaz',
     email: 'ahmet@trendbutik.com',
     phone: '0532 999 88 77',
+    role: 'merchant',
     plan: 'STANDARD',
     planName: 'Standart Paket (Trendyol + Hepsiburada)',
     price: 979,
-    status: 'ACTIVE', // 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'SUSPENDED'
+    status: 'ACTIVE',
     trialDaysLeft: 0,
     paidUntil: '22.10.2026',
     daysRemaining: 30,
@@ -56,6 +91,7 @@ const DEFAULT_USERS_DB = [
     ownerName: 'Zeynep Aksoy',
     email: 'zeynep@megaspor.com',
     phone: '0544 888 77 66',
+    role: 'merchant',
     plan: 'PRO_PLUS',
     planName: 'Standart + Amazon & Sovos Eklentisi',
     price: 1760,
@@ -68,25 +104,25 @@ const DEFAULT_USERS_DB = [
     paymentMethod: 'SHOPIER_CARD'
   },
   {
-    id: 'USR-849203',
-    storeName: 'Kozmetik Vadisi',
-    ownerName: 'Burak Şahin',
-    email: 'burak@kozmetikvadisi.com',
-    phone: '0555 777 66 55',
+    id: 'USR-849204',
+    storeName: 'Lina Butik Moda',
+    ownerName: 'Selin Demir',
+    email: 'selin@linabutik.com',
+    phone: '0535 111 22 33',
+    role: 'merchant',
     plan: 'TRIAL',
     planName: '7 Günlük Ücretsiz Deneme',
     price: 0,
     status: 'TRIAL',
     trialDaysLeft: 5,
-    paidUntil: '27.09.2026',
     daysRemaining: 5,
-    createdAt: '20.09.2026',
+    createdAt: '25.09.2026',
+    paidUntil: '02.10.2026',
     activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce'],
     paymentMethod: 'TRIAL'
   }
 ];
 
-// 4. Örnek Havale / EFT Bildirimleri Havuzu
 const DEFAULT_PAYMENT_NOTIFICATIONS = [
   {
     id: 'NOTIF-101',
@@ -99,12 +135,11 @@ const DEFAULT_PAYMENT_NOTIFICATIONS = [
     senderBank: 'Garanti BBVA',
     senderName: 'Burak Şahin',
     date: '22.09.2026 21:40',
-    status: 'PENDING', // 'PENDING' | 'APPROVED' | 'REJECTED'
+    status: 'PENDING',
     slipNote: 'Ziraat hesabınıza FAST ile 8.457,50 TL gönderildi.'
   }
 ];
 
-// 5. Örnek İletişim / Biz Sizi Arayalım Talepleri (Leads)
 const DEFAULT_CONTACT_LEADS = [
   {
     id: 'LEAD-101',
@@ -114,7 +149,7 @@ const DEFAULT_CONTACT_LEADS = [
     subject: 'Canlı Demo & Kurulum',
     message: 'Trendyol ve Hepsiburada mağazalarımız için otomatik e-fatura ve desi kontrolünü test etmek istiyoruz.',
     date: '22.09.2026 22:15',
-    status: 'NEW' // 'NEW' | 'CONTACTED' | 'CONVERTED'
+    status: 'NEW'
   }
 ];
 
@@ -130,7 +165,15 @@ export function getBankSettings() {
 }
 
 export function saveBankSettings(settings) {
-  localStorage.setItem(STORAGE_KEYS.BANK_SETTINGS, JSON.stringify(settings));
+  try {
+    localStorage.setItem(STORAGE_KEYS.BANK_SETTINGS, JSON.stringify(settings));
+    // Bulut senkronizasyonu
+    fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save-admin-settings', bankSettings: settings })
+    }).catch(() => {});
+  } catch {}
 }
 
 export function getShopierSettings() {
@@ -143,20 +186,91 @@ export function getShopierSettings() {
 }
 
 export function saveShopierSettings(settings) {
-  localStorage.setItem(STORAGE_KEYS.SHOPIER_SETTINGS, JSON.stringify(settings));
+  try {
+    localStorage.setItem(STORAGE_KEYS.SHOPIER_SETTINGS, JSON.stringify(settings));
+    // Bulut senkronizasyonu
+    fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save-admin-settings', shopierSettings: settings })
+    }).catch(() => {});
+  } catch {}
 }
 
 export function getUsersDb() {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.USERS_DB);
-    return saved ? JSON.parse(saved) : DEFAULT_USERS_DB;
+    let list = saved ? JSON.parse(saved) : [...DEFAULT_USERS_DB];
+
+    // Eksik varsayılan mağazaları (Yumey vb.) ekle
+    DEFAULT_USERS_DB.forEach(defU => {
+      if (!list.some(u => u.id === defU.id || (u.email && defU.email && u.email.toLowerCase() === defU.email.toLowerCase()))) {
+        list.push(defU);
+      }
+    });
+
+    // Aktif oturum açmış kullanıcıyı da ekle
+    const currentAuthRaw = localStorage.getItem('izeeg_current_auth_user');
+    if (currentAuthRaw) {
+      try {
+        const currentU = JSON.parse(currentAuthRaw);
+        if (currentU && currentU.isLoggedIn && (currentU.email || currentU.storeName)) {
+          const matchIdx = list.findIndex(u => (currentU.id && u.id === currentU.id) || (currentU.email && u.email && u.email.toLowerCase() === currentU.email.toLowerCase()));
+          if (matchIdx === -1) {
+            list.unshift({
+              id: currentU.id || `USR-${Date.now().toString().slice(-6)}`,
+              storeName: currentU.storeName || 'E-Ticaret Mağazam',
+              ownerName: currentU.ownerName || 'Mağaza Sahibi',
+              email: currentU.email || 'magaza@izeeg.com',
+              phone: currentU.phone || '0543 697 07 55',
+              role: currentU.role || 'merchant',
+              plan: currentU.plan || 'TRIAL',
+              planName: currentU.planName || '7 Günlük Ücretsiz Deneme',
+              status: currentU.status || (currentU.plan === 'TRIAL' ? 'TRIAL' : 'ACTIVE'),
+              trialDaysLeft: currentU.trialDaysLeft || 7,
+              daysRemaining: currentU.daysRemaining || 7,
+              createdAt: currentU.createdAt || new Date().toLocaleDateString('tr-TR'),
+              paidUntil: currentU.paidUntil || '01.10.2026',
+              activeAddons: currentU.activeAddons || ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
+            });
+          }
+        }
+      } catch {}
+    }
+
+    return list;
   } catch (e) {
     return DEFAULT_USERS_DB;
   }
 }
 
 export function saveUsersDb(users) {
-  localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(users));
+  try {
+    localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(users));
+  } catch {}
+}
+
+/**
+ * Buluttan Canlı Kullanıcı Listesini Çeker (Tüm Cihazlardaki Kayıtlar)
+ */
+export async function fetchLiveUsersFromCloud() {
+  try {
+    const res = await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'admin-get-users' })
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.users)) {
+        saveUsersDb(json.users);
+        return json.users;
+      }
+    }
+  } catch (e) {
+    console.warn("fetchLiveUsersFromCloud fallback to local:", e);
+  }
+  return getUsersDb();
 }
 
 export function getPaymentNotifications() {
@@ -169,11 +283,31 @@ export function getPaymentNotifications() {
 }
 
 export function savePaymentNotifications(notifs) {
-  localStorage.setItem(STORAGE_KEYS.PAYMENT_NOTIFICATIONS, JSON.stringify(notifs));
+  try {
+    localStorage.setItem(STORAGE_KEYS.PAYMENT_NOTIFICATIONS, JSON.stringify(notifs));
+  } catch {}
+}
+
+export async function fetchPaymentNotificationsFromCloud() {
+  try {
+    const res = await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get-payment-notifications' })
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.notifications)) {
+        savePaymentNotifications(json.notifications);
+        return json.notifications;
+      }
+    }
+  } catch {}
+  return getPaymentNotifications();
 }
 
 // Yeni Havale Bildirimi Ekle
-export function submitPaymentNotification(notificationData) {
+export async function submitPaymentNotification(notificationData) {
   const notifs = getPaymentNotifications();
   const newNotif = {
     id: `NOTIF-${Date.now().toString().slice(-4)}`,
@@ -183,6 +317,15 @@ export function submitPaymentNotification(notificationData) {
   };
   const updated = [newNotif, ...notifs];
   savePaymentNotifications(updated);
+
+  try {
+    await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'submit-payment-notification', notification: newNotif })
+    });
+  } catch {}
+
   return newNotif;
 }
 
@@ -197,11 +340,31 @@ export function getContactLeads() {
 }
 
 export function saveContactLeads(leads) {
-  localStorage.setItem(STORAGE_KEYS.CONTACT_LEADS, JSON.stringify(leads));
+  try {
+    localStorage.setItem(STORAGE_KEYS.CONTACT_LEADS, JSON.stringify(leads));
+  } catch {}
+}
+
+export async function fetchContactLeadsFromCloud() {
+  try {
+    const res = await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get-leads' })
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.leads)) {
+        saveContactLeads(json.leads);
+        return json.leads;
+      }
+    }
+  } catch {}
+  return getContactLeads();
 }
 
 // Yeni İletişim / Arama Talebi Ekle
-export function submitContactLead(leadData) {
+export async function submitContactLead(leadData) {
   const leads = getContactLeads();
   const newLead = {
     id: `LEAD-${Date.now().toString().slice(-4)}`,
@@ -211,11 +374,20 @@ export function submitContactLead(leadData) {
   };
   const updated = [newLead, ...leads];
   saveContactLeads(updated);
+
+  try {
+    await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'submit-lead', lead: newLead })
+    });
+  } catch {}
+
   return newLead;
 }
 
 // Admin: Arama Talebi Durumunu Güncelle (Arandı / İptal)
-export function toggleLeadStatus(leadId) {
+export async function toggleLeadStatus(leadId) {
   const leads = getContactLeads();
   const updated = leads.map(l => {
     if (l.id === leadId) {
@@ -224,11 +396,20 @@ export function toggleLeadStatus(leadId) {
     return l;
   });
   saveContactLeads(updated);
+
+  try {
+    await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'toggle-lead-status', leadId })
+    });
+  } catch {}
+
   return updated;
 }
 
 // Admin: Havale Bildirimini Onayla & Müşteri Lisansını Uzat
-export function approvePaymentNotification(notifId, daysToAdd = 30) {
+export async function approvePaymentNotification(notifId, daysToAdd = 30) {
   const notifs = getPaymentNotifications();
   let approvedUser = null;
 
@@ -244,16 +425,26 @@ export function approvePaymentNotification(notifId, daysToAdd = 30) {
   if (approvedUser) {
     extendUserSubscription(approvedUser, daysToAdd);
   }
+
+  try {
+    await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve-payment-notification', notifId, daysToAdd })
+    });
+  } catch {}
 }
 
 // Admin: Kullanıcı Aboneliğini Uzat / Gün Ekle
-export function extendUserSubscription(userId, daysToAdd = 30) {
+export async function extendUserSubscription(userId, daysToAdd = 30) {
   const users = getUsersDb();
+  let updatedUserObj = null;
+
   const updatedUsers = users.map(u => {
     if (u.id === userId) {
       const currentDays = u.daysRemaining || 0;
       const newDays = currentDays + daysToAdd;
-      return {
+      updatedUserObj = {
         ...u,
         status: 'ACTIVE',
         daysRemaining: newDays,
@@ -262,46 +453,183 @@ export function extendUserSubscription(userId, daysToAdd = 30) {
         planName: 'Standart Paket (Aktif Lisans)',
         paidUntil: new Date(Date.now() + newDays * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR')
       };
+      return updatedUserObj;
     }
     return u;
   });
   saveUsersDb(updatedUsers);
+
+  if (updatedUserObj) {
+    try {
+      await fetch('/api/cloud-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'admin-update-user', userId, updates: updatedUserObj })
+      });
+    } catch {}
+  }
 }
 
 // Admin: Kullanıcı Durumunu Değiştir (Dondur / Aç)
-export function toggleUserStatus(userId) {
+export async function toggleUserStatus(userId) {
   const users = getUsersDb();
+  let newStatus = 'ACTIVE';
+
   const updatedUsers = users.map(u => {
     if (u.id === userId) {
+      newStatus = u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
       return {
         ...u,
-        status: u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
+        status: newStatus
       };
     }
     return u;
   });
   saveUsersDb(updatedUsers);
+
+  try {
+    await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'admin-update-user', userId, updates: { status: newStatus } })
+    });
+  } catch {}
 }
 
 // Admin: Kullanıcıya Ek Modül Yetkisi Tanımla / Kaldır
-export function toggleUserAddon(userId, addonId) {
+export async function toggleUserAddon(userId, addonId) {
   const users = getUsersDb();
+  let updatedAddons = [];
+
   const updatedUsers = users.map(u => {
     if (u.id === userId) {
       const currentAddons = u.activeAddons || [];
       const hasAddon = currentAddons.includes(addonId);
-      const newAddons = hasAddon 
+      updatedAddons = hasAddon 
         ? currentAddons.filter(id => id !== addonId) 
         : [...currentAddons, addonId];
       
       return {
         ...u,
-        activeAddons: newAddons
+        activeAddons: updatedAddons
       };
     }
     return u;
   });
   saveUsersDb(updatedUsers);
+
+  try {
+    await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'admin-update-user', userId, updates: { activeAddons: updatedAddons } })
+    });
+  } catch {}
+
+  return updatedUsers;
+}
+
+// Admin: Kullanıcı Sil
+export async function adminDeleteUserAsync(userId) {
+  const users = getUsersDb();
+  const updatedUsers = users.filter(u => u.id !== userId && u.email !== userId);
+  saveUsersDb(updatedUsers);
+
+  try {
+    await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'admin-delete-user', userId })
+    });
+  } catch {}
+
+  return updatedUsers;
+}
+
+// Admin: Manuel Kullanıcı Oluştur
+export async function adminCreateUserAsync(userData) {
+  const users = getUsersDb();
+  const days = parseInt(userData.daysRemaining, 10) || 30;
+  const newUserId = `USR-${Date.now().toString().slice(-6)}`;
+  const newUser = {
+    id: newUserId,
+    storeName: userData.storeName || 'E-Ticaret Mağazam',
+    ownerName: userData.ownerName || 'Mağaza Sahibi',
+    email: (userData.email || '').trim().toLowerCase(),
+    phone: userData.phone || '0500 000 00 00',
+    role: 'merchant',
+    plan: userData.plan || 'STANDARD',
+    planName: userData.plan === 'PRO_PLUS' ? 'Standart + Amazon & Sovos Eklentisi' : (userData.plan === 'TRIAL' ? '7 Günlük Ücretsiz Deneme' : 'Standart Paket (Aktif Lisans)'),
+    trialDaysLeft: userData.plan === 'TRIAL' ? days : 0,
+    daysRemaining: days,
+    status: 'ACTIVE',
+    createdAt: new Date().toLocaleDateString('tr-TR'),
+    paidUntil: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
+    activeAddons: userData.activeAddons || ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
+  };
+
+  const updatedUsers = [newUser, ...users];
+  saveUsersDb(updatedUsers);
+
+  try {
+    await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'admin-create-user', ...userData })
+    });
+  } catch {}
+
+  return newUser;
+}
+
+// Admin: Kullanıcı Paketini Değiştir
+export async function updateUserPlanAsync(userId, newPlan) {
+  const users = getUsersDb();
+  let planName = 'Standart Paket (Aktif Lisans)';
+  let price = 979;
+  let activeAddons = ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce'];
+
+  if (newPlan === 'PRO_PLUS') {
+    planName = 'Pro Plus Paket (Amazon + Sovos Dahil)';
+    price = 1760;
+    activeAddons = ['trendyol', 'hepsiburada', 'amazon', 'parasut', 'sovos', 'ticimax', 'woocommerce'];
+  } else if (newPlan === 'TRIAL') {
+    planName = '7 Günlük Ücretsiz Deneme';
+    price = 0;
+  } else if (newPlan === 'SUPER_ADMIN') {
+    planName = 'Süper Yönetici Lisansı';
+    price = 0;
+    activeAddons = ['trendyol', 'hepsiburada', 'amazon', 'n11', 'ciceksepeti', 'parasut', 'bizimhesap', 'kolaybi', 'sovos', 'ticimax', 'woocommerce', 'shopify'];
+  }
+
+  const updatedUsers = users.map(u => {
+    if (u.id === userId) {
+      return {
+        ...u,
+        plan: newPlan,
+        planName,
+        price,
+        role: newPlan === 'SUPER_ADMIN' ? 'admin' : 'merchant',
+        activeAddons: Array.from(new Set([...(u.activeAddons || []), ...activeAddons]))
+      };
+    }
+    return u;
+  });
+
+  saveUsersDb(updatedUsers);
+
+  try {
+    await fetch('/api/cloud-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'admin-update-user',
+        userId,
+        updates: { plan: newPlan, planName, price, activeAddons }
+      })
+    });
+  } catch {}
+
   return updatedUsers;
 }
 
@@ -312,10 +640,11 @@ export function getAdminFinancialStats() {
   const leads = getContactLeads();
 
   const totalUsers = users.length;
-  const activeSubscribers = users.filter(u => u.status === 'ACTIVE').length;
-  const trialUsers = users.filter(u => u.status === 'TRIAL').length;
+  const activeSubscribers = users.filter(u => u.status === 'ACTIVE' && u.plan !== 'TRIAL' && u.role !== 'admin').length;
+  const trialUsers = users.filter(u => u.status === 'TRIAL' || u.plan === 'TRIAL').length;
+  const suspendedUsers = users.filter(u => u.status === 'SUSPENDED').length;
   
-  const mrr = users.filter(u => u.status === 'ACTIVE').reduce((sum, u) => sum + (u.price || 0), 0);
+  const mrr = users.filter(u => u.status === 'ACTIVE' && u.role !== 'admin').reduce((sum, u) => sum + (u.price || 979), 0);
   const arr = mrr * 12;
   const pendingPaymentsCount = notifs.filter(n => n.status === 'PENDING').length;
   const newLeadsCount = leads.filter(l => l.status === 'NEW').length;
@@ -324,9 +653,11 @@ export function getAdminFinancialStats() {
     totalUsers,
     activeSubscribers,
     trialUsers,
+    suspendedUsers,
     mrr,
     arr,
     pendingPaymentsCount,
     newLeadsCount
   };
 }
+

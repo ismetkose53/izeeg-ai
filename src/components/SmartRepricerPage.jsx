@@ -77,9 +77,14 @@ export function SmartRepricerPage({ onNavigateBack, onOpenGuide, products = [] }
   const [strategy, setStrategy] = useState('UNDERCUT_1TL'); // UNDERCUT_1TL | MATCH_PRICE | MAX_MARGIN
   const [minMarginPercent, setMinMarginPercent] = useState(18); // Asgari kâr marjı koruma tabanı
   const [isBotRunning, setIsBotRunning] = useState(false);
-  const [syncFreqMinutes, setSyncFreqMinutes] = useState(5);
   const [repricerItems, setRepricerItems] = useState(() => getDefaultRepricerItems(products));
   const [toastMessage, setToastMessage] = useState(null);
+
+  React.useEffect(() => {
+    if (products && products.length > 0) {
+      setRepricerItems(getDefaultRepricerItems(products));
+    }
+  }, [products]);
 
   // Simülatör Test Alanı State
   const [simProductIndex, setSimProductIndex] = useState(0);

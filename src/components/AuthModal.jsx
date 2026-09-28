@@ -21,7 +21,7 @@ import {
   AlertCircle,
   Database
 } from 'lucide-react';
-import { loginUser, getCurrentUser, switchUserRole, saveCurrentUser } from '../services/authService';
+import { loginUser, loginUserAsync, getCurrentUser, switchUserRole, saveCurrentUser } from '../services/authService';
 import { IzeegLogo } from './IzeegLogo';
 import confetti from 'canvas-confetti';
 
@@ -104,14 +104,14 @@ export function AuthModal({
     }, 3000);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
 
     if (authMode === 'admin') {
       const cleanKey = (adminKey || '').trim();
-      const res = loginUser('admin@izeeg.com', cleanKey);
+      const res = await loginUserAsync('admin@izeeg.com', cleanKey);
       if (res.success) {
         if (onLoginSuccess) onLoginSuccess(res.user);
         onClose();
@@ -126,7 +126,7 @@ export function AuthModal({
       return;
     }
 
-    const res = loginUser(email, password);
+    const res = await loginUserAsync(email, password);
     if (res.success) {
       if (onLoginSuccess) onLoginSuccess(res.user);
       onClose();

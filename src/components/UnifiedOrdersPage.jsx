@@ -40,7 +40,13 @@ import {
 import { ShippingLabelModal } from './ShippingLabelModal';
 import { OrderDocsModal } from './OrderDocsModal';
 import { calculateOrderProfit } from '../services/marketplaceEngine';
-import { getStoredImageCache, resolveSmartProductImage, resolveSmartProductName, saveCustomProductImage } from '../services/marketplaceSyncService';
+import { 
+  getStoredImageCache, 
+  resolveSmartProductImage, 
+  resolveSmartProductName, 
+  saveCustomProductImage,
+  syncAllMarketplacesNow 
+} from '../services/marketplaceSyncService';
 import confetti from 'canvas-confetti';
 
 export function UnifiedOrdersPage({ 
@@ -56,6 +62,57 @@ export function UnifiedOrdersPage({
   // Statü Sekmesi: 'ALL' | 'NEW' | 'PREPARING' | 'SHIPPED' | 'DELIVERED' | 'RETURNED' | 'SUSPENDED'
   const [activeStatusTab, setActiveStatusTab] = useState('NEW');
   const [localMarketplaceFilter, setLocalMarketplaceFilter] = useState('ALL');
+
+  // Canlı API Senkronizasyon Durumu
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(() => {
+    return new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  });
+
+  // Otomatik Senkronizasyon Olayını Dinle
+  useEffect(() => {
+    const handleOrdersUpdated = () => {
+      try {
+        const saved = localStorage.getItem('izeeg_live_orders');
+        if (saved && setOrders) {
+          setOrders(JSON.parse(saved));
+          setLastSyncTime(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+        }
+      } catch {}
+    };
+    window.addEventListener('izeeg_orders_updated', handleOrdersUpdated);
+    return () => window.removeEventListener('izeeg_orders_updated', handleOrdersUpdated);
+  }, [setOrders]);
+
+  // Tek Tıkla Canlı Pazaryeri Senkronizasyonu
+  const handleManualSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    showToast("🔄 Pazaryerlerinden (Trendyol / Hepsiburada) canlı siparişler ve anlık durumlar çekiliyor...");
+
+    try {
+      const res = await syncAllMarketplacesNow({
+        onNewOrdersReceived: (mergedOrders) => {
+          if (setOrders) setOrders(mergedOrders);
+        }
+      });
+
+      if (res.success && res.orders) {
+        if (setOrders) setOrders(res.orders);
+        setLastSyncTime(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+        showToast(res.message || `✅ ${res.orders.length} sipariş güncellendi!`);
+        if (res.newOrdersCount > 0 || res.updatedCount > 0) {
+          confetti({ particleCount: 80, spread: 70 });
+        }
+      } else {
+        showToast(res.message || "Senkronizasyon tamamlandı.");
+      }
+    } catch (e) {
+      showToast("❌ Senkronizasyon hatası: " + (e.message || 'Bağlantı kurulamadı'));
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Gelişmiş Filtreleme State'leri
   const [filterCustomer, setFilterCustomer] = useState('');
@@ -230,26 +287,26 @@ export function UnifiedOrdersPage({
         return false;
       }
       // Müşteri Adı
-      if (filterCustomer.trim() && !order.customerName.toLowerCase().includes(filterCustomer.toLowerCase())) {
+      if (filterCustomer.trim() && !String(order.customerName || '').toLowerCase().includes(filterCustomer.toLowerCase())) {
         return false;
       }
       // Sipariş No
-      if (filterOrderNo.trim() && !order.id.toLowerCase().includes(filterOrderNo.toLowerCase())) {
+      if (filterOrderNo.trim() && !String(order.id || order.orderNumber || '').toLowerCase().includes(filterOrderNo.toLowerCase())) {
         return false;
       }
       // Paket / Teslimat No
       if (filterPackageNo.trim()) {
-        const pkgMatch = order.packageNo && order.packageNo.includes(filterPackageNo);
-        const delMatch = order.deliveryNo && order.deliveryNo.includes(filterPackageNo);
+        const pkgMatch = order.packageNo && String(order.packageNo).includes(filterPackageNo);
+        const delMatch = order.deliveryNo && String(order.deliveryNo).includes(filterPackageNo);
         if (!pkgMatch && !delMatch) return false;
       }
       // Barkod
       if (filterBarcode.trim()) {
-        const hasBarcode = order.items?.some(it => it.barcode?.toLowerCase().includes(filterBarcode.toLowerCase()));
+        const hasBarcode = order.items?.some(it => String(it.barcode || '').toLowerCase().includes(filterBarcode.toLowerCase()));
         if (!hasBarcode) return false;
       }
       // Kargo Kodu
-      if (filterCargoCode.trim() && !order.trackingNumber?.includes(filterCargoCode)) {
+      if (filterCargoCode.trim() && !String(order.trackingNumber || '').includes(filterCargoCode)) {
         return false;
       }
       // Tedarik Süresi
@@ -259,8 +316,8 @@ export function UnifiedOrdersPage({
       // Ürün Adı / Model Kodu
       if (filterProductName.trim()) {
         const query = filterProductName.toLowerCase();
-        const inProductName = order.productName?.toLowerCase().includes(query);
-        const inItems = order.items?.some(it => it.title?.toLowerCase().includes(query) || it.sku?.toLowerCase().includes(query));
+        const inProductName = String(order.productName || '').toLowerCase().includes(query);
+        const inItems = order.items?.some(it => String(it.title || it.name || '').toLowerCase().includes(query) || String(it.sku || '').toLowerCase().includes(query));
         if (!inProductName && !inItems) return false;
       }
       return true;
@@ -474,39 +531,64 @@ export function UnifiedOrdersPage({
         </div>
       )}
 
-      {/* 1. ÜST BAŞLIK, GECİKEN SİPARİŞLER VE YARDIM BARI (Görsel 2 ile Birebir) */}
+      {/* 1. ÜST BAŞLIK, CANLI SENKRONİZASYON VE DURUM BARI */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Kargo Aşamasındaki Siparişler
-          </h1>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-[#f27a1a]">
+            <ShoppingBag className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <span>Kargo Aşamasındaki Siparişler</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold border border-slate-200">
+                {orders.length} Toplam
+              </span>
+            </h1>
+            <p className="text-xs text-slate-500">Trendyol, Hepsiburada ve tüm pazar yerleri canlı sipariş havuzu</p>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
-          {/* Geciken Siparişler */}
-          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-            <span className="text-slate-600 font-bold">Geciken Siparişler</span>
-            <span className="text-slate-400">Yeni: <strong className="text-orange-600 font-bold">0 Adet</strong></span>
-            <span className="text-slate-300">|</span>
-            <span className="text-slate-400">İşleme Alınanlar: <strong className="text-orange-600 font-bold">0 Adet</strong></span>
+        <div className="flex flex-wrap items-center gap-2.5 text-xs font-semibold">
+          {/* 🔥 1-CLICK CANLI SENKRONİZE ET BUTONU */}
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs shadow-md transition-all cursor-pointer border ${
+              isSyncing
+                ? 'bg-slate-800 text-slate-400 border-slate-700 cursor-not-allowed'
+                : 'bg-gradient-to-r from-[#f27a1a] to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-orange-500 shadow-orange-500/20 hover:scale-[1.02] active:scale-[0.98]'
+            }`}
+            title="Pazar yerlerinden en güncel siparişleri ve kargo durumlarını anında çek"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-orange-400' : 'text-white'}`} />
+            <span>{isSyncing ? 'Senkronize Ediliyor...' : '⚡ Şimdi Senkronize Et'}</span>
+          </button>
+
+          {/* Son Senkronizasyon Zamanı */}
+          <div className="flex items-center gap-1.5 bg-slate-100 text-slate-600 px-3 py-2 rounded-xl border border-slate-200 text-[11px]">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <span>Son Çekim: <strong className="text-slate-800 font-bold">{lastSyncTime}</strong></span>
           </div>
 
           {/* Bugün Kargolanması Gereken */}
-          <div className="flex items-center gap-1.5 bg-orange-50/80 text-orange-800 px-3 py-1.5 rounded-lg border border-orange-200">
-            <span>Bugün Kargolanması Gereken Sipariş:</span>
-            <span className="font-extrabold text-[#f27a1a]">3 Adet</span>
-            <Info className="w-3.5 h-3.5 text-orange-500 cursor-pointer" title="Bugün saat 18:00'e kadar kargoya verilmesi gereken paketler" />
+          <div className="flex items-center gap-1.5 bg-orange-50/80 text-orange-800 px-3 py-2 rounded-xl border border-orange-200 text-xs">
+            <span>Bugün Kargolanması Gereken:</span>
+            <span className="font-extrabold text-[#f27a1a]">
+              {orders.filter(o => (o.status === 'NEW' || o.status === 'PREPARING')).length} Paket
+            </span>
+            <Info className="w-3.5 h-3.5 text-orange-500 cursor-pointer" title="Yeni veya işleme alınmış tüm aktif paketler" />
           </div>
 
           {/* Sayfa Kullanım Kılavuzu & Yardım Butonu */}
           <button 
             type="button"
             onClick={() => onOpenGuide && onOpenGuide('orders')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-[#f27a1a] border border-orange-500/30 font-black text-xs shadow-sm transition-all cursor-pointer group"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-[#f27a1a] border border-orange-500/30 font-black text-xs shadow-sm transition-all cursor-pointer group"
             title="Siparişler ekranı nasıl kullanılır? Tıkla öğren."
           >
             <BookOpen className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-            <span>💡 Bu Sayfa Nasıl Kullanılır?</span>
+            <span>💡 Nasıl Kullanılır?</span>
           </button>
         </div>
       </div>
@@ -592,13 +674,25 @@ export function UnifiedOrdersPage({
           </button>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-500/30 px-3 py-1.5 rounded-lg">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>⚡ Ortak Havuz: Bağlanan tüm pazar yeri API'lerinden anlık çekilir</span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Çekiliyor...' : 'API Verilerini Güncelle'}</span>
+          </button>
+
+          <div className="flex items-center gap-2 text-[11px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-500/30 px-3 py-1.5 rounded-lg">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>⚡ Anlık Çift Yönlü API Senkronu</span>
+          </div>
         </div>
       </div>
 
-      {/* 3. STATÜ SEKME BARI (Görsel 2 - Tüm Siparişler, Yeni, İşleme Alınanlar, Taşıma Durumunda vb.) */}
+      {/* 3. STATÜ SEKME BARI (Tüm Siparişler, Yeni, İşleme Alınanlar, Taşıma Durumunda vb.) */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 pt-1 flex items-center gap-6 overflow-x-auto text-xs font-bold text-slate-600">
         <button
           onClick={() => setActiveStatusTab('ALL')}
@@ -633,7 +727,7 @@ export function UnifiedOrdersPage({
           }`}
         >
           <span>İşleme Alınanlar</span>
-          {counts.PREPARING > 0 && <span className="text-[11px] font-normal text-slate-500">({counts.PREPARING} Paket)</span>}
+          <span className="text-[11px] font-normal text-slate-500">({counts.PREPARING} Paket)</span>
         </button>
 
         <button
@@ -644,8 +738,8 @@ export function UnifiedOrdersPage({
               : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
-          <span>Taşıma Durumunda</span>
-          <span className="text-[11px] font-normal text-slate-500">({counts.SHIPPED || 41} Paket)</span>
+          <span>Taşıma Durumunda (Kargoda)</span>
+          <span className="text-[11px] font-normal text-slate-500">({counts.SHIPPED} Paket)</span>
         </button>
 
         <button
@@ -657,7 +751,7 @@ export function UnifiedOrdersPage({
           }`}
         >
           <span>Teslim Edilen</span>
-          <span className="text-[11px] font-normal text-slate-500">({counts.DELIVERED || 1201} Paket)</span>
+          <span className="text-[11px] font-normal text-slate-500">({counts.DELIVERED} Paket)</span>
         </button>
 
         <button
@@ -668,8 +762,8 @@ export function UnifiedOrdersPage({
               : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
-          <span>Yeniden Gönderimler</span>
-          <span className="text-[11px] font-normal text-slate-500">(1 Paket)</span>
+          <span>İptal & İadeler</span>
+          <span className="text-[11px] font-normal text-slate-500">({counts.RETURNED} Paket)</span>
         </button>
 
         <button
@@ -681,7 +775,7 @@ export function UnifiedOrdersPage({
           }`}
         >
           <span>Askıdaki Siparişler</span>
-          <Info className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[11px] font-normal text-slate-500">({counts.SUSPENDED} Paket)</span>
         </button>
       </div>
 

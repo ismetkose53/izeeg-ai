@@ -29,9 +29,11 @@ import {
   Boxes,
   Zap,
   Globe,
-  LogOut
+  LogOut,
+  RefreshCw
 } from 'lucide-react';
 import { IzeegLogo } from './IzeegLogo';
+import { syncAllMarketplacesNow } from '../services/marketplaceSyncService';
 
 export function AppHeader({
   activeTab,
@@ -54,7 +56,20 @@ export function AppHeader({
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null); // 'operation' | 'warehouse' | 'finance' | 'integrations' | null
+  const [isSyncingHeader, setIsSyncingHeader] = useState(false);
   const headerRef = useRef(null);
+
+  const handleHeaderSync = async () => {
+    if (isSyncingHeader) return;
+    setIsSyncingHeader(true);
+    try {
+      await syncAllMarketplacesNow();
+    } catch (e) {
+      console.warn("Header sync error:", e);
+    } finally {
+      setIsSyncingHeader(false);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -450,6 +465,22 @@ export function AppHeader({
             <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
+          {/* ⚡ HIZLI SENKRONİZE ET BUTONU (HER SAYFADAN 1 TIKLA) */}
+          <button
+            type="button"
+            onClick={handleHeaderSync}
+            disabled={isSyncingHeader}
+            className={`h-9 px-2.5 sm:px-3 rounded-xl flex items-center gap-1.5 text-xs font-black shadow-md transition-all cursor-pointer border flex-shrink-0 ${
+              isSyncingHeader
+                ? 'bg-slate-800 text-slate-400 border-slate-700 cursor-not-allowed'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-emerald-500/20 active:scale-95'
+            }`}
+            title="Pazar yerlerinden tüm siparişleri ve canlı durumları anında çek"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingHeader ? 'animate-spin text-emerald-300' : 'text-white'}`} />
+            <span className="hidden sm:inline">{isSyncingHeader ? 'Çekiliyor...' : '⚡ Senkronize Et'}</span>
+          </button>
+
           {/* AI Asistan Butonu */}
           <button
             onClick={onOpenAIModal}
@@ -614,6 +645,20 @@ export function AppHeader({
               Ayarlar
             </button>
           </div>
+
+          {/* Mobil Canlı Senkronize Et Butonu */}
+          <button
+            type="button"
+            onClick={async () => {
+              await handleHeaderSync();
+              setMobileMenuOpen(false);
+            }}
+            disabled={isSyncingHeader}
+            className="w-full px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black flex items-center justify-center gap-2 shadow-md mb-2 cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncingHeader ? 'animate-spin' : ''}`} />
+            <span>{isSyncingHeader ? 'Siparişler Senkronize Ediliyor...' : '⚡ Pazaryerlerini Canlı Senkronize Et'}</span>
+          </button>
 
           <button
             onClick={() => handleSelectTab('ai-worker')}

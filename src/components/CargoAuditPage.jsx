@@ -22,15 +22,17 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { jsPDF } from 'jspdf';
+import { DEMO_CARGO_AUDIT_LEAKS } from '../services/mockData';
 import { PageGuideButton } from './PageHelpGuideModal';
 
-export function CargoAuditPage({ cargoLeaks, setCargoLeaks, onNavigateBack, onOpenGuide }) {
-  const [selectedLeakId, setSelectedLeakId] = useState(cargoLeaks[0]?.id || 'CRG-AUDIT-101');
+export function CargoAuditPage({ cargoLeaks = DEMO_CARGO_AUDIT_LEAKS, setCargoLeaks, onNavigateBack, onOpenGuide }) {
+  const safeCargoLeaks = Array.isArray(cargoLeaks) && cargoLeaks.length > 0 ? cargoLeaks : DEMO_CARGO_AUDIT_LEAKS;
+  const [selectedLeakId, setSelectedLeakId] = useState(safeCargoLeaks[0]?.id || 'CRG-AUDIT-101');
   const [copied, setCopied] = useState(false);
   const [carrierFilter, setCarrierFilter] = useState('ALL');
 
-  const selectedLeak = cargoLeaks.find(l => l.id === selectedLeakId) || cargoLeaks[0];
-  const totalLeakAmount = cargoLeaks.reduce((sum, item) => sum + item.leakAmount, 0);
+  const selectedLeak = safeCargoLeaks.find(l => l.id === selectedLeakId) || safeCargoLeaks[0] || {};
+  const totalLeakAmount = safeCargoLeaks.reduce((sum, item) => sum + (item.leakAmount || 0), 0);
 
   // Kargo Taşıyıcı Firma Performans Verisi
   const carrierMetrics = [
@@ -96,11 +98,11 @@ Yukarıda bilgileri yer alan siparişe ait ürünümüz sistemde ${selectedLeak?
   // Toplu İtiraz Listesi CSV/Excel İndirme
   const handleDownloadDisputeListCsv = () => {
     const headers = ['Siparis No', 'Pazar Yeri', 'Kargo Firmasi', 'Urun Adi', 'Fatura Tarihi', 'Kayitli Desi', 'Faturadaki Desi', 'Fazla Kesinti (TL)', 'Durum'];
-    const rows = cargoLeaks.map(l => [
+    const rows = safeCargoLeaks.map(l => [
       l.orderNumber,
       l.marketplace,
       l.carrier,
-      `"${l.productName.replace(/"/g, '""')}"`,
+      `"${(l.productName || '').replace(/"/g, '""')}"`,
       l.invoiceDate || '2026-09-20',
       l.registeredDesi,
       l.billedDesi,
@@ -168,7 +170,7 @@ Yukarıda bilgileri yer alan siparişe ait ürünümüz sistemde ${selectedLeak?
             +{totalLeakAmount.toFixed(2)} ₺
           </strong>
           <span className="text-[10px] text-emerald-300 font-semibold block mt-0.5">
-            {cargoLeaks.length} Hatalı Kesinti Bulundu
+            {safeCargoLeaks.length} Hatalı Kesinti Bulundu
           </span>
         </div>
 
@@ -243,7 +245,7 @@ Yukarıda bilgileri yer alan siparişe ait ürünümüz sistemde ${selectedLeak?
           </div>
 
           <div className="space-y-2.5">
-            {cargoLeaks.length === 0 ? (
+            {safeCargoLeaks.length === 0 ? (
               <div className="text-center py-10 px-4 bg-emerald-50/50 rounded-2xl border border-emerald-200">
                 <ShieldCheck className="w-12 h-12 text-emerald-600 mx-auto mb-2" />
                 <h4 className="text-xs font-black text-emerald-900">Kargo Faturası Temiz! Desi Kaçağı Bulunmuyor</h4>
@@ -252,7 +254,7 @@ Yukarıda bilgileri yer alan siparişe ait ürünümüz sistemde ${selectedLeak?
                 </p>
               </div>
             ) : (
-              cargoLeaks.map(leak => (
+              safeCargoLeaks.map(leak => (
                 <div
                   key={leak.id}
                   onClick={() => setSelectedLeakId(leak.id)}

@@ -46,8 +46,8 @@ function parseOrderDate(rawDate) {
   const str = String(rawDate).trim();
   const lower = str.toLowerCase();
 
-  // "Bugün"
-  if (lower.includes('bugün')) {
+  // "Bugün", "Az önce", "X saat önce", "X dakika önce"
+  if (lower.includes('bugün') || lower.includes('az önce') || lower.includes('saat') || lower.includes('dakika') || lower.includes('dk')) {
     const now = new Date();
     const timeMatch = str.match(/(\d{1,2}):(\d{1,2})/);
     if (timeMatch) {
@@ -64,6 +64,15 @@ function parseOrderDate(rawDate) {
     if (timeMatch) {
       d.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
     }
+    return d;
+  }
+
+  // "X gün önce"
+  const gunMatch = lower.match(/(\d+)\s*g[üu]n\s*[öo]nce/);
+  if (gunMatch) {
+    const daysAgo = parseInt(gunMatch[1], 10);
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
     return d;
   }
 
@@ -88,11 +97,12 @@ function parseOrderDate(rawDate) {
 }
 
 /**
- * Verilen Tarihin Seçilen Dönemde (Bugün / Bu Hafta / Bu Ay) Olup Olmadığını Kontrol Eder
+ * Verilen Tarihin Seçilen Dönemde (Tümü / Bugün / Bu Hafta / Bu Ay) Olup Olmadığını Kontrol Eder
  */
 function isDateInPeriod(rawDate, period) {
+  if (period === 'ALL') return true;
   const d = parseOrderDate(rawDate);
-  if (!d) return false;
+  if (!d) return true; // Tarih ayrıştırılamazsa dışlamamak için true döner
 
   const now = new Date();
   
@@ -105,14 +115,12 @@ function isDateInPeriod(rawDate, period) {
   }
 
   if (period === 'THIS_WEEK') {
-    // Son 7 gün içerisindeki tüm siparişler ve iadeler
     const diffMs = now.getTime() - d.getTime();
     const diffDays = diffMs / (1000 * 3600 * 24);
     return diffDays >= -1 && diffDays <= 7;
   }
 
   if (period === 'THIS_MONTH') {
-    // İçinde bulunulan ay veya son 30 gün
     const diffMs = now.getTime() - d.getTime();
     const diffDays = diffMs / (1000 * 3600 * 24);
     return (
@@ -133,8 +141,8 @@ export function RealNetProfitModule({
   onNavigateToProTable,
   onNavigateToInvoices
 }) {
-  // Dönem Filtresi: 'TODAY' (Bugün) | 'THIS_WEEK' (Bu Hafta) | 'THIS_MONTH' (Bu Ay)
-  const [period, setPeriod] = useState('TODAY');
+  // Dönem Filtresi: 'ALL' (Tüm Dönem) | 'TODAY' (Bugün) | 'THIS_WEEK' (Bu Hafta) | 'THIS_MONTH' (Bu Ay)
+  const [period, setPeriod] = useState('ALL');
 
   // Canlı İade Listesini Al ve Güncellemeleri Dinle
   const [liveReturns, setLiveReturns] = useState(() => getStoredReturns());
@@ -380,18 +388,30 @@ export function RealNetProfitModule({
 
             <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-900 mt-2 flex items-center gap-2">
               <DollarSign className="w-5 sm:w-6 h-5 sm:h-6 text-emerald-600 flex-shrink-0" />
-              {period === 'TODAY' ? 'Bugün Gerçekten Ne Kazandım?' : period === 'THIS_WEEK' ? 'Bu Hafta Ne Kazandım?' : 'Bu Ay Ne Kazandım?'}
+              {period === 'ALL' ? 'Toplam Gerçek Net Kazancım Ne Kadar?' : period === 'TODAY' ? 'Bugün Gerçekten Ne Kazandım?' : period === 'THIS_WEEK' ? 'Bu Hafta Ne Kazandım?' : 'Bu Ay Ne Kazandım?'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               Seçilen döneme ait sipariş gelirlerinizden gerçek ürün maliyeti, pazar yeri komisyonları, kargo ücretleri ve iade zararları düşülerek kasanıza kalan saf net kâr.
             </p>
           </div>
 
-          {/* Günlük / Haftalık / Aylık Buton Grubu (Mobilde Eşit Dağılım) */}
-          <div className="grid grid-cols-3 sm:flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs font-bold w-full sm:w-auto">
+          {/* Tüm Dönem / Günlük / Haftalık / Aylık Buton Grubu */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs font-bold w-full sm:w-auto">
+            <button
+              onClick={() => setPeriod('ALL')}
+              className={`px-3 sm:px-3.5 py-2 rounded-xl transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
+                period === 'ALL'
+                  ? 'bg-slate-900 text-white shadow-md font-black'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <span>🌐</span>
+              <span>Tüm Dönem</span>
+            </button>
+
             <button
               onClick={() => setPeriod('TODAY')}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
                 period === 'TODAY'
                   ? 'bg-slate-900 text-white shadow-md font-black'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
@@ -403,7 +423,7 @@ export function RealNetProfitModule({
 
             <button
               onClick={() => setPeriod('THIS_WEEK')}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
                 period === 'THIS_WEEK'
                   ? 'bg-slate-900 text-white shadow-md font-black'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
@@ -415,7 +435,7 @@ export function RealNetProfitModule({
 
             <button
               onClick={() => setPeriod('THIS_MONTH')}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
                 period === 'THIS_MONTH'
                   ? 'bg-slate-900 text-white shadow-md font-black'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
@@ -436,7 +456,7 @@ export function RealNetProfitModule({
           <div className="space-y-2 min-w-0 w-full">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2.5 sm:px-3 py-0.5 rounded-full border border-emerald-500/40">
-                {period === 'TODAY' ? 'GÜNLÜK SAF NET KAZANÇ' : period === 'THIS_WEEK' ? 'HAFTALIK SAF NET KAZANÇ (SON 7 GÜN)' : 'AYLIK SAF NET KAZANÇ'}
+                {period === 'ALL' ? 'TOPLAM SAF NET KAZANÇ (TÜM DÖNEM)' : period === 'TODAY' ? 'GÜNLÜK SAF NET KAZANÇ' : period === 'THIS_WEEK' ? 'HAFTALIK SAF NET KAZANÇ (SON 7 GÜN)' : 'AYLIK SAF NET KAZANÇ'}
               </span>
               <span className="text-xs text-slate-300">
                 ({financialData.orderCount} Başarılı Sipariş)
