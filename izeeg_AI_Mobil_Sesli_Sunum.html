@@ -770,50 +770,161 @@
       }
     }
 
-    // Sesli Anlatım Motoru (SpeechSynthesis API)
+    // Doğal İnsan Konuşması & Fonetik Metin Düzenleyici
+    function normalizeSpeechText(text) {
+      if (!text) return '';
+      return text
+        .replace(/izeeg AI/gi, 'İzig Yapay Zekâ')
+        .replace(/izeeg/gi, 'İzig')
+        .replace(/GİB/gi, 'Gelir İdaresi Başkanlığı')
+        .replace(/%([0-9]+(\.[0-9]+)?)/g, 'yüzde $1')
+        .replace(/TL/g, ' Türk Lirası')
+        .replace(/₺/g, ' Lira')
+        .replace(/1-Tık/gi, 'Tek tıkla')
+        .replace(/1 Tık/gi, 'Tek tıkla')
+        .replace(/7\/24/g, 'yedi gün yirmi dört saat')
+        .replace(/SP-API/gi, 'Amazon resmi bağlantısı')
+        .replace(/API/gi, 'Entegrasyon')
+        .replace(/UBL-XML/gi, 'Resmi XML')
+        .replace(/CPC/gi, 'tıklama başı')
+        .replace(/Desi/gi, 'desi')
+        .replace(/HB/gi, 'Hepsiburada')
+        .replace(/TY/gi, 'Trendyol');
+    }
+
+    // Metni Cümle Cümle Bölme (Robotikliği ve Kelime Yutmayı Önler)
+    function splitIntoSentences(text) {
+      const clean = normalizeSpeechText(text);
+      const matches = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
+      return matches ? matches.map(s => s.trim()).filter(s => s.length > 0) : [clean];
+    }
+
+    // En İyi Doğal İnsansı Türkçe Sesi Seçici
+    function getBestTurkishVoice() {
+      if (!('speechSynthesis' in window)) return null;
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) return null;
+
+      // Öncelik Sırası: Doğal / Neural Türkçe Sesler
+      const preferred = [
+        v => v.lang.includes('tr') && (v.name.includes('Natural') || v.name.includes('Online')),
+        v => v.lang.includes('tr') && v.name.includes('Google'),
+        v => v.lang.includes('tr') && (v.name.includes('Ahmet') || v.name.includes('Emel') || v.name.includes('Tolga')),
+        v => v.lang.includes('tr') && (v.name.includes('Yelda') || v.name.includes('Cem')),
+        v => v.lang.includes('tr') || v.lang.includes('TR'),
+        v => v.name.toLowerCase().includes('turkish')
+      ];
+
+      for (const filterFn of preferred) {
+        const found = voices.find(filterFn);
+        if (found) return found;
+      }
+
+      return voices.find(v => v.lang.startsWith('tr')) || null;
+    }
+
+    let sentenceQueue = [];
+    let currentSentenceIndex = 0;
+    let isSpeakingQueue = false;
+
+    // Cümle Cümle Doğal Duraklamalı Seslendirme Motoru
     function speakCurrentSlide() {
       if (!('speechSynthesis' in window)) {
         alert('Tarayıcınız sesli anlatım özelliğini desteklemiyor.');
         return;
       }
 
-      synth.cancel(); // Önceki sesi durdur
+      stopVoice();
 
       const activeCard = document.querySelector(`.slide-card[data-slide="${currentSlide}"]`);
       if (!activeCard) return;
 
-      const speechText = activeCard.getAttribute('data-speech');
-      if (!speechText) return;
+      const rawSpeech = activeCard.getAttribute('data-speech');
+      if (!rawSpeech) return;
 
-      currentUtterance = new SpeechSynthesisUtterance(speechText);
-      currentUtterance.lang = 'tr-TR';
-      currentUtterance.rate = 1.02; // Doğal ve akıcı konuşma hızı
-      currentUtterance.pitch = 1.0;
+      sentenceQueue = splitIntoSentences(rawSpeech);
+      currentSentenceIndex = 0;
+      isSpeakingQueue = true;
 
-      // Türkçe ses seçimi (varsa en kaliteli Türkçe ses)
-      const voices = synth.getVoices();
-      const trVoice = voices.find(v => v.lang.includes('tr') || v.name.toLowerCase().includes('turkish'));
-      if (trVoice) {
-        currentUtterance.voice = trVoice;
+      const waves = document.querySelectorAll('.sound-waves');
+      waves.forEach(w => w.style.display = 'flex');
+
+      playNextSentence();
+    }
+
+    function playNextSentence() {
+      if (!isVoiceActive || !isSpeakingQueue || currentSentenceIndex >= sentenceQueue.length) {
+        isSpeakingQueue = false;
+        const waves = document.querySelectorAll('.sound-waves');
+        waves.forEach(w => w.style.display = 'none');
+        return;
       }
 
-      currentUtterance.onend = () => {
-        // İsteğe bağlı otomatik sonraki slayta geçiş
+      const sentenceText = sentenceQueue[currentSentenceIndex];
+      const utterance = new SpeechSynthesisUtterance(sentenceText);
+      
+      utterance.lang = 'tr-TR';
+      utterance.rate = 0.94; // Tane tane, dinlendirici ve profesyonel tempo
+      utterance.pitch = 1.0; // Doğal konuşma perdesi
+
+      const bestVoice = getBestTurkishVoice();
+      if (bestVoice) {
+        utterance.voice = bestVoice;
+      }
+
+      // Canlı Altyazıyı Güncelle
+      const activeCard = document.querySelector(`.slide-card[data-slide="${currentSlide}"]`);
+      if (activeCard) {
+        const speakerTextEl = activeCard.querySelector('.speaker-text');
+        if (speakerTextEl) {
+          speakerTextEl.innerHTML = `<span style="color: #fbbf24;">"${sentenceText}"</span>`;
+        }
+      }
+
+      utterance.onend = () => {
+        currentSentenceIndex++;
+        if (currentSentenceIndex < sentenceQueue.length && isVoiceActive) {
+          // İki cümle arasında doğal insan nefes alma payı (220ms)
+          setTimeout(() => {
+            playNextSentence();
+          }, 220);
+        } else {
+          isSpeakingQueue = false;
+          const waves = document.querySelectorAll('.sound-waves');
+          waves.forEach(w => w.style.display = 'none');
+        }
       };
 
-      synth.speak(currentUtterance);
+      utterance.onerror = (e) => {
+        console.warn('Speech notice:', e);
+        currentSentenceIndex++;
+        if (currentSentenceIndex < sentenceQueue.length && isVoiceActive) {
+          setTimeout(playNextSentence, 200);
+        }
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function stopVoice() {
+      isSpeakingQueue = false;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      const waves = document.querySelectorAll('.sound-waves');
+      waves.forEach(w => w.style.display = 'none');
     }
 
     function toggleVoice() {
       if (isVoiceActive) {
         isVoiceActive = false;
-        synth.cancel();
+        stopVoice();
         voiceBtn.classList.remove('playing');
         voiceStatusText.textContent = 'Sesli Anlatımı Aç';
       } else {
         isVoiceActive = true;
         voiceBtn.classList.add('playing');
-        voiceStatusText.textContent = 'Sesli Anlatım Aktif 🔊';
+        voiceStatusText.textContent = '🎙️ Doğal Ses Aktif';
         speakCurrentSlide();
       }
     }
@@ -834,11 +945,13 @@
       if (touchEndX - touchStartX > 50) prevSlide();
     });
 
-    // Ses listesini yükle
+    // Ses listesini yükle ve hazırla
     if ('speechSynthesis' in window) {
       window.speechSynthesis.onvoiceschanged = () => {
         window.speechSynthesis.getVoices();
       };
+      // İlk tetikleme
+      window.speechSynthesis.getVoices();
     }
 
     updateSlide();

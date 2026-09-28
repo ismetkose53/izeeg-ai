@@ -50,22 +50,89 @@ export function PitchDeckPage({ onOpenContactModal, onOpenSubModal, onNavigateTa
   const [copiedLink, setCopiedLink] = useState(false);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
 
-  // Sesli Anlatımı Oynat
+  // Doğal İnsan Konuşması & Fonetik Metin Düzenleyici
+  const normalizeSpeechText = (text) => {
+    if (!text) return '';
+    return text
+      .replace(/izeeg AI/gi, 'İzig Yapay Zekâ')
+      .replace(/izeeg/gi, 'İzig')
+      .replace(/GİB/gi, 'Gelir İdaresi Başkanlığı')
+      .replace(/%([0-9]+(\.[0-9]+)?)/g, 'yüzde $1')
+      .replace(/TL/g, ' Türk Lirası')
+      .replace(/₺/g, ' Lira')
+      .replace(/1-Tık/gi, 'Tek tıkla')
+      .replace(/1 Tık/gi, 'Tek tıkla')
+      .replace(/7\/24/g, 'yedi gün yirmi dört saat')
+      .replace(/SP-API/gi, 'Amazon resmi bağlantısı')
+      .replace(/API/gi, 'Entegrasyon')
+      .replace(/UBL-XML/gi, 'Resmi XML')
+      .replace(/CPC/gi, 'tıklama başı')
+      .replace(/Desi/gi, 'desi')
+      .replace(/HB/gi, 'Hepsiburada')
+      .replace(/TY/gi, 'Trendyol');
+  };
+
+  const getBestTurkishVoice = () => {
+    if (!('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    const preferred = [
+      v => v.lang.includes('tr') && (v.name.includes('Natural') || v.name.includes('Online')),
+      v => v.lang.includes('tr') && v.name.includes('Google'),
+      v => v.lang.includes('tr') && (v.name.includes('Ahmet') || v.name.includes('Emel') || v.name.includes('Tolga')),
+      v => v.lang.includes('tr') && (v.name.includes('Yelda') || v.name.includes('Cem')),
+      v => v.lang.includes('tr') || v.lang.includes('TR'),
+      v => v.name.toLowerCase().includes('turkish')
+    ];
+
+    for (const filterFn of preferred) {
+      const found = voices.find(filterFn);
+      if (found) return found;
+    }
+    return voices.find(v => v.lang.startsWith('tr')) || null;
+  };
+
+  // Sesli Anlatımı Cümle Cümle Oynat
   const speakSlideText = (text) => {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     if (!text || !isVoiceActive) return;
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'tr-TR';
-    utterance.rate = 1.02;
-    utterance.pitch = 1.0;
+    const clean = normalizeSpeechText(text);
+    const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
+    let currentIndex = 0;
 
-    const voices = window.speechSynthesis.getVoices();
-    const trVoice = voices.find(v => v.lang.includes('tr') || v.name.toLowerCase().includes('turkish'));
-    if (trVoice) utterance.voice = trVoice;
+    const playSentence = () => {
+      if (!isVoiceActive || currentIndex >= sentences.length) return;
 
-    window.speechSynthesis.speak(utterance);
+      const sentence = sentences[currentIndex].trim();
+      const utterance = new SpeechSynthesisUtterance(sentence);
+      utterance.lang = 'tr-TR';
+      utterance.rate = 0.94; // Tane tane ve akıcı tempo
+      utterance.pitch = 1.0;
+
+      const voice = getBestTurkishVoice();
+      if (voice) utterance.voice = voice;
+
+      utterance.onend = () => {
+        currentIndex++;
+        if (currentIndex < sentences.length && isVoiceActive) {
+          setTimeout(playSentence, 220); // Doğal insan nefes payı
+        }
+      };
+
+      utterance.onerror = () => {
+        currentIndex++;
+        if (currentIndex < sentences.length && isVoiceActive) {
+          setTimeout(playSentence, 200);
+        }
+      };
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    playSentence();
   };
 
   const toggleVoiceNarration = () => {
