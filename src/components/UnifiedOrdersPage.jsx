@@ -1151,7 +1151,7 @@ export function UnifiedOrdersPage({
                 </th>
                 <th className="py-3 px-4 font-bold">
                   <div className="flex items-center gap-1 cursor-pointer">
-                    <span>Durum / Aksiyon</span>
+                    <span>{(activeStatusTab === 'NEW' || activeStatusTab === 'PREPARING') ? 'Durum / Aksiyon' : 'Durum & Canlı Takip'}</span>
                     <ChevronDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
@@ -1657,163 +1657,204 @@ export function UnifiedOrdersPage({
                         </div>
                       </td>
 
-                      {/* 8. DURUM / AKSİYON BUTONLARI (İşleme Al, A4 Etiket, Sticker Etiket, İşlemler ∨) */}
-                      <td className="py-4 px-4 align-top space-y-1.5 min-w-[200px]">
+                      {/* 8. DURUM / AKSİYON SÜTUNU */}
+                      <td className="py-4 px-4 align-top space-y-1.5 min-w-[180px]">
                         
-                        {/* Sipariş Yeni İse: Hızlı Tek Tıkla İşleme Al (Otomatik Yazdırma Destekli) */}
-                        {order.status === 'NEW' && (
-                          <button
-                            onClick={() => handleUpdateOrderStatus(order.id, 'PREPARING')}
-                            className={`w-full py-1.5 px-3 rounded font-black text-xs transition-all text-center flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
-                              autoPrintOnProcessing
-                                ? 'bg-amber-500 hover:bg-amber-600 text-white ring-2 ring-amber-300 shadow-amber-500/30'
-                                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
-                            }`}
-                            title={autoPrintOnProcessing ? "İşleme al ve kargo fişini anında otomatik yazdır" : "Siparişi işleme alındı statüsüne taşı"}
-                          >
-                            <span>⚡</span>
-                            <span>İşleme Al {autoPrintOnProcessing ? '& Kargo Fişi Yazdır' : ''}</span>
-                          </button>
-                        )}
-
-                        {/* Buton 1: Kargo Etiketini A4 Yazdır */}
-                        <button
-                          onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A4', autoTriggerPrint: false })}
-                          className="w-full py-1.5 px-3 rounded border border-[#f27a1a] text-[#f27a1a] hover:bg-orange-50 font-bold text-xs transition-colors text-center block"
-                        >
-                          📄 Kargo Etiketi A4 Yazdır
-                        </button>
-
-                        {/* Buton 2: Kargo Etiketini A5 Yazdır */}
-                        <button
-                          onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A5', autoTriggerPrint: false })}
-                          className="w-full py-1.5 px-3 rounded border border-blue-500 text-blue-600 hover:bg-blue-50 font-bold text-xs transition-colors text-center block"
-                        >
-                          📑 Kargo Etiketi A5 Yazdır
-                        </button>
-
-                        {/* Buton 3: Kargo Etiketini Sticker Yazdır */}
-                        <button
-                          onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'STICKER', autoTriggerPrint: false })}
-                          className="w-full py-1.5 px-3 rounded border border-slate-700 text-slate-700 hover:bg-slate-100 font-bold text-xs transition-colors text-center block"
-                        >
-                          🏷️ Kargo Etiketi Sticker Yazdır
-                        </button>
-
-                        {/* Buton 4: İşlemler ∨ (Görsel 3 ile Birebir Pop-up Menü) */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setOpenActionOrderId(openActionOrderId === order.id ? null : order.id)}
-                            className="w-full py-1.5 px-3 text-slate-700 hover:text-slate-900 font-bold text-xs flex items-center justify-center gap-1 transition-colors"
-                          >
-                            <span>İşlemler</span>
-                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openActionOrderId === order.id ? 'rotate-180' : ''}`} />
-                          </button>
-
-                          {openActionOrderId === order.id && (
-                            <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-2xl p-1.5 space-y-0.5 z-40 text-xs font-semibold text-slate-800 animate-scaleUp">
-                              
-                              {/* 1. İşleme Al */}
+                        {/* 1. EĞER YENİ VEYA İŞLEME ALINANLAR İSE: AKSİYON & YAZDIRMA BUTONLARI GÖSTERİLİR */}
+                        {(order.status === 'NEW' || order.status === 'PREPARING') ? (
+                          <>
+                            {/* Sipariş Yeni İse: Hızlı Tek Tıkla İşleme Al (Otomatik Yazdırma Destekli) */}
+                            {order.status === 'NEW' && (
                               <button
                                 onClick={() => handleUpdateOrderStatus(order.id, 'PREPARING')}
-                                className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center justify-between font-bold text-emerald-700"
+                                className={`w-full py-1.5 px-3 rounded font-black text-xs transition-all text-center flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
+                                  autoPrintOnProcessing
+                                    ? 'bg-amber-500 hover:bg-amber-600 text-white ring-2 ring-amber-300 shadow-amber-500/30'
+                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
+                                }`}
+                                title={autoPrintOnProcessing ? "İşleme al ve kargo fişini anında otomatik yazdır" : "Siparişi işleme alındı statüsüne taşı"}
                               >
-                                <div className="flex items-center gap-2">
-                                  <span>⚡</span>
-                                  <span>İşleme Al {autoPrintOnProcessing ? '(& Oto Yazdır)' : ''}</span>
+                                <span>⚡</span>
+                                <span>İşleme Al {autoPrintOnProcessing ? '& Kargo Fişi Yazdır' : ''}</span>
+                              </button>
+                            )}
+
+                            {/* Buton 1: Kargo Etiketini A4 Yazdır */}
+                            <button
+                              onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A4', autoTriggerPrint: false })}
+                              className="w-full py-1.5 px-3 rounded border border-[#f27a1a] text-[#f27a1a] hover:bg-orange-50 font-bold text-xs transition-colors text-center block cursor-pointer"
+                            >
+                              📄 Kargo Etiketi A4 Yazdır
+                            </button>
+
+                            {/* Buton 2: Kargo Etiketini A5 Yazdır */}
+                            <button
+                              onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A5', autoTriggerPrint: false })}
+                              className="w-full py-1.5 px-3 rounded border border-blue-500 text-blue-600 hover:bg-blue-50 font-bold text-xs transition-colors text-center block cursor-pointer"
+                            >
+                              📑 Kargo Etiketi A5 Yazdır
+                            </button>
+
+                            {/* Buton 3: Kargo Etiketini Sticker Yazdır */}
+                            <button
+                              onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'STICKER', autoTriggerPrint: false })}
+                              className="w-full py-1.5 px-3 rounded border border-slate-700 text-slate-700 hover:bg-slate-100 font-bold text-xs transition-colors text-center block cursor-pointer"
+                            >
+                              🏷️ Kargo Etiketi Sticker Yazdır
+                            </button>
+
+                            {/* Buton 4: İşlemler ∨ */}
+                            <div className="relative">
+                              <button
+                                onClick={() => setOpenActionOrderId(openActionOrderId === order.id ? null : order.id)}
+                                className="w-full py-1.5 px-3 text-slate-700 hover:text-slate-900 font-bold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                              >
+                                <span>İşlemler</span>
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openActionOrderId === order.id ? 'rotate-180' : ''}`} />
+                              </button>
+
+                              {openActionOrderId === order.id && (
+                                <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-2xl p-1.5 space-y-0.5 z-40 text-xs font-semibold text-slate-800 animate-scaleUp">
+                                  {order.status === 'NEW' && (
+                                    <>
+                                      <button
+                                        onClick={() => handleUpdateOrderStatus(order.id, 'PREPARING')}
+                                        className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center justify-between font-bold text-emerald-700 cursor-pointer"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>⚡</span>
+                                          <span>İşleme Al {autoPrintOnProcessing ? '(& Oto Yazdır)' : ''}</span>
+                                        </div>
+                                        {autoPrintOnProcessing && <span className="text-[10px] bg-amber-100 text-amber-800 px-1 py-0.5 rounded font-black">OTO</span>}
+                                      </button>
+                                      <button
+                                        onClick={() => handleUpdateOrderStatus(order.id, 'PREPARING', true)}
+                                        className="w-full p-2 text-left hover:bg-blue-50 rounded-lg flex items-center gap-2 font-bold text-blue-700 cursor-pointer"
+                                      >
+                                        <span>🖨️</span>
+                                        <span>İşleme Al & Kargo Fişi Çıkar</span>
+                                      </button>
+                                    </>
+                                  )}
+
+                                  <button
+                                    onClick={() => {
+                                      setDocsModalConfig({ isOpen: true, type: 'CHANGE_CARRIER', order });
+                                      setOpenActionOrderId(null);
+                                    }}
+                                    className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <span>🚚</span> Başka Kargo Firması İle Gönder
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setDocsModalConfig({ isOpen: true, type: 'SPLIT_PACKAGE', order });
+                                      setOpenActionOrderId(null);
+                                    }}
+                                    className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <span>✂️</span> Paketi Böl
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setDocsModalConfig({ isOpen: true, type: 'CANCEL_ORDER', order });
+                                      setOpenActionOrderId(null);
+                                    }}
+                                    className="w-full p-2 text-left hover:bg-rose-50 rounded-lg flex items-center gap-2 text-rose-600 font-bold cursor-pointer"
+                                  >
+                                    <span>❌</span> İptal Et
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setDocsModalConfig({ isOpen: true, type: 'STORE_CARD', order });
+                                      setOpenActionOrderId(null);
+                                    }}
+                                    className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <span>🏷️</span> Mağaza Kartı Yazdır
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setDocsModalConfig({ isOpen: true, type: 'DISTANCE_CONTRACT', order });
+                                      setOpenActionOrderId(null);
+                                    }}
+                                    className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <span>📄</span> Mesafeli Satış Sözleşmesi
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setDocsModalConfig({ isOpen: true, type: 'PRE_INFO', order });
+                                      setOpenActionOrderId(null);
+                                    }}
+                                    className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <span>📋</span> Ön Bilgilendirme Formu
+                                  </button>
                                 </div>
-                                {autoPrintOnProcessing && <span className="text-[10px] bg-amber-100 text-amber-800 px-1 py-0.5 rounded font-black">OTO</span>}
-                              </button>
-
-                              {/* 1.1. İşleme Al & Kargo Fişi Yazdır */}
-                              <button
-                                onClick={() => handleUpdateOrderStatus(order.id, 'PREPARING', true)}
-                                className="w-full p-2 text-left hover:bg-blue-50 rounded-lg flex items-center gap-2 font-bold text-blue-700"
-                              >
-                                <span>🖨️</span>
-                                <span>İşleme Al & Kargo Fişi Çıkar</span>
-                              </button>
-
-                              {/* 1.2. Hızlı A5 Yazdır */}
-                              <button
-                                onClick={() => {
-                                  setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A5', autoTriggerPrint: false });
-                                  setOpenActionOrderId(null);
-                                }}
-                                className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2 text-slate-700"
-                              >
-                                <span>📑</span> Kargo Etiketi A5 Yazdır
-                              </button>
-
-                              {/* 2. Başka Kargo Firması İle Gönder */}
-                              <button
-                                onClick={() => {
-                                  setDocsModalConfig({ isOpen: true, type: 'CHANGE_CARRIER', order });
-                                  setOpenActionOrderId(null);
-                                }}
-                                className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2"
-                              >
-                                <span>🚚</span> Başka Kargo Firması İle Gönder
-                              </button>
-
-                              {/* 3. Paketi Böl */}
-                              <button
-                                onClick={() => {
-                                  setDocsModalConfig({ isOpen: true, type: 'SPLIT_PACKAGE', order });
-                                  setOpenActionOrderId(null);
-                                }}
-                                className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2"
-                              >
-                                <span>✂️</span> Paketi Böl
-                              </button>
-
-                              {/* 4. İptal Et */}
-                              <button
-                                onClick={() => {
-                                  setDocsModalConfig({ isOpen: true, type: 'CANCEL_ORDER', order });
-                                  setOpenActionOrderId(null);
-                                }}
-                                className="w-full p-2 text-left hover:bg-rose-50 rounded-lg flex items-center gap-2 text-rose-600 font-bold"
-                              >
-                                <span>❌</span> İptal Et
-                              </button>
-
-                              {/* 5. Mağaza Kartı Yazdır */}
-                              <button
-                                onClick={() => {
-                                  setDocsModalConfig({ isOpen: true, type: 'STORE_CARD', order });
-                                  setOpenActionOrderId(null);
-                                }}
-                                className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2"
-                              >
-                                <span>🏷️</span> Mağaza Kartı Yazdır
-                              </button>
-
-                              {/* 6. Mesafeli Satış Sözleşmesi */}
-                              <button
-                                onClick={() => {
-                                  setDocsModalConfig({ isOpen: true, type: 'DISTANCE_CONTRACT', order });
-                                  setOpenActionOrderId(null);
-                                }}
-                                className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2"
-                              >
-                                <span>📄</span> Mesafeli Satış Sözleşmesi
-                              </button>
-
-                              {/* 7. Ön Bilgilendirme Formu */}
-                              <button
-                                onClick={() => {
-                                  setDocsModalConfig({ isOpen: true, type: 'PRE_INFO', order });
-                                  setOpenActionOrderId(null);
-                                }}
-                                className="w-full p-2 text-left hover:bg-slate-100 rounded-lg flex items-center gap-2"
-                              >
-                                <span>📋</span> Ön Bilgilendirme Formu
-                              </button>
-
+                              )}
                             </div>
-                          )}
-                        </div>
+                          </>
+                        ) : (
+                          /* 2. KARGODA, TESLİM EDİLDİ VEYA İADE İSE: TEMİZ, SADE VE ŞIK TAKİP GÖRÜNÜMÜ (AKSİYONSUZ) */
+                          <div className="space-y-2 py-1">
+                            {order.status === 'SHIPPED' && (
+                              <div className="space-y-1.5">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-800 border border-purple-200 text-xs font-black shadow-2xs">
+                                  <Truck className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
+                                  <span>Taşımada (Kargoda)</span>
+                                </span>
+                                <div className="text-[11px] text-slate-600 font-medium flex items-center gap-1">
+                                  <span className="text-slate-400 font-normal">Takip:</span>
+                                  <span className="font-mono font-bold text-slate-800">{order.trackingNumber || order.cargoTrackingNumber || order.packageNo || order.id}</span>
+                                </div>
+                                <div className="text-[10px] text-purple-700 font-bold flex items-center gap-1 bg-purple-50/60 px-2 py-0.5 rounded">
+                                  <CheckCircle2 className="w-3 h-3 text-purple-500" />
+                                  <span>Kargoya Sevk Edildi</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {order.status === 'DELIVERED' && (
+                              <div className="space-y-1.5">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-black shadow-2xs">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Müşteriye Teslim Edildi</span>
+                                </span>
+                                <div className="text-[11px] text-emerald-700 font-bold">
+                                  ✓ Satış Başarıyla Tamamlandı
+                                </div>
+                              </div>
+                            )}
+
+                            {order.status === 'RETURNED' && (
+                              <div className="space-y-1.5">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-800 border border-rose-300 text-xs font-black shadow-2xs">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>İade / İptal Edildi</span>
+                                </span>
+                                <div className="text-[11px] text-rose-600 font-medium">
+                                  İade İşlemleri Sekmesinde Takipte
+                                </div>
+                              </div>
+                            )}
+
+                            {/* İsteğe bağlı tek satırlık temiz belge butonu */}
+                            <button
+                              onClick={() => setShippingModalConfig({ isOpen: true, order, orders: [order], labelType: 'A4', autoTriggerPrint: false })}
+                              className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 hover:underline pt-1 cursor-pointer"
+                              title="Arşiv Kargo Fişini Aç"
+                            >
+                              <Printer className="w-3 h-3 text-slate-400" />
+                              <span>Arşiv Kargo Fişi</span>
+                            </button>
+                          </div>
+                        )}
 
                       </td>
 
