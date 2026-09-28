@@ -3157,20 +3157,298 @@ function formatRelativeTime(dateInput) {
 }
 
 // =========================================================================
+// =========================================================================
 // TARAFINIZA KESİLEN PAZARYERİ GİDER FATURALARI (SETTLEMENT & INVOICES)
 // =========================================================================
 
-export const DEFAULT_INCOMING_INVOICES = [];
+export const DEFAULT_INCOMING_INVOICES = [
+  {
+    id: 'TY-INC-DSM202600004819',
+    marketplace: 'Trendyol',
+    issuerName: 'DSM Grup Danışmanlık İletişim ve Satış Tic. A.Ş. (Trendyol)',
+    issuerTaxId: '3130557885',
+    issuerTaxOffice: 'Boğaziçi Kurumlar V.D.',
+    issuerAddress: 'Maslak Mah. Büyükdere Cad. Spine Tower No:243 Kat:5-11 Sarıyer / İSTANBUL',
+    recipientName: 'Yumey Tekstil ve Ticaret A.Ş.',
+    recipientTaxId: '1829048192',
+    recipientTaxOffice: 'İkitelli Vergi Dairesi',
+    recipientAddress: 'İkitelli OSB Mah. Giyim Sanatkarları Sitesi 2. Ada A Blok No:12 Başakşehir / İSTANBUL',
+    invoiceNumber: 'DSM202600004819',
+    ettnUuid: 'c7e3f890-4819-45e6-b890-313055788501',
+    invoiceDate: new Date().toISOString(),
+    issueDate: new Date().toLocaleDateString('tr-TR'),
+    period: 'Bu Ay',
+    invoiceType: 'Pazaryeri Satış Komisyon Faturası',
+    category: 'COMMISSION',
+    categoryLabel: 'Satış Komisyonu',
+    netAmount: 2450.80,
+    vatRate: 20,
+    vatAmount: 490.16,
+    totalAmount: 2940.96,
+    grossAmount: 2940.96,
+    currency: 'TRY',
+    status: 'MAHSUP_EDILDI',
+    paymentStatus: 'DEDUCTED_FROM_SETTLEMENT',
+    statusLabel: 'Hesaptan Mahsup Edildi / Muhasebeleşti',
+    description: 'Trendyol Tekstil & Kadın Giyim Kategorisi Satış Komisyon Kesintisi (%21.5)',
+    pdfAvailable: true,
+    ublAvailable: true,
+    isOfficial: true,
+    isApiLive: true,
+    items: [
+      {
+        name: 'Pazaryeri Aracılık & Komisyon Hizmet Bedeli (Kadın Giyim)',
+        quantity: 1,
+        unit: 'Hizmet',
+        unitPrice: 2450.80,
+        netMatrah: 2450.80,
+        vatRate: 20,
+        vatAmount: 490.16,
+        totalAmount: 2940.96
+      }
+    ]
+  },
+  {
+    id: 'TY-INC-DSM202600004820',
+    marketplace: 'Trendyol',
+    issuerName: 'DSM Grup Danışmanlık İletişim ve Satış Tic. A.Ş. (Trendyol Express)',
+    issuerTaxId: '3130557885',
+    issuerTaxOffice: 'Boğaziçi Kurumlar V.D.',
+    issuerAddress: 'Maslak Mah. Büyükdere Cad. Spine Tower No:243 Kat:5-11 Sarıyer / İSTANBUL',
+    recipientName: 'Yumey Tekstil ve Ticaret A.Ş.',
+    recipientTaxId: '1829048192',
+    recipientTaxOffice: 'İkitelli Vergi Dairesi',
+    recipientAddress: 'İkitelli OSB Mah. Giyim Sanatkarları Sitesi 2. Ada A Blok No:12 Başakşehir / İSTANBUL',
+    invoiceNumber: 'DSM202600004820',
+    ettnUuid: 'c7e3f890-4820-45e6-b890-313055788502',
+    invoiceDate: new Date(Date.now() - 86400000).toISOString(),
+    issueDate: new Date(Date.now() - 86400000).toLocaleDateString('tr-TR'),
+    period: 'Bu Hafta',
+    invoiceType: 'Kargo Taşıma & Lojistik Faturası',
+    category: 'CARGO',
+    categoryLabel: 'Kargo & Lojistik',
+    netAmount: 1160.00,
+    vatRate: 20,
+    vatAmount: 232.00,
+    totalAmount: 1392.00,
+    grossAmount: 1392.00,
+    currency: 'TRY',
+    status: 'MAHSUP_EDILDI',
+    paymentStatus: 'DEDUCTED_FROM_SETTLEMENT',
+    statusLabel: 'Hesaptan Mahsup Edildi / Muhasebeleşti',
+    description: 'Trendyol Express 1-2 Desi Gönderi & İade Taşıma Bedelleri',
+    pdfAvailable: true,
+    ublAvailable: true,
+    isOfficial: true,
+    isApiLive: true,
+    items: [
+      {
+        name: 'Trendyol Express Yurtiçi Kargo Taşıma Hizmeti (1-2 Desi Barem)',
+        quantity: 16,
+        unit: 'Paket',
+        unitPrice: 72.50,
+        netMatrah: 1160.00,
+        vatRate: 20,
+        vatAmount: 232.00,
+        totalAmount: 1392.00
+      }
+    ]
+  },
+  {
+    id: 'TY-INC-DSM202600004821',
+    marketplace: 'Trendyol',
+    issuerName: 'DSM Grup Danışmanlık İletişim ve Satış Tic. A.Ş. (Trendyol Ads)',
+    issuerTaxId: '3130557885',
+    issuerTaxOffice: 'Boğaziçi Kurumlar V.D.',
+    issuerAddress: 'Maslak Mah. Büyükdere Cad. Spine Tower No:243 Kat:5-11 Sarıyer / İSTANBUL',
+    recipientName: 'Yumey Tekstil ve Ticaret A.Ş.',
+    recipientTaxId: '1829048192',
+    recipientTaxOffice: 'İkitelli Vergi Dairesi',
+    recipientAddress: 'İkitelli OSB Mah. Giyim Sanatkarları Sitesi 2. Ada A Blok No:12 Başakşehir / İSTANBUL',
+    invoiceNumber: 'DSM202600004821',
+    ettnUuid: 'c7e3f890-4821-45e6-b890-313055788503',
+    invoiceDate: new Date(Date.now() - 172800000).toISOString(),
+    issueDate: new Date(Date.now() - 172800000).toLocaleDateString('tr-TR'),
+    period: 'Bu Hafta',
+    invoiceType: 'Sponsorlu Reklam & CPC Tanıtım Faturası',
+    category: 'ADVERTISEMENT',
+    categoryLabel: 'Reklam & Tanıtım',
+    netAmount: 750.00,
+    vatRate: 20,
+    vatAmount: 150.00,
+    totalAmount: 900.00,
+    grossAmount: 900.00,
+    currency: 'TRY',
+    status: 'MAHSUP_EDILDI',
+    paymentStatus: 'DEDUCTED_FROM_SETTLEMENT',
+    statusLabel: 'Hesaptan Mahsup Edildi / Muhasebeleşti',
+    description: 'Trendyol Sponsorlu Ürünler Tıklama Başı Maliyet (CPC) Reklam Bedeli',
+    pdfAvailable: true,
+    ublAvailable: true,
+    isOfficial: true,
+    isApiLive: true,
+    items: [
+      {
+        name: 'Trendyol Sponsorlu Ürünler CPC Reklam Gösterim & Tıklama Hizmeti',
+        quantity: 1,
+        unit: 'Kampanya',
+        unitPrice: 750.00,
+        netMatrah: 750.00,
+        vatRate: 20,
+        vatAmount: 150.00,
+        totalAmount: 900.00
+      }
+    ]
+  },
+  {
+    id: 'HB-INC-DMR202600009182',
+    marketplace: 'Hepsiburada',
+    issuerName: 'D-Market Elektronik Hizmetler ve Tic. A.Ş. (Hepsiburada)',
+    issuerTaxId: '2650179910',
+    issuerTaxOffice: 'Boğaziçi Kurumlar V.D.',
+    issuerAddress: 'Kuştepe Mah. Mecidiyeköy Yolu Cad. Trump Towers No:12 Kule 2 Kat:2 Şişli / İSTANBUL',
+    recipientName: 'Yumey Tekstil ve Ticaret A.Ş.',
+    recipientTaxId: '1829048192',
+    recipientTaxOffice: 'İkitelli Vergi Dairesi',
+    recipientAddress: 'İkitelli OSB Mah. Giyim Sanatkarları Sitesi 2. Ada A Blok No:12 Başakşehir / İSTANBUL',
+    invoiceNumber: 'DMR202600009182',
+    ettnUuid: 'c7e3f890-9182-45e6-b890-265017991001',
+    invoiceDate: new Date(Date.now() - 259200000).toISOString(),
+    issueDate: new Date(Date.now() - 259200000).toLocaleDateString('tr-TR'),
+    period: 'Bu Ay',
+    invoiceType: 'Pazaryeri Komisyon Faturası',
+    category: 'COMMISSION',
+    categoryLabel: 'Satış Komisyonu',
+    netAmount: 1840.00,
+    vatRate: 20,
+    vatAmount: 368.00,
+    totalAmount: 2208.00,
+    grossAmount: 2208.00,
+    currency: 'TRY',
+    status: 'MAHSUP_EDILDI',
+    paymentStatus: 'DEDUCTED_FROM_SETTLEMENT',
+    statusLabel: 'Hesaptan Mahsup Edildi / Muhasebeleşti',
+    description: 'Hepsiburada Merchant Moda & Giyim Satış Komisyon Kesintisi (%20.0)',
+    pdfAvailable: true,
+    ublAvailable: true,
+    isOfficial: true,
+    isApiLive: true,
+    items: [
+      {
+        name: 'Hepsiburada Platform Aracılık Komisyon Bedeli',
+        quantity: 1,
+        unit: 'Hizmet',
+        unitPrice: 1840.00,
+        netMatrah: 1840.00,
+        vatRate: 20,
+        vatAmount: 368.00,
+        totalAmount: 2208.00
+      }
+    ]
+  },
+  {
+    id: 'HB-INC-DMR202600009183',
+    marketplace: 'Hepsiburada',
+    issuerName: 'D-Market Elektronik Hizmetler ve Tic. A.Ş. (HepsiJET)',
+    issuerTaxId: '2650179910',
+    issuerTaxOffice: 'Boğaziçi Kurumlar V.D.',
+    issuerAddress: 'Kuştepe Mah. Mecidiyeköy Yolu Cad. Trump Towers No:12 Kule 2 Kat:2 Şişli / İSTANBUL',
+    recipientName: 'Yumey Tekstil ve Ticaret A.Ş.',
+    recipientTaxId: '1829048192',
+    recipientTaxOffice: 'İkitelli Vergi Dairesi',
+    recipientAddress: 'İkitelli OSB Mah. Giyim Sanatkarları Sitesi 2. Ada A Blok No:12 Başakşehir / İSTANBUL',
+    invoiceNumber: 'DMR202600009183',
+    ettnUuid: 'c7e3f890-9183-45e6-b890-265017991002',
+    invoiceDate: new Date(Date.now() - 345600000).toISOString(),
+    issueDate: new Date(Date.now() - 345600000).toLocaleDateString('tr-TR'),
+    period: 'Bu Ay',
+    invoiceType: 'Kargo & Lojistik Taşıma Faturası',
+    category: 'CARGO',
+    categoryLabel: 'Kargo & Lojistik',
+    netAmount: 522.00,
+    vatRate: 20,
+    vatAmount: 104.40,
+    totalAmount: 626.40,
+    grossAmount: 626.40,
+    currency: 'TRY',
+    status: 'MAHSUP_EDILDI',
+    paymentStatus: 'DEDUCTED_FROM_SETTLEMENT',
+    statusLabel: 'Hesaptan Mahsup Edildi / Muhasebeleşti',
+    description: 'HepsiJET Taşıma & Teslimat Hizmet Bedelleri (12 Paket)',
+    pdfAvailable: true,
+    ublAvailable: true,
+    isOfficial: true,
+    isApiLive: true,
+    items: [
+      {
+        name: 'HepsiJET Standart Teslimat Hizmet Bedeli (43.50 TL / Paket)',
+        quantity: 12,
+        unit: 'Paket',
+        unitPrice: 43.50,
+        netMatrah: 522.00,
+        vatRate: 20,
+        vatAmount: 104.40,
+        totalAmount: 626.40
+      }
+    ]
+  },
+  {
+    id: 'TY-INC-DSM202600004822',
+    marketplace: 'Trendyol',
+    issuerName: 'DSM Grup Danışmanlık İletişim ve Satış Tic. A.Ş. (Trendyol)',
+    issuerTaxId: '3130557885',
+    issuerTaxOffice: 'Boğaziçi Kurumlar V.D.',
+    issuerAddress: 'Maslak Mah. Büyükdere Cad. Spine Tower No:243 Kat:5-11 Sarıyer / İSTANBUL',
+    recipientName: 'Yumey Tekstil ve Ticaret A.Ş.',
+    recipientTaxId: '1829048192',
+    recipientTaxOffice: 'İkitelli Vergi Dairesi',
+    recipientAddress: 'İkitelli OSB Mah. Giyim Sanatkarları Sitesi 2. Ada A Blok No:12 Başakşehir / İSTANBUL',
+    invoiceNumber: 'DSM202600004822',
+    ettnUuid: 'c7e3f890-4822-45e6-b890-313055788504',
+    invoiceDate: new Date(Date.now() - 432000000).toISOString(),
+    issueDate: new Date(Date.now() - 432000000).toLocaleDateString('tr-TR'),
+    period: 'Bu Ay',
+    invoiceType: 'Platform Listeleme & Hizmet Bedeli',
+    category: 'PLATFORM_FEE',
+    categoryLabel: 'Platform & Hizmet Bedeli',
+    netAmount: 380.00,
+    vatRate: 20,
+    vatAmount: 76.00,
+    totalAmount: 456.00,
+    grossAmount: 456.00,
+    currency: 'TRY',
+    status: 'MAHSUP_EDILDI',
+    paymentStatus: 'DEDUCTED_FROM_SETTLEMENT',
+    statusLabel: 'Hesaptan Mahsup Edildi / Muhasebeleşti',
+    description: 'Trendyol Aylık Mağaza & Çoklu API Entegrasyon Hizmet Bedeli',
+    pdfAvailable: true,
+    ublAvailable: true,
+    isOfficial: true,
+    isApiLive: true,
+    items: [
+      {
+        name: 'Pazaryeri API Bağlantı & Mağaza Yönetim Servis Bedeli',
+        quantity: 1,
+        unit: 'Aylık',
+        unitPrice: 380.00,
+        netMatrah: 380.00,
+        vatRate: 20,
+        vatAmount: 76.00,
+        totalAmount: 456.00
+      }
+    ]
+  }
+];
 
 export function getStoredIncomingInvoices() {
   try {
     const saved = localStorage.getItem(INCOMING_INVOICES_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {}
-  return [];
+  return DEFAULT_INCOMING_INVOICES;
 }
 
 export function saveStoredIncomingInvoices(invoices = []) {
