@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>izeeg AI — Sesli Mobil Satış Sunumu (WhatsApp Paylaşımı)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #070a10;
+      --bg-card: rgba(16, 24, 40, 0.85);
+      --border-card: rgba(255, 255, 255, 0.12);
+      --primary: #f27a1a;
+      --primary-glow: rgba(242, 122, 26, 0.35);
+      --secondary: #10b981;
+      --secondary-glow: rgba(16, 185, 129, 0.3);
+      --purple: #8b5cf6;
+      --purple-glow: rgba(139, 92, 246, 0.3);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Arka Plan Işık Efekti */
+    .glow-sphere {
+      position: fixed;
+      top: -10%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90vw;
+      height: 40vh;
+      background: radial-gradient(circle, rgba(242, 122, 26, 0.2) 0%, rgba(139, 92, 246, 0.12) 50%, transparent 70%);
+      filter: blur(60px);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Üst Bar (Mobil Uyumlu) */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      height: 60px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-card);
+      background: rgba(7, 10, 16, 0.9);
+      backdrop-filter: blur(16px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #f27a1a, #ea580c);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 16px;
+      color: #fff;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-badge {
+      font-size: 9px;
+      font-weight: 800;
+      background: rgba(242, 122, 26, 0.15);
+      color: #f27a1a;
+      border: 1px solid rgba(242, 122, 26, 0.4);
+      padding: 2px 6px;
+      border-radius: 12px;
+    }
+
+    /* Ses Kontrol Butonu */
+    .voice-control-btn {
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      transition: all 0.2s ease;
+    }
+
+    .voice-control-btn.playing {
+      background: linear-gradient(135deg, #10b981, #059669);
+      border-color: #34d399;
+      box-shadow: 0 0 15px var(--secondary-glow);
+      animation: pulse-glow 2s infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.92; transform: scale(1.03); }
+    }
+
+    /* Slayt Konteynırı (Mobil & Masaüstü) */
+    .slider-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: calc(100vh - 60px - 70px);
+    }
+
+    .slide-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 24px;
+      padding: 24px 20px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      position: relative;
+      overflow: hidden;
+      display: none;
+      animation: fadeInSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .slide-card.active {
+      display: block;
+    }
+
+    @keyframes fadeInSlide {
+      from {
+        opacity: 0;
+        transform: translateY(15px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .slide-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 4px 10px;
+      border-radius: 16px;
+      margin-bottom: 12px;
+      width: fit-content;
+    }
+
+    .badge-orange { background: rgba(242, 122, 26, 0.15); color: #f27a1a; border: 1px solid rgba(242, 122, 26, 0.4); }
+    .badge-emerald { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-rose { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); }
+    .badge-purple { background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.4); }
+
+    .slide-title {
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1.25;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #ffffff 40%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+
+    /* Sesli Anlatım Canlı Altyazı Kutusu */
+    .speaker-box {
+      background: linear-gradient(135deg, rgba(242, 122, 26, 0.1), rgba(139, 92, 246, 0.1));
+      border: 1px solid rgba(242, 122, 26, 0.3);
+      border-radius: 16px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .speaker-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #f27a1a, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .speaker-info {
+      flex: 1;
+    }
+
+    .speaker-name {
+      font-size: 11px;
+      font-weight: 800;
+      color: #f27a1a;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .speaker-text {
+      font-size: 12px;
+      color: #e2e8f0;
+      font-weight: 600;
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+
+    .sound-waves {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 16px;
+    }
+
+    .wave-bar {
+      width: 3px;
+      background: #f27a1a;
+      border-radius: 2px;
+      animation: wave 1s infinite ease-in-out;
+    }
+
+    .wave-bar:nth-child(2) { animation-delay: 0.2s; height: 12px; }
+    .wave-bar:nth-child(3) { animation-delay: 0.4s; height: 16px; }
+    .wave-bar:nth-child(4) { animation-delay: 0.1s; height: 8px; }
+
+    @keyframes wave {
+      0%, 100% { height: 4px; }
+      50% { height: 16px; }
+    }
+
+    /* Grid & Kartlar */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    @media (min-width: 640px) {
+      .grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+      .slide-title {
+        font-size: 32px;
+      }
+    }
+
+    .mini-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .mini-card-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .mini-card-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .stat-val {
+      font-size: 22px;
+      font-weight: 900;
+      font-family: 'JetBrains Mono', monospace;
+      color: #fff;
+      margin-top: 4px;
+    }
+
+    /* WhatsApp & Eylem Butonları */
+    .whatsapp-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #25D366, #128C7E);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 900;
+      text-align: center;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 14px;
+      box-shadow: 0 6px 20px rgba(37, 211, 102, 0.3);
+      cursor: pointer;
+      border: none;
+    }
+
+    /* Alt Navigasyon Çubuğu */
+    footer {
+      position: sticky;
+      bottom: 0;
+      z-index: 40;
+      height: 64px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border-card);
+      background: rgba(7, 10, 16, 0.95);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav-btn {
+      height: 40px;
+      padding: 0 16px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-card);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .nav-btn.primary {
+      background: linear-gradient(135deg, #f27a1a, #ea580c);
+      border: none;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .indicator-text {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .progress-bar-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #f27a1a, #10b981);
+      width: 10%;
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="glow-sphere"></div>
+
+  <!-- Üst Bar -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">⚡</div>
+      <div class="brand-title">
+        <span>izeeg AI</span>
+        <span class="brand-badge">Sesli Sunum</span>
+      </div>
+    </div>
+
+    <button class="voice-control-btn" id="voiceToggleBtn" onclick="toggleVoice()">
+      <span id="voiceIcon">🔊</span>
+      <span id="voiceStatusText">Sesli Anlatımı Aç</span>
+    </button>
+  </header>
+
+  <!-- Slaytlar Alanı -->
+  <main class="slider-container" id="slider">
+
+    <!-- 1. SLAYT -->
+    <article class="slide-card active" data-slide="1" data-speech="Merhaba, hoş geldiniz! Ben İsmet. Bugün size e-ticarette işlerinizi tamamen otopilota bağlayacak, gizli kesintilerinizi durdurup kârınızı kuruşu kuruşuna gösterecek yeni nesil izeeg AI sistemimizi anlatmak istiyorum. Gelin birlikte inceleyelim.">
+      <div class="slide-badge badge-orange">✨ 2026 Türkiye E-Ticaret Ekosistemi</div>
+      <h1 class="slide-title">Pazaryerlerini Tek Merkezden Yöneten Akıllı Otopilot</h1>
+      <p class="slide-desc">Trendyol, Hepsiburada, Amazon ve Shopify mağazalarınızı birbirine bağlayın; kuruşu kuruşuna net kârınızı görün.</p>
+
+      <div class="speaker-box">
+        <div class="speaker-avatar">🎙️</div>
+        <div class="speaker-info">
+          <div class="speaker-name">İsmet Köse • izeeg AI Kurucusu</div>
+          <div class="speaker-text">"Merhaba! E-ticaretteki tüm gizli kesintileri durdurup mağazanızı otopilota alıyoruz."</div>
+        </div>
+        <div class="sound-waves" id="waves1" style="display: none;">
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="mini-card">
+          <div class="mini-card-title">⚡ 1-Tık Canlı API</div>
+          <div class="mini-card-desc">Siparişler, kargo kodları ve sorular tek havuzda.</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">💰 18.500 ₺ Kargo Tasarrufu</div>
+          <div class="mini-card-desc">Hatalı desi kesintilerini anında yakalar.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 2. SLAYT -->
+    <article class="slide-card" data-slide="2" data-speech="Değerli dostlar, pazaryerlerinde satış yaparken ciro yüksek görünür ama ay sonunda cepte para kalmaz. Neden mi? Çünkü kargo şirketleri bir desilik paketi dört desi yazar, fark etmezsiniz. Komisyonlar, reklamlar ve ceza faturaları birbirine karışır. İşte biz bu kanayan yarayı kökünden çözdük.">
+      <div class="slide-badge badge-rose">⚠️ Pazardaki Büyük Sorun</div>
+      <h2 class="slide-title">E-Ticaret Satıcıları Neden Para Kaybediyor?</h2>
+      <p class="slide-desc">Satıcılar ciro yapıyor gibi görünürken gizli kesintiler ve operasyonel karmaşa yüzünden her ay yüzbinlerce lira kaybediyor.</p>
+
+      <div class="speaker-box">
+        <div class="speaker-avatar">🎙️</div>
+        <div class="speaker-info">
+          <div class="speaker-name">Sesli Anlatım</div>
+          <div class="speaker-text">"Ciro var ama kâr nerede? Hatalı desiler ve karmaşık faturalar yüzünden para eriyor."</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="mini-card" style="border-color: rgba(244,63,94,0.3);">
+          <div class="mini-card-title" style="color: #fb7185;">📦 Hatalı Kargo Desileri</div>
+          <div class="mini-card-desc">1 desilik tişört 4 desi yazılıyor, her pakette 30-50 TL zarar ediliyor.</div>
+        </div>
+        <div class="mini-card" style="border-color: rgba(245,158,11,0.3);">
+          <div class="mini-card-title" style="color: #fbbf24;">💸 Karmaşık Kesintiler</div>
+          <div class="mini-card-desc">Komisyon, kargo ve reklam faturaları ay sonunda kâbus oluyor.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 3. SLAYT -->
+    <article class="slide-card" data-slide="3" data-speech="izeeg AI ile Trendyol, Hepsiburada, Amazon ve kendi web sitenizi tek bir akıllı ekranda topluyoruz. Beş ayrı programa binlerce lira vermek yerine, tüm operasyonunuzu tek merkezden yönetiyorsunuz.">
+      <div class="slide-badge badge-emerald">💡 Bütünleşik Çözüm</div>
+      <h2 class="slide-title">izeeg AI: Tek Çatı Altında Tam Ekosistem</h2>
+      <p class="slide-desc">Ayrı ayrı 5 farklı programa binlerce lira ödemek yerine tek çatı altında tüm operasyonunuzu otomatikleştirin.</p>
+
+      <div class="speaker-box">
+        <div class="speaker-avatar">🎙️</div>
+        <div class="speaker-info">
+          <div class="speaker-name">Sesli Anlatım</div>
+          <div class="speaker-text">"Tek panel, tek akıl. Siparişler, faturalar ve kâr hesabı tek merkezde."</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="mini-card">
+          <div class="mini-card-title">✅ Canlı Mağaza Bağlantısı</div>
+          <div class="mini-card-desc">Saniyeler içinde tüm siparişleri ve kargo kodlarını eşitler.</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">📊 Gerçek Net Kâr</div>
+          <div class="mini-card-desc">Komisyon + Kargo + Stopaj sonrası net kalan para.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 4. SLAYT (TARAFIMIZA KESİLEN FATURALAR) -->
+    <article class="slide-card" data-slide="4" data-speech="Bakın burası en can alıcı yer. Pazaryerlerinin firmanıza kestiği komisyon, kargo ve reklam faturalarını sistem otomatik olarak ayıklar. Yüzde yirmi KDV matrahlarını kuruşu kuruşuna hesaplar ve Gelir İdaresi Başkanlığı standartlarında resmi e-arşiv önizlemesiyle muhasebecinize tek tıkla teslim edeceğiniz mutabakatı çıkarır.">
+      <div class="slide-badge badge-rose">⭐ En Çok Sevilen Modül</div>
+      <h2 class="slide-title">Tarafınıza Kesilen Faturalar & Gider Analizi</h2>
+      <p class="slide-desc">Pazaryerinin kestiği komisyon, kargo, reklam ve hizmet bedellerini otomatik ayıklar, KDV matrahlarını kuruşuna hesaplar.</p>
+
+      <div class="speaker-box">
+        <div class="speaker-avatar">🎙️</div>
+        <div class="speaker-info">
+          <div class="speaker-name">Sesli Anlatım</div>
+          <div class="speaker-text">"Pazaryeri gider faturalarını tek tıkla GİB formatında ayıklar ve muhasebeleştirir."</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="mini-card" style="background: rgba(244,63,94,0.1); border-color: rgba(244,63,94,0.3);">
+          <div class="mini-card-title" style="color:#fb7185;">🏢 GİB E-Arşiv Önizleme</div>
+          <div class="mini-card-desc">Karekodlu, ETTN numaralı resmi fatura dökümü.</div>
+        </div>
+        <div class="mini-card" style="background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3);">
+          <div class="mini-card-title" style="color:#fbbf24;">📑 4 Ana Gider Ayrımı</div>
+          <div class="mini-card-desc">Komisyon, Kargo, Reklam & Platform Hizmet Bedelleri.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 5. SLAYT (CANLI API) -->
+    <article class="slide-card" data-slide="5" data-speech="Sistemimiz doğrudan resmi API'lerle konuşur. Tek bir tıkla mağazanızdaki yeni siparişleri, kargo kodlarını, iadeleri ve müşteri hareketlerini anında çeker, hiçbir siparişi kaçırmazsınız.">
+      <div class="slide-badge badge-orange">⚡ Canlı Entegrasyon</div>
+      <h2 class="slide-title">1-Tık Canlı API Senkronizasyonu</h2>
+      <p class="slide-desc">Trendyol Partner, Hepsiburada Merchant ve Amazon SP-API anahtarlarınızla tüm mağazanızı tek tıkla canlıya bağlayın.</p>
+
+      <div class="speaker-box">
+        <div class="speaker-avatar">🎙️</div>
+        <div class="speaker-info">
+          <div class="speaker-name">Sesli Anlatım</div>
+          <div class="speaker-text">"Paneller arasında kaybolmayın. Tek tıkla tüm pazaryerleri elinizin altında."</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="mini-card">
+          <div class="mini-card-title">🟠 Trendyol & HB API</div>
+          <div class="mini-card-desc">Sipariş, kargo, ekstre ve soru/yorum akışı.</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">🟡 Amazon & Shopify</div>
+          <div class="mini-card-desc">Çoklu depo ve anlık stok koruma kalkanı.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 6. SLAYT (NET KÂR) -->
+    <article class="slide-card" data-slide="6" data-speech="Artık tahmini hesaplara son! Ürün maliyetiniz, pazaryeri komisyonu, kargo baremi ve KDV düştükten sonra net cebinize kalan kârı gösteriyoruz. Zarar eden ürünleri kırmızı renkle anında uyararak zarar etmenizi engelliyoruz.">
+      <div class="slide-badge badge-emerald">💰 Finansal Güç</div>
+      <h2 class="slide-title">Kuruşu Kuruşuna Gerçek Net Kâr Hesabı</h2>
+      <p class="slide-desc">Satış fiyatından komisyon, kargo baremi, KDV matrahı ve ürün maliyetini düşerek gerçek kârınızı hesaplar.</p>
+
+      <div class="speaker-box">
+        <div class="speaker-avatar">🎙️</div>
+        <div class="speaker-info">
+          <div class="speaker-name">Sesli Anlatım</div>
+          <div class="speaker-text">"Zarar eden ürünleri anında kırmızı renkle yakalayıp kârınızı koruyoruz."</div>
+        </div>
+      </div>
+
+      <div class="mini-card" style="border: 1px solid rgba(16,185,129,0.4); background: rgba(16,185,129,0.08);">
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+          <span>799 TL Satış - 280 TL Maliyet - 171 TL Komisyon - 87 TL Kargo</span>
+        </div>
+        <div style="font-size:18px; font-weight:900; color:#34d399; font-family:monospace;">
+          = 260,22 ₺ Net Cepte Kalan Kâr (%32.6)
+        </div>
+      </div>
+    </article>
+
+    <!-- 7. SLAYT (DESİ KAÇAĞI) -->
+    <article class="slide-card" data-slide="7" data-speech="Kargo firması tişört paketinizi 3 desi mi yazdı? izeeg AI bunu anında yakalar, aradaki 38 liralık haksız kesintiyi hesaplar ve tek tıkla resmi itiraz dilekçesini oluşturur. Ayda ortalama 18 bin lira kargo paranız cebinizde kalır.">
+      <div class="slide-badge badge-rose">📦 Kargo Güvenliği</div>
+      <h2 class="slide-title">Kargo Desi Kaçağı Dedektörü & İtiraz Motoru</h2>
+      <p class="slide-desc">Kargo şirketlerinin haksız desi ölçümlerini yakalayın, binlerce liralık haksız kesintiyi 1-tık dilekçeyle geri alın.</p>
+
+      <div class="speaker-box">
+        <div class="speaker-avatar">🎙️</div>
+        <div class="speaker-info">
+          <div class="speaker-name">Sesli Anlatım</div>
+          <div class="speaker-text">"Hatalı desi kesintilerini tek tıkla yakalayıp kargo şirketine resmi dilekçe üretiyoruz."</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="mini-card">
+          <div class="mini-card-title">🔍 Otomatik Desi Karşılaştırma</div>
+          <div class="mini-card-desc">1 desi tişörtün 4 desi yazıldığını yakalar.</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">📑 1-Tık İtiraz Dilekçesi</div>
+          <div class="mini-card-desc">Trendyol veya Kargo şubesine anında resmi talep.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 8. SLAYT (7/24 AI OTOPİLOT) -->
+    <article class="slide-card" data-slide="8" data-speech="Gece saat 2'de gelen 'Boyum 1.68, kilom 58 hangi beden almalıyım?' sorusunu düşünün. Yapay zekamız ürün kumaşını ve kalıbını analiz eder, onayınızı bile beklemeden 2 saniyede kusursuz bir mağaza nezaketiyle yanıtlar. Üstelik daha önce cevaplanmış soruları korur, mükerrer cevap vermez.">
+      <div class="slide-badge badge-purple">🤖 7/24 Sıfır Onaylı AI Otopilot</div>
+      <h2 class="slide-title">Soruları Okur, Analiz Eder ve Anında Yanıtlar</h2>
+      <p class="slide-desc">Cevaplanmamış müşteri sorularını ve yorumlarını tespit eder, onay beklemeden doğrudan yanıtlar. Mükerrer cevap vermez.</p>
+
+      <div class="speaker-box">
+        <div class="speaker-avatar">🎙️</div>
+        <div class="speaker-info">
+          <div class="speaker-name">Sesli Anlatım</div>
+          <div class="speaker-text">"Gece siz uyurken AI müşteri sorularını okur ve anında satışı kapatacak cevabı verir."</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="mini-card">
+          <div class="mini-card-title">⚡ Sıfır Onay ile Tam Otonom</div>
+          <div class="mini-card-desc">Satıcı beklemeden 2 saniyede nazik yanıt.</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">🛡️ Mükerrer Cevap Koruması</div>
+          <div class="mini-card-desc">Cevaplanmış soruları korur, ikinci kez yazmaz.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 9. SLAYT (KARŞILAŞTIRMA) -->
+    <article class="slide-card" data-slide="9" data-speech="Eski tip hantal entegratörler sadece sipariş taşır. izeeg AI ise kârınızı korur, kaçakları yakalar ve satışlarınızı büyütür.">
+      <div class="slide-badge badge-orange">🏆 Neden izeeg AI?</div>
+      <h2 class="slide-title">Eski Entegratörler vs. izeeg AI</h2>
+      <p class="slide-desc">Hantal programlara mahkum olmayın. izeeg AI ile kargo kaçaklarını durdurun ve kârınızı büyütün.</p>
+
+      <div class="speaker-box">
+        <div class="speaker-avatar">🎙️</div>
+        <div class="speaker-info">
+          <div class="speaker-name">Sesli Anlatım</div>
+          <div class="speaker-text">"Geleneksel programlar sadece sipariş çeker. izeeg AI cebinizdeki parayı korur."</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="mini-card">
+          <div class="mini-card-title" style="color:#f87171;">✕ Eski Entegratörler</div>
+          <div class="mini-card-desc">Desi kaçağı yok, fatura ayrıştırma yok, manuel iş yükü.</div>
+        </div>
+        <div class="mini-card" style="border-color:rgba(16,185,129,0.4);">
+          <div class="mini-card-title" style="color:#34d399;">✓ izeeg AI Otopilot</div>
+          <div class="mini-card-desc">Kargo kaçağı dedektörü, GİB e-arşiv, 7/24 AI soru asistanı.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 10. SLAYT (KAPANIŞ & WHATSAPP) -->
+    <article class="slide-card" data-slide="10" data-speech="Gelin mağazanızı sadece 15 dakikada izeeg AI otopilotuna bağlayalım, ilk günden kargo kaçaklarınızı yakalayıp kârınızı artıralım. WhatsApp'tan bana hemen yazabilirsiniz, hayırlı ve bereketli satışlar dilerim!">
+      <div class="slide-badge badge-emerald">🚀 Hemen Başlayın</div>
+      <h2 class="slide-title">Mağazanızı Bugün Otopilota Alalım</h2>
+      <p class="slide-desc">15 dakikalık canlı kurulumla mağazanızı bağlayalım, ilk günden kargo kaçaklarınızı ve gerçek kârınızı görün.</p>
+
+      <div class="speaker-box">
+        <div class="speaker-avatar">🎙️</div>
+        <div class="speaker-info">
+          <div class="speaker-name">İsmet Köse • izeeg AI</div>
+          <div class="speaker-text">"Bana WhatsApp'tan hemen yazabilirsiniz, mağazanızı birlikte kuralım!"</div>
+        </div>
+      </div>
+
+      <a href="https://wa.me/?text=Merhaba%20%C4%B0smet%20Bey,%20izeeg%20AI%20sunumunuzu%20inceledim,%20ma%C4%9Fazam%C4%B1%20ba%C4%9Flamak%20ve%20detaylar%C4%B1%20g%C3%B6r%C3%BC%C5%9Fmek%20istiyorum." target="_blank" class="whatsapp-btn">
+        <span>💬 WhatsApp'tan Hemen İletişime Geç</span>
+      </a>
+    </article>
+
+  </main>
+
+  <!-- Alt Navigasyon -->
+  <footer>
+    <button class="nav-btn" id="prevBtn" onclick="prevSlide()" disabled>
+      ‹ Önceki
+    </button>
+
+    <div class="indicator-text" id="slideIndicator">
+      1 / 10
+    </div>
+
+    <button class="nav-btn primary" id="nextBtn" onclick="nextSlide()">
+      Sonraki ›
+    </button>
+
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </footer>
+
+  <script>
+    let currentSlide = 1;
+    let isVoiceActive = false;
+    let synth = window.speechSynthesis;
+    let currentUtterance = null;
+
+    const slides = document.querySelectorAll('.slide-card');
+    const totalSlides = slides.length;
+    const indicator = document.getElementById('slideIndicator');
+    const progressBar = document.getElementById('progressBar');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const voiceBtn = document.getElementById('voiceToggleBtn');
+    const voiceStatusText = document.getElementById('voiceStatusText');
+
+    function updateSlide() {
+      slides.forEach((s, idx) => {
+        if (idx + 1 === currentSlide) {
+          s.classList.add('active');
+        } else {
+          s.classList.remove('active');
+        }
+      });
+
+      indicator.textContent = `${currentSlide} / ${totalSlides}`;
+      progressBar.style.width = `${(currentSlide / totalSlides) * 100}%`;
+
+      prevBtn.disabled = currentSlide === 1;
+      nextBtn.disabled = currentSlide === totalSlides;
+
+      if (isVoiceActive) {
+        speakCurrentSlide();
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    // Sesli Anlatım Motoru (SpeechSynthesis API)
+    function speakCurrentSlide() {
+      if (!('speechSynthesis' in window)) {
+        alert('Tarayıcınız sesli anlatım özelliğini desteklemiyor.');
+        return;
+      }
+
+      synth.cancel(); // Önceki sesi durdur
+
+      const activeCard = document.querySelector(`.slide-card[data-slide="${currentSlide}"]`);
+      if (!activeCard) return;
+
+      const speechText = activeCard.getAttribute('data-speech');
+      if (!speechText) return;
+
+      currentUtterance = new SpeechSynthesisUtterance(speechText);
+      currentUtterance.lang = 'tr-TR';
+      currentUtterance.rate = 1.02; // Doğal ve akıcı konuşma hızı
+      currentUtterance.pitch = 1.0;
+
+      // Türkçe ses seçimi (varsa en kaliteli Türkçe ses)
+      const voices = synth.getVoices();
+      const trVoice = voices.find(v => v.lang.includes('tr') || v.name.toLowerCase().includes('turkish'));
+      if (trVoice) {
+        currentUtterance.voice = trVoice;
+      }
+
+      currentUtterance.onend = () => {
+        // İsteğe bağlı otomatik sonraki slayta geçiş
+      };
+
+      synth.speak(currentUtterance);
+    }
+
+    function toggleVoice() {
+      if (isVoiceActive) {
+        isVoiceActive = false;
+        synth.cancel();
+        voiceBtn.classList.remove('playing');
+        voiceStatusText.textContent = 'Sesli Anlatımı Aç';
+      } else {
+        isVoiceActive = true;
+        voiceBtn.classList.add('playing');
+        voiceStatusText.textContent = 'Sesli Anlatım Aktif 🔊';
+        speakCurrentSlide();
+      }
+    }
+
+    // Klavye Yön Tuşları
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+      else if (e.key === 'ArrowLeft') prevSlide();
+    });
+
+    // Dokunmatik Swipe (Mobilde sağa sola kaydırma)
+    let touchStartX = 0;
+    let touchEndX = 0;
+    document.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; });
+    document.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      if (touchStartX - touchEndX > 50) nextSlide();
+      if (touchEndX - touchStartX > 50) prevSlide();
+    });
+
+    // Ses listesini yükle
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+
+    updateSlide();
+  </script>
+</body>
+</html>

@@ -48,6 +48,48 @@ export function PitchDeckPage({ onOpenContactModal, onOpenSubModal, onNavigateTa
   const [activeSlide, setActiveSlide] = useState(0);
   const [copiedWhatsapp, setCopiedWhatsapp] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+
+  // Sesli Anlatımı Oynat
+  const speakSlideText = (text) => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    if (!text || !isVoiceActive) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'tr-TR';
+    utterance.rate = 1.02;
+    utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    const trVoice = voices.find(v => v.lang.includes('tr') || v.name.toLowerCase().includes('turkish'));
+    if (trVoice) utterance.voice = trVoice;
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const toggleVoiceNarration = () => {
+    if (isVoiceActive) {
+      setIsVoiceActive(false);
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    } else {
+      setIsVoiceActive(true);
+      const currentSlideData = slides[activeSlide];
+      if (currentSlideData && currentSlideData.speechText) {
+        speakSlideText(currentSlideData.speechText);
+      }
+    }
+  };
+
+  // Slayt değiştikçe seslendir
+  React.useEffect(() => {
+    if (isVoiceActive) {
+      const currentSlideData = slides[activeSlide];
+      if (currentSlideData && currentSlideData.speechText) {
+        speakSlideText(currentSlideData.speechText);
+      }
+    }
+  }, [activeSlide, isVoiceActive]);
 
   // Slayt Tanımları & Zengin Pazarlama İçerikleri
   const slides = [
@@ -58,6 +100,7 @@ export function PitchDeckPage({ onOpenContactModal, onOpenSubModal, onNavigateTa
       badge: '🌟 VİZYON & PROBLEM',
       title: 'izeeg AI: Ciroya Değil, Cebinize Giren Net Kâra Odaklanın',
       subtitle: 'Türkiye’nin İlk Kâr ve Kayıp Korumalı, Çok Kanallı Akıllı E-Ticaret İşletim Sistemi',
+      speechText: 'Merhaba, hoş geldiniz! Ben İsmet. Bugün size e-ticarette işlerinizi tamamen otopilota bağlayacak, gizli kesintilerinizi durdurup kârınızı kuruşu kuruşuna gösterecek yeni nesil izeeg AI sistemimizi anlatmak istiyorum. Gelin birlikte inceleyelim.',
       icon: Crown,
       content: (
         <div className="space-y-6">
@@ -493,6 +536,18 @@ export function PitchDeckPage({ onOpenContactModal, onOpenSubModal, onNavigateTa
 
           {/* Aksiyon Butonları */}
           <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+            <button
+              onClick={toggleVoiceNarration}
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs border transition-all cursor-pointer shadow-sm ${
+                isVoiceActive 
+                  ? 'bg-emerald-600 border-emerald-400 text-white shadow-emerald-500/30 animate-pulse' 
+                  : 'bg-purple-600/80 hover:bg-purple-600 border-purple-400 text-white'
+              }`}
+              title="İsmet Köse'nin sesinden sunumu dinle"
+            >
+              <span>{isVoiceActive ? '🔊 Sesli Anlatım Açık' : '🎙️ Sesli Dinle'}</span>
+            </button>
+
             <button
               onClick={handleDownloadPdf}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition-all cursor-pointer shadow-sm"
