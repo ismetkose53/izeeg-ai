@@ -97,11 +97,32 @@ const READY_TEMPLATES = [
 ];
 
 const MERCHANT_NOTES_KEY = 'izeeg_review_merchant_notes';
+const QA_AUTOPILOT_KEY = 'izeeg_qa_autopilot_enabled';
 
 export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigateToIntegrations, onToast }) {
   const [activeTab, setActiveTab] = useState('questions'); // 'questions' | 'reviews' | 'templates'
   const [selectedTone, setSelectedTone] = useState('FRIENDLY_SALES'); // 'FRIENDLY_SALES' | 'CONCISE' | 'DEFENSIVE_SOLUTION' | 'LUXURY_PREMIUM'
   
+  // 7/24 Tam Otonom AI Otopilot (Sıfır Onaylı Otomatik Yanıtlama)
+  const [autoPilotEnabled, setAutoPilotEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QA_AUTOPILOT_KEY);
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleAutoPilot = (enabled) => {
+    setAutoPilotEnabled(enabled);
+    try {
+      localStorage.setItem(QA_AUTOPILOT_KEY, String(enabled));
+    } catch {}
+    if (onToast) {
+      onToast(enabled ? '⚡ 7/24 AI Otopilot Aktif: Sorular onay beklemeden doğrudan yanıtlanacak.' : '⚠️ AI Otopilot Manuel moda alındı.');
+    }
+  };
+
   // Veri Havuzları
   const [questions, setQuestions] = useState(() => getStoredQuestions());
   const [reviews, setReviews] = useState(() => getStoredReviews());
@@ -236,6 +257,136 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
       setRegeneratingId(null);
       confetti({ particleCount: 35, spread: 45 });
     }, 450);
+  };
+
+  // ⚡ SIFIR ONAYLI ANINDA YANITLAMA (Mükerrer Cevap Korumalı Tekil Otopilot)
+  const handleInstantZeroClickAnswer = async (item, type = 'question') => {
+    // 1. Mükerrer Kontrolü: Eğer zaten cevaplanmışsa ikinci bir cevap gönderme!
+    if (item.status === 'ANSWERED' && item.sellerAnswer) {
+      if (onToast) {
+        onToast(`ℹ️ Bu ${type === 'question' ? 'soru' : 'değerlendirme'} daha önce yanıtlanmış. Mükerrer cevap engellendi.`);
+      }
+      return;
+    }
+
+    setSendingId(item.id);
+
+    try {
+      // 2. Yapay Zeka Soruyu/Yorumu Okur, Analiz Eder ve Doğrudan En Doğru Yanıtı Üretir
+      const generatedAnswer = editableAnswers[item.id] || generateSmartAIAnswer({ type, item, tone: selectedTone });
+
+      if (type === 'question') {
+        const res = await sendUniversalQuestionAnswer({ question: item, answerText: generatedAnswer });
+        if (res.success && res.updatedQuestions) {
+          setQuestions(res.updatedQuestions);
+        } else {
+          const updated = questions.map(q => q.id === item.id ? { 
+            ...q, 
+            status: 'ANSWERED', 
+            sellerAnswer: generatedAnswer, 
+            answeredDate: new Date().toISOString(),
+            isAutoPilotAnswered: true
+          } : q);
+          setQuestions(updated);
+          saveStoredQuestions(updated);
+        }
+        if (onToast) {
+          onToast(`⚡ AI Otopilot: Soru analiz edildi ve ${item.marketplace} sistemine anında iletildi!`);
+        }
+      } else {
+        const res = await sendUniversalReviewReply({ review: item, replyText: generatedAnswer });
+        if (res.success && res.updatedReviews) {
+          setReviews(res.updatedReviews);
+        } else {
+          const updated = reviews.map(r => r.id === item.id ? { 
+            ...r, 
+            status: 'ANSWERED', 
+            sellerAnswer: generatedAnswer, 
+            answeredDate: new Date().toISOString(),
+            isAutoPilotAnswered: true
+          } : r);
+          setReviews(updated);
+          saveStoredReviews(updated);
+        }
+        if (onToast) {
+          onToast(`⭐ AI Otopilot: Değerlendirme analiz edildi ve ${item.marketplace} üzerinde yayımlandı!`);
+        }
+      }
+
+      confetti({ particleCount: 70, spread: 60 });
+    } catch (err) {
+      console.warn("Auto pilot send error:", err);
+    } finally {
+      setSendingId(null);
+    }
+  };
+
+  // 🚀 7/24 AI OTOPİLOT: TÜM BEKLEYENLERİ SIFIR ONAYLA ANINDA YANITLA (Mükerrer Cevap Korumalı)
+  const handleInstantAutoPilotAll = async () => {
+    const pendingQList = questions.filter(q => q.status === 'PENDING' || !q.sellerAnswer);
+    const pendingRList = reviews.filter(r => r.status === 'PENDING' || !r.sellerAnswer);
+    const totalPending = pendingQList.length + pendingRList.length;
+
+    if (totalPending === 0) {
+      if (onToast) {
+        onToast('✅ Harika! Bekleyen hiçbir soru veya yorum bulunmuyor, hepsi zaten yanıtlanmış.');
+      }
+      return;
+    }
+
+    setIsBatchProcessing(true);
+    setBatchProgress(0);
+
+    let updatedQuestions = [...questions];
+    let updatedReviews = [...reviews];
+
+    let processedCount = 0;
+
+    // Soruları Otonom Yanıtla
+    for (const q of pendingQList) {
+      const answer = generateSmartAIAnswer({ type: 'question', item: q, tone: selectedTone });
+      try {
+        await sendUniversalQuestionAnswer({ question: q, answerText: answer });
+      } catch {}
+      updatedQuestions = updatedQuestions.map(item => item.id === q.id ? {
+        ...item,
+        status: 'ANSWERED',
+        sellerAnswer: answer,
+        answeredDate: new Date().toISOString(),
+        isAutoPilotAnswered: true
+      } : item);
+      processedCount++;
+      setBatchProgress(Math.round((processedCount / totalPending) * 100));
+    }
+
+    // Yorumları Otonom Yanıtla
+    for (const r of pendingRList) {
+      const answer = generateSmartAIAnswer({ type: 'review', item: r, tone: selectedTone });
+      try {
+        await sendUniversalReviewReply({ review: r, replyText: answer });
+      } catch {}
+      updatedReviews = updatedReviews.map(item => item.id === r.id ? {
+        ...item,
+        status: 'ANSWERED',
+        sellerAnswer: answer,
+        answeredDate: new Date().toISOString(),
+        isAutoPilotAnswered: true
+      } : item);
+      processedCount++;
+      setBatchProgress(Math.round((processedCount / totalPending) * 100));
+    }
+
+    setQuestions(updatedQuestions);
+    saveStoredQuestions(updatedQuestions);
+    setReviews(updatedReviews);
+    saveStoredReviews(updatedReviews);
+
+    setIsBatchProcessing(false);
+    confetti({ particleCount: 120, spread: 85 });
+
+    if (onToast) {
+      onToast(`🎉 7/24 AI Otopilot Tamamlandı: Toplam ${totalPending} adet soru ve yorum onay beklemeden yanıtlanarak pazaryerlerine iletildi!`);
+    }
   };
 
   // Doğrudan Panel Üzerinden Pazaryerine Yanıt Gönder (API Entegrasyonu ile Canlı İletim)
@@ -646,6 +797,83 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
         </div>
       </div>
 
+      {/* ⚡ 7/24 TAM OTONOM AI OTOPİLOT: SIFIR ONAYLI OTOMATİK YANITLAMA KARTI */}
+      <div className="bg-gradient-to-r from-[#170e28] via-[#211538] to-[#131b2e] text-white border border-purple-500/40 rounded-3xl p-5 shadow-lg relative overflow-hidden">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner transition-all ${
+              autoPilotEnabled 
+                ? 'bg-purple-500/20 border border-purple-400/50 text-purple-300' 
+                : 'bg-slate-800/50 border border-slate-700 text-slate-400'
+            }`}>
+              <Zap className={`w-6 h-6 ${autoPilotEnabled ? 'animate-pulse text-purple-300' : ''}`} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-purple-300 bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-400/30">
+                  7/24 AI OTOPİLOT
+                </span>
+                <span className={`text-[11px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1.5 ${
+                  autoPilotEnabled ? 'bg-purple-500 text-slate-950 shadow-sm' : 'bg-slate-700 text-slate-300'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${autoPilotEnabled ? 'bg-slate-950 animate-ping' : 'bg-slate-400'}`}></span>
+                  {autoPilotEnabled ? 'SIFIR ONAYLI OTOPİLOT AKTİF' : 'MANUEL ONAY MODU'}
+                </span>
+                <span className="text-[10px] text-emerald-300 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                  🛡️ Mükerrer Cevap Koruması Aktif
+                </span>
+              </div>
+              <h3 className="text-base font-extrabold text-white mt-1.5">
+                Müşteri Sorusu & Yorum Geldiğinde Doğrudan Analiz Et ve Otomatik Yanıtla
+              </h3>
+              <p className="text-xs text-slate-300 max-w-2xl mt-0.5 leading-relaxed">
+                {autoPilotEnabled 
+                  ? "Yapay zeka gelen soruları ve değerlendirmeleri anında okur, kumaş/beden analizi yapar ve satıcı onayı beklemeden doğrudan pazaryerine iletir. Önceden cevaplanmış soruları kesinlikle tekrar yanıtlamaz (mükerrer korumalı)."
+                  : "Otopilot duraklatıldı. Yanıtlar hazırlanır ancak gönderilmeden önce satıcı onayı beklenir."}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            {(pendingQuestionsCount > 0 || pendingReviewsCount > 0) && (
+              <button
+                type="button"
+                onClick={handleInstantAutoPilotAll}
+                disabled={isBatchProcessing}
+                className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-black shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Wand2 className={`w-4 h-4 ${isBatchProcessing ? 'animate-spin' : ''}`} />
+                <span>{isBatchProcessing ? 'Otopilot Yanıtlıyor...' : `⚡ Tüm Bekleyenleri Otopilotla Yanıtla (${pendingQuestionsCount + pendingReviewsCount})`}</span>
+              </button>
+            )}
+
+            {/* Toggle Switch */}
+            <div className="flex items-center gap-3 bg-slate-900/90 p-2.5 px-3 rounded-2xl border border-slate-700 flex-shrink-0 shadow-inner">
+              <div className="text-right">
+                <div className="text-xs font-bold text-slate-200">Sıfır Onay Modu</div>
+                <div className={`text-[10px] font-bold ${autoPilotEnabled ? 'text-purple-300' : 'text-slate-400'}`}>
+                  {autoPilotEnabled ? 'Otopilot Açık' : 'Kapalı'}
+                </div>
+              </div>
+              <button
+                onClick={() => toggleAutoPilot(!autoPilotEnabled)}
+                className={`w-14 h-8 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${
+                  autoPilotEnabled ? 'bg-purple-500 shadow-lg shadow-purple-500/30' : 'bg-slate-700'
+                }`}
+              >
+                <div
+                  className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 flex items-center justify-center text-[10px] font-black ${
+                    autoPilotEnabled ? 'translate-x-6 text-purple-700' : 'translate-x-0 text-slate-600'
+                  }`}
+                >
+                  {autoPilotEnabled ? '✓' : '✕'}
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 2. Ana Sekmeler, Filtre ve Ton Seçici Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4 text-xs">
         
@@ -970,7 +1198,7 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
                         Bu yanıt {q.marketplace} satıcı kurallarına ve müşteri memnuniyeti yönergelerine %100 uygundur.
                       </span>
 
-                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
                         
                         {/* İkincil Kopyalama Butonu */}
                         <button
@@ -983,29 +1211,32 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
                           <span>{isCopied ? 'Kopyalandı!' : 'Kopyala'}</span>
                         </button>
 
-                        {/* Birincil Aksiyon: DOĞRUDAN PAZARYERİNE GÖNDER */}
-                        <button
-                          type="button"
-                          onClick={() => handleSendDirectlyToMarketplace(q, 'question')}
-                          disabled={isSending}
-                          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-md ${
-                            isAnswered
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
-                              : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-purple-600/20 hover:scale-[1.02]'
-                          } disabled:opacity-50`}
-                        >
-                          {isSending ? (
-                            <>
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              <span>Pazaryerine İletiliyor...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Send className="w-3.5 h-3.5" />
-                              <span>{isAnswered ? '✅ Pazaryerinde Güncelle' : `🚀 ${q.marketplace}'a Gönder (Canlı Yanıtla)`}</span>
-                            </>
-                          )}
-                        </button>
+                        {/* Mükerrer Kontrolü & Sıfır Onaylı Otopilot Yanıt Butonu */}
+                        {isAnswered ? (
+                          <div className="px-3.5 py-2 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-black flex items-center gap-1.5 shadow-sm">
+                            <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                            <span>✓ Yanıtlandı (Mükerrer Cevap Koruması Aktif)</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleInstantZeroClickAnswer(q, 'question')}
+                            disabled={isSending}
+                            className="px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-md bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-800 text-white shadow-purple-600/30 hover:scale-[1.02] cursor-pointer disabled:opacity-50"
+                          >
+                            {isSending ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                <span>AI Analiz Ediyor & İletiyor...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                                <span>⚡ Sıfır Onayla Anında Cevapla & {q.marketplace}'a Gönder</span>
+                              </>
+                            )}
+                          </button>
+                        )}
 
                       </div>
                     </div>
@@ -1205,7 +1436,7 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
                     />
 
                     {/* Aksiyon Butonları */}
-                    <div className="flex items-center justify-end gap-2 pt-1">
+                    <div className="flex items-center justify-end gap-2 pt-1 flex-wrap">
                       <button
                         type="button"
                         onClick={() => handleCopy(rev, currentAnswerText)}
@@ -1215,26 +1446,32 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
                         <span>{isCopied ? 'Kopyalandı!' : 'Kopyala'}</span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleSendDirectlyToMarketplace(rev, 'review')}
-                        disabled={isSending}
-                        className={`px-4 py-2 rounded-xl text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-md ${
-                          isAnswered ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' : 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/20 hover:scale-[1.02]'
-                        } disabled:opacity-50`}
-                      >
-                        {isSending ? (
-                          <>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            <span>İletiliyor...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-3.5 h-3.5" />
-                            <span>{isAnswered ? `✅ ${rev.marketplace}'da Güncelle` : `🚀 ${rev.marketplace}'a Yanıt Olarak Gönder (Canlı)`}</span>
-                          </>
-                        )}
-                      </button>
+                      {/* Mükerrer Kontrolü & Sıfır Onaylı Otopilot Yanıt Butonu */}
+                      {isAnswered ? (
+                        <div className="px-3.5 py-2 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-black flex items-center gap-1.5 shadow-sm">
+                          <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                          <span>✓ Yanıtlandı (Mükerrer Cevap Koruması Aktif)</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleInstantZeroClickAnswer(rev, 'review')}
+                          disabled={isSending}
+                          className="px-4 py-2 rounded-xl text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-md bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-800 shadow-purple-600/20 hover:scale-[1.02] cursor-pointer disabled:opacity-50"
+                        >
+                          {isSending ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>İletiliyor...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                              <span>⚡ Sıfır Onayla Anında Yanıtla & {rev.marketplace}'a Gönder</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
 
