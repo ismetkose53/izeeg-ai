@@ -156,8 +156,8 @@
     .start-overlay {
       position: fixed;
       inset: 0;
-      z-index: 100;
-      background: rgba(7, 10, 16, 0.96);
+      z-index: 99999;
+      background: rgba(7, 10, 16, 0.97);
       backdrop-filter: blur(20px);
       display: flex;
       flex-direction: column;
@@ -165,13 +165,16 @@
       justify-content: center;
       padding: 24px;
       text-align: center;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
       transition: opacity 0.4s ease, visibility 0.4s ease;
     }
 
     .start-overlay.hidden {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
     }
 
     .play-big-btn {
@@ -472,24 +475,24 @@
     </div>
   </header>
 
-  <!-- BAŞLANGIÇ AÇILIŞ MODALI (Kullanıcı Tıkladığı Anda Sesli Video Başlar) -->
-  <div class="start-overlay" id="startOverlay">
-    <button class="play-big-btn" onclick="startAutoVideoPresentation()" id="mainStartBtn" aria-label="Sunumu Başlat">
+  <!-- BAŞLANGIÇ AÇILIŞ MODALI (Kullanıcı Ekranda Nereye Dokunursa Dokunsun Sesli Video Başlar) -->
+  <div class="start-overlay" id="startOverlay" onclick="startAutoVideoPresentation()" role="button" tabindex="0">
+    <button class="play-big-btn" onclick="event.stopPropagation(); startAutoVideoPresentation()" id="mainStartBtn" aria-label="Sunumu Başlat">
       ▶
     </button>
-    <h2 style="font-size: 21px; font-weight: 900; color: #fff; margin-bottom: 6px; letter-spacing: -0.5px;">
+    <h2 style="font-size: 21px; font-weight: 900; color: #fff; margin-bottom: 6px; letter-spacing: -0.5px; pointer-events: none;">
       izeeg AI Sesli Tanıtımı
     </h2>
-    <p style="font-size: 13px; color: #cbd5e1; max-width: 320px; line-height: 1.5; margin-bottom: 16px;">
+    <p style="font-size: 13px; color: #cbd5e1; max-width: 320px; line-height: 1.5; margin-bottom: 16px; pointer-events: none;">
       2 dakikalık otomatik video sunumumuz sesli anlatımla başlayacak ve sayfalar bittikçe kendiliğinden akacaktır.
     </p>
 
-    <button onclick="startAutoVideoPresentation()" class="play-pause-btn" style="padding: 14px 28px; font-size: 14px; width: 100%; max-width: 280px; justify-content: center; margin-bottom: 16px;">
+    <button onclick="event.stopPropagation(); startAutoVideoPresentation()" class="play-pause-btn" style="padding: 14px 28px; font-size: 14px; width: 100%; max-width: 280px; justify-content: center; margin-bottom: 14px; cursor: pointer;">
       ⚡ Sunumu Başlat (Sesli & Otomatik)
     </button>
 
-    <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 14px; padding: 10px 14px; max-width: 330px; text-align: left; font-size: 11px; color: #fef08a; line-height: 1.5;">
-      <strong>📲 WhatsApp İpucu:</strong> Ses duyulmazsa telefonunuzun sesini açın veya sağ üstteki <strong>(⋮ Üç Nokta)</strong> menüsünden <strong>"Tarayıcıda Aç (Chrome/Safari)"</strong> seçeneğine tıklayın.
+    <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 14px; padding: 10px 14px; max-width: 330px; text-align: left; font-size: 11px; color: #fef08a; line-height: 1.5; pointer-events: none;">
+      <strong>📲 iPhone / WhatsApp İpucu:</strong> Dosya önizlemesindeyseniz sağ alttaki <strong>(📤 Paylaş)</strong> simgesine dokunup <strong>Safari</strong>'yi seçin veya doğrudan web linkine tıklayın.
     </div>
   </div>
 
@@ -1155,11 +1158,28 @@
       if (touchEndX - touchStartX > 50) manualPrevSlide();
     }, { passive: true });
 
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices();
-      };
-      window.speechSynthesis.getVoices();
+    // Açılış modalı dokunma ve tıklama dinleyicileri
+    const startOverlayEl = document.getElementById('startOverlay');
+    const mainStartBtnEl = document.getElementById('mainStartBtn');
+
+    if (startOverlayEl) {
+      startOverlayEl.addEventListener('click', () => {
+        startAutoVideoPresentation();
+      });
+      startOverlayEl.addEventListener('touchend', () => {
+        startAutoVideoPresentation();
+      }, { passive: true });
+    }
+
+    if (mainStartBtnEl) {
+      mainStartBtnEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startAutoVideoPresentation();
+      });
+      mainStartBtnEl.addEventListener('touchend', (e) => {
+        e.stopPropagation();
+        startAutoVideoPresentation();
+      }, { passive: true });
     }
 
     updateSlideUI();
