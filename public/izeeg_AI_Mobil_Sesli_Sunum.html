@@ -474,18 +474,23 @@
 
   <!-- BAŞLANGIÇ AÇILIŞ MODALI (Kullanıcı Tıkladığı Anda Sesli Video Başlar) -->
   <div class="start-overlay" id="startOverlay">
-    <button class="play-big-btn" onclick="startAutoVideoPresentation()">
+    <button class="play-big-btn" onclick="startAutoVideoPresentation()" id="mainStartBtn" aria-label="Sunumu Başlat">
       ▶
     </button>
-    <h2 style="font-size: 22px; font-weight: 900; color: #fff; margin-bottom: 8px;">
-      izeeg AI Sesli Tanıtımına Hoş Geldiniz
+    <h2 style="font-size: 21px; font-weight: 900; color: #fff; margin-bottom: 6px; letter-spacing: -0.5px;">
+      izeeg AI Sesli Tanıtımı
     </h2>
-    <p style="font-size: 14px; color: var(--text-muted); max-width: 320px; line-height: 1.6; margin-bottom: 20px;">
-      2 dakikalık sesli video sunumumuz otomatik olarak başlayacak ve sayfalar bittikçe kendiliğinden akacaktır.
+    <p style="font-size: 13px; color: #cbd5e1; max-width: 320px; line-height: 1.5; margin-bottom: 16px;">
+      2 dakikalık otomatik video sunumumuz sesli anlatımla başlayacak ve sayfalar bittikçe kendiliğinden akacaktır.
     </p>
-    <button onclick="startAutoVideoPresentation()" class="play-pause-btn" style="padding: 14px 28px; font-size: 14px;">
+
+    <button onclick="startAutoVideoPresentation()" class="play-pause-btn" style="padding: 14px 28px; font-size: 14px; width: 100%; max-width: 280px; justify-content: center; margin-bottom: 16px;">
       ⚡ Sunumu Başlat (Sesli & Otomatik)
     </button>
+
+    <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 14px; padding: 10px 14px; max-width: 330px; text-align: left; font-size: 11px; color: #fef08a; line-height: 1.5;">
+      <strong>📲 WhatsApp İpucu:</strong> Ses duyulmazsa telefonunuzun sesini açın veya sağ üstteki <strong>(⋮ Üç Nokta)</strong> menüsünden <strong>"Tarayıcıda Aç (Chrome/Safari)"</strong> seçeneğine tıklayın.
+    </div>
   </div>
 
   <!-- Slaytlar -->
@@ -797,6 +802,13 @@
     let currentSentenceIndex = 0;
     let isSpeakingQueue = false;
     let autoNextTimer = null;
+    let sentenceSafetyTimeout = null;
+    let keepAliveTimer = null;
+    let audioUnlocked = false;
+    let webAudioCtx = null;
+
+    // Mobil Garbage Collector koruması için global değişken
+    window._currentUtterance = null;
 
     const slides = document.querySelectorAll('.slide-card');
     const totalSlides = slides.length;
@@ -808,6 +820,30 @@
     const videoBadge = document.getElementById('videoBadge');
     const startOverlay = document.getElementById('startOverlay');
     const segments = document.querySelectorAll('.story-segment');
+
+    // Web Audio donanım kanalını uyandır (iOS & Android WhatsApp WebView için)
+    function unlockMobileAudioHardware() {
+      if (audioUnlocked) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          webAudioCtx = new AudioCtx();
+          if (webAudioCtx.state === 'suspended') {
+            webAudioCtx.resume();
+          }
+          const osc = webAudioCtx.createOscillator();
+          const gain = webAudioCtx.createGain();
+          gain.gain.value = 0.01;
+          osc.connect(gain);
+          gain.connect(webAudioCtx.destination);
+          osc.start();
+          osc.stop(webAudioCtx.currentTime + 0.05);
+        }
+      } catch (e) {
+        console.log('WebAudio init:', e);
+      }
+      audioUnlocked = true;
+    }
 
     function normalizeSpeechText(text) {
       if (!text) return '';
@@ -886,8 +922,6 @@
     }
 
     function playCurrentSlideNarration() {
-      if (!('speechSynthesis' in window)) return;
-
       stopNarration();
 
       const activeCard = document.querySelector(`.slide-card[data-slide="${currentSlide}"]`);
@@ -907,6 +941,11 @@
     }
 
     function playNextSentenceInQueue() {
+      if (sentenceSafetyTimeout) {
+        clearTimeout(sentenceSafetyTimeout);
+        sentenceSafetyTimeout = null;
+      }
+
       if (!isPlaying || !isSpeakingQueue || currentSentenceIndex >= sentenceQueue.length) {
         // Slayt seslendirmesi bitti! Kendiliğinden sonraki slayta geç (0.6 sn nefes payı ile)
         isSpeakingQueue = false;
@@ -929,18 +968,12 @@
           videoBadge.innerHTML = '<span>🎉 Sunum Tamamlandı</span>';
           playIcon.textContent = '🔄';
           playText.textContent = 'Baştan İzle';
+          isPlaying = false;
         }
         return;
       }
 
       const sentenceText = sentenceQueue[currentSentenceIndex];
-      const utterance = new SpeechSynthesisUtterance(sentenceText);
-      utterance.lang = 'tr-TR';
-      utterance.rate = 0.94; // Tane tane insansı tempo
-      utterance.pitch = 1.0;
-
-      const bestVoice = getBestTurkishVoice();
-      if (bestVoice) utterance.voice = bestVoice;
 
       // Anlık Canlı Altyazıyı Parlat
       const activeCard = document.querySelector(`.slide-card[data-slide="${currentSlide}"]`);
@@ -958,29 +991,70 @@
         currentSeg.querySelector('.story-segment-fill').style.width = `${progressPercent}%`;
       }
 
-      utterance.onend = () => {
+      // Cümle bitiş yöneticisi (Tek seferlik çalışır)
+      let sentenceFinished = false;
+      const completeSentence = () => {
+        if (sentenceFinished) return;
+        sentenceFinished = true;
+        if (sentenceSafetyTimeout) {
+          clearTimeout(sentenceSafetyTimeout);
+          sentenceSafetyTimeout = null;
+        }
         currentSentenceIndex++;
         if (currentSentenceIndex < sentenceQueue.length && isPlaying) {
-          setTimeout(playNextSentenceInQueue, 200); // 200ms insansı nefes boşluğu
+          setTimeout(playNextSentenceInQueue, 220); // 220ms insansı nefes payı
         } else {
           playNextSentenceInQueue();
         }
       };
 
-      utterance.onerror = () => {
-        currentSentenceIndex++;
-        if (currentSentenceIndex < sentenceQueue.length && isPlaying) {
-          setTimeout(playNextSentenceInQueue, 200);
-        } else {
-          playNextSentenceInQueue();
-        }
-      };
+      // FAIL-SAFE ZAMANLAYICI: Cihaz sesi kesse dahi sunum ASLA donmaz, otomatik akar!
+      const estimatedDuration = Math.max(2600, (sentenceText.length * 75) + 1200);
+      sentenceSafetyTimeout = setTimeout(() => {
+        completeSentence();
+      }, estimatedDuration + 1200);
 
-      window.speechSynthesis.speak(utterance);
+      // Web Speech API ile seslendirme
+      if ('speechSynthesis' in window) {
+        try {
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+
+          const utterance = new SpeechSynthesisUtterance(sentenceText);
+          utterance.lang = 'tr-TR';
+          utterance.rate = 0.95;
+          utterance.pitch = 1.0;
+          utterance.volume = 1.0;
+
+          const bestVoice = getBestTurkishVoice();
+          if (bestVoice) {
+            utterance.voice = bestVoice;
+          }
+
+          utterance.onend = () => {
+            completeSentence();
+          };
+
+          utterance.onerror = (e) => {
+            console.log('Utterance note:', e);
+            completeSentence();
+          };
+
+          window._currentUtterance = utterance;
+          window.speechSynthesis.speak(utterance);
+        } catch (err) {
+          console.log('Speech speak error:', err);
+        }
+      }
     }
 
     function stopNarration() {
       clearTimeout(autoNextTimer);
+      if (sentenceSafetyTimeout) {
+        clearTimeout(sentenceSafetyTimeout);
+        sentenceSafetyTimeout = null;
+      }
       isSpeakingQueue = false;
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -990,6 +1064,19 @@
     }
 
     function startAutoVideoPresentation() {
+      unlockMobileAudioHardware();
+
+      // iOS Safari ve Android WebView ses kilidini aç
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.resume();
+          const primeUtterance = new SpeechSynthesisUtterance('');
+          primeUtterance.lang = 'tr-TR';
+          primeUtterance.volume = 0.01;
+          window.speechSynthesis.speak(primeUtterance);
+        } catch(e) {}
+      }
+
       startOverlay.classList.add('hidden');
       isPlaying = true;
       currentSlide = 1;
@@ -997,12 +1084,23 @@
       playIcon.textContent = '⏸️';
       playText.textContent = 'Duraklat';
       videoBadge.innerHTML = '<span>▶️ Video Akıyor</span>';
+      
+      // Heartbeat: SpeechSynthesis'in 15 saniye sonra durmasını önler
+      if (!keepAliveTimer) {
+        keepAliveTimer = setInterval(() => {
+          if (isPlaying && 'speechSynthesis' in window && window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+        }, 1000);
+      }
+
       playCurrentSlideNarration();
     }
 
     function togglePlayPause() {
+      unlockMobileAudioHardware();
+
       if (currentSlide === totalSlides && !isPlaying) {
-        // Baştan başlat
         currentSlide = 1;
         updateSlideUI();
         isPlaying = true;
@@ -1046,12 +1144,16 @@
     // Dokunmatik Swipe
     let touchStartX = 0;
     let touchEndX = 0;
-    document.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; });
+    document.addEventListener('touchstart', (e) => { 
+      touchStartX = e.changedTouches[0].screenX;
+      unlockMobileAudioHardware();
+    }, { passive: true });
+
     document.addEventListener('touchend', (e) => {
       touchEndX = e.changedTouches[0].screenX;
       if (touchStartX - touchEndX > 50) manualNextSlide();
       if (touchEndX - touchStartX > 50) manualPrevSlide();
-    });
+    }, { passive: true });
 
     if ('speechSynthesis' in window) {
       window.speechSynthesis.onvoiceschanged = () => {
