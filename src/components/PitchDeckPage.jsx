@@ -603,6 +603,16 @@ export function PitchDeckPage({ onOpenContactModal, onOpenSubModal, onNavigateTa
 
           {/* Aksiyon Butonları */}
           <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+            <a
+              href="/mobil-sunum.html"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs border border-purple-400/40 transition-all cursor-pointer shadow-sm no-underline"
+              title="Tam otomatik video & hikaye formatında sesli sunumu izle"
+            >
+              <span>▶️ Otomatik Video Modu</span>
+            </a>
+
             <button
               onClick={toggleVoiceNarration}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs border transition-all cursor-pointer shadow-sm ${

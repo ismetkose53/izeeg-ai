@@ -461,7 +461,16 @@ export function ProductPitchDeckModal({ isOpen, onClose, onOpenContactModal, onO
           </div>
 
           {/* Aksiyon Butonları */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <a
+              href="/mobil-sunum.html"
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl border border-purple-300 bg-purple-50 text-purple-800 hover:bg-purple-100 font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer no-underline"
+            >
+              <span>▶️ Otomatik Video Sunum</span>
+            </a>
+
             <button
               onClick={() => {
                 onClose();

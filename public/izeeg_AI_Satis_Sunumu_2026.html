@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>izeeg AI — Yeni Nesil E-Ticaret & Pazaryeri Otopilotu Satış Sunumu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090d14;
+      --bg-card: rgba(18, 26, 41, 0.75);
+      --border-card: rgba(255, 255, 255, 0.1);
+      --primary: #f27a1a;
+      --primary-glow: rgba(242, 122, 26, 0.35);
+      --secondary: #10b981;
+      --secondary-glow: rgba(16, 185, 129, 0.3);
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-rose: #f43f5e;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Arka Plan Efektleri */
+    .bg-gradient-glow {
+      position: absolute;
+      top: -20%;
+      left: 10%;
+      width: 60vw;
+      height: 60vh;
+      background: radial-gradient(circle, rgba(242, 122, 26, 0.15) 0%, rgba(16, 185, 129, 0.08) 50%, transparent 70%);
+      filter: blur(80px);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Üst Bar */
+    header {
+      position: relative;
+      z-index: 20;
+      height: 68px;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-card);
+      background: rgba(9, 13, 20, 0.85);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #f27a1a, #ea580c);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 18px;
+      color: #fff;
+      box-shadow: 0 4px 15px var(--primary-glow);
+    }
+
+    .brand-text {
+      font-weight: 900;
+      font-size: 20px;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      font-weight: 800;
+      background: rgba(242, 122, 26, 0.15);
+      color: #f27a1a;
+      border: 1px solid rgba(242, 122, 26, 0.4);
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      outline: none;
+      text-decoration: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+      border-color: var(--border-card);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #f27a1a, #ff6000);
+      color: #fff;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px var(--primary-glow);
+    }
+
+    /* Slayt Konteynırı */
+    .slider-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: calc(100vh - 68px - 60px);
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      padding: 32px 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      opacity: 0;
+      transform: scale(0.96) translateX(40px);
+      pointer-events: none;
+      transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .slide.active {
+      opacity: 1;
+      transform: scale(1) translateX(0);
+      pointer-events: auto;
+    }
+
+    /* Slayt İçerik Düzenleri */
+    .slide-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+      width: fit-content;
+    }
+
+    .badge-orange {
+      background: rgba(242, 122, 26, 0.15);
+      color: #f27a1a;
+      border: 1px solid rgba(242, 122, 26, 0.4);
+    }
+
+    .badge-emerald {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .badge-rose {
+      background: rgba(244, 63, 94, 0.15);
+      color: #f43f5e;
+      border: 1px solid rgba(244, 63, 94, 0.4);
+    }
+
+    .badge-blue {
+      background: rgba(59, 130, 246, 0.15);
+      color: #3b82f6;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+
+    .badge-purple {
+      background: rgba(139, 92, 246, 0.15);
+      color: #a855f7;
+      border: 1px solid rgba(139, 92, 246, 0.4);
+    }
+
+    .slide-title {
+      font-size: 38px;
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #ffffff 40%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-desc {
+      font-size: 15px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      max-width: 850px;
+      margin-bottom: 24px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      width: 100%;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      width: 100%;
+    }
+
+    /* Cam / Glass Kartlar */
+    .glass-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 20px;
+      padding: 24px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 14px;
+      font-weight: bold;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .stat-number {
+      font-size: 32px;
+      font-weight: 900;
+      font-family: 'JetBrains Mono', monospace;
+      color: #fff;
+      margin: 8px 0 4px 0;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* UI Önizleme Kartı (Sistem Demoları) */
+    .mock-window {
+      background: #0d131f;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .mock-header {
+      background: #151d2c;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mock-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mock-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .mock-dot.red { background: #ef4444; }
+    .mock-dot.yellow { background: #f59e0b; }
+    .mock-dot.green { background: #10b981; }
+
+    .mock-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .mock-body {
+      padding: 18px;
+      font-size: 12px;
+    }
+
+    /* Fatura & Tablo Şablonu */
+    .mini-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      text-align: left;
+    }
+
+    .mini-table th {
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      font-weight: 700;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mini-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+
+    .tag {
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      display: inline-block;
+    }
+
+    .tag-emerald { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .tag-amber { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .tag-rose { background: rgba(244, 63, 94, 0.2); color: #fb7185; }
+    .tag-blue { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+
+    /* Alt Navigasyon & İlerleme Çubuğu */
+    footer {
+      position: relative;
+      z-index: 20;
+      height: 60px;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border-card);
+      background: rgba(9, 13, 20, 0.85);
+      backdrop-filter: blur(12px);
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-card);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: scale(1.05);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .slide-indicator {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .progress-bar-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #f27a1a, #10b981);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* Print Ayarı */
+    @media print {
+      body {
+        overflow: visible;
+        height: auto;
+        background: #fff;
+        color: #000;
+      }
+      header, footer, .bg-gradient-glow, .bg-grid {
+        display: none;
+      }
+      .slider-container {
+        height: auto;
+      }
+      .slide {
+        position: relative;
+        opacity: 1;
+        transform: none;
+        page-break-after: always;
+        padding: 40px;
+        height: 100vh;
+      }
+      .glass-card {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        color: #0f172a;
+      }
+      .slide-title {
+        background: none;
+        -webkit-text-fill-color: #0f172a;
+        color: #0f172a;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-gradient-glow"></div>
+  <div class="bg-grid"></div>
+
+  <!-- Üst Bar -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">⚡</div>
+      <div class="brand-text">
+        <span>izeeg AI</span>
+        <span class="brand-badge">SaaS v2.4</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="toggleFullScreen()">
+        ⛶ Tam Ekran
+      </button>
+      <button class="btn btn-secondary" onclick="window.print()">
+        📄 PDF Olarak Kaydet / Yazdır
+      </button>
+      <a href="https://izeeg-ai.vercel.app/" target="_blank" class="btn btn-primary">
+        🚀 Canlı Uygulamaya Git
+      </a>
+    </div>
+  </header>
+
+  <!-- Slaytlar Alanı -->
+  <main class="slider-container" id="slider">
+
+    <!-- SLAYT 1: KAPAK -->
+    <section class="slide active" data-slide="1">
+      <div class="slide-badge badge-orange">✨ 2026 Türkiye E-Ticaret Ekosistemi</div>
+      <h1 class="slide-title" style="font-size: 48px;">
+        Pazaryerlerini Tek Merkezden Yöneten<br/>
+        <span style="background: linear-gradient(135deg, #f27a1a, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+          Akıllı Otopilot & Kâr Motoru
+        </span>
+      </h1>
+      <p class="slide-desc" style="font-size: 18px; max-width: 780px;">
+        Trendyol, Hepsiburada, Amazon ve Shopify mağazalarınızı birbirine bağlayın. 
+        Kuruşu kuruşuna net kâr hesabı, kargo desi kaçağı dedektörü, resmi GİB e-arşiv ve 7/24 yapay zekâ asistanıyla satışlarınızı ölçekleyin.
+      </p>
+
+      <div class="grid-4" style="margin-top: 20px;">
+        <div class="glass-card">
+          <div class="stat-number" style="color: #f27a1a;">1-Tık</div>
+          <div class="stat-label">Canlı API Senkronizasyonu</div>
+          <p class="card-desc" style="margin-top: 6px;">Sipariş, kargo, soru ve yorumlar anında tek ekranda.</p>
+        </div>
+
+        <div class="glass-card">
+          <div class="stat-number" style="color: #10b981;">%100</div>
+          <div class="stat-label">GİB E-Arşiv & KDV Uyumu</div>
+          <p class="card-desc" style="margin-top: 6px;">7346 C.K. Tekstil %10 & Genel %20 otomatik ayrıştırma.</p>
+        </div>
+
+        <div class="glass-card">
+          <div class="stat-number" style="color: #f43f5e;">18.500 ₺</div>
+          <div class="stat-label">Ort. Aylık Kargo Tasarrufu</div>
+          <p class="card-desc" style="margin-top: 6px;">Hatalı desi kesintilerini yakalar ve dilekçe üretir.</p>
+        </div>
+
+        <div class="glass-card">
+          <div class="stat-number" style="color: #a855f7;">7/24</div>
+          <div class="stat-label">AI Müşteri Danışmanı</div>
+          <p class="card-desc" style="margin-top: 6px;">Beden/kalıp sorularına 2 saniyede satış odaklı yanıt.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLAYT 2: PROBLEM -->
+    <section class="slide" data-slide="2">
+      <div class="slide-badge badge-rose">⚠️ Pazardaki Büyük Sorun</div>
+      <h2 class="slide-title">E-Ticaret Satıcıları Neden Para Kaybediyor?</h2>
+      <p class="slide-desc">Satıcılar ciro yapıyor gibi görünürken gizli kesintiler ve operasyonel karmaşa yüzünden her ay yüzbinlerce lira kaybediyor.</p>
+
+      <div class="grid-3">
+        <div class="glass-card" style="border-color: rgba(244, 63, 94, 0.3);">
+          <div class="card-icon" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e;">📦</div>
+          <h3 class="card-title">Kargo Desi Kaçakları</h3>
+          <p class="card-desc">1 desilik paket kargo şubesinde 4 desi giriliyor. Satıcı fark etmeden her paketten 20-50 TL fazla taşıma bedeli kesiliyor.</p>
+        </div>
+
+        <div class="glass-card" style="border-color: rgba(245, 158, 11, 0.3);">
+          <div class="card-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">💸</div>
+          <h3 class="card-title">Karmaşık Kesinti Faturaları</h3>
+          <p class="card-desc">Pazaryerinin kestiği komisyon, kargo, reklam ve platform bedeli faturaları ay sonunda satıcının ve muhasebecinin kâbusu oluyor.</p>
+        </div>
+
+        <div class="glass-card" style="border-color: rgba(139, 92, 246, 0.3);">
+          <div class="card-icon" style="background: rgba(139, 92, 246, 0.15); color: #a855f7;">⏳</div>
+          <h3 class="card-title">Gece Kaçan Müşteriler</h3>
+          <p class="card-desc">Gece 01:00'de "Boyum 1.68, kilom 58 hangi beden almalıyım?" diye soran müşteriye anında yanıt verilemediği için satış rakibe gidiyor.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLAYT 3: ÇÖZÜM -->
+    <section class="slide" data-slide="3">
+      <div class="slide-badge badge-emerald">💡 Bütünleşik Çözüm</div>
+      <h2 class="slide-title">izeeg AI: Bütünleşik E-Ticaret Ekosistemi</h2>
+      <p class="slide-desc">Ayrı ayrı 5 farklı programa binlerce lira ödemek yerine tek çatı altında tüm operasyonunuzu otomatikleştirin.</p>
+
+      <div class="grid-2">
+        <div class="glass-card">
+          <h3 class="card-title" style="color: #10b981; font-size: 20px; margin-bottom: 12px;">✅ izeeg AI ile Neler Kazanırsınız?</h3>
+          <ul style="list-style: none; space-y: 12px; font-size: 13px; line-height: 2;">
+            <li>⚡ <strong>Tek Tıkla Canlı Senkronizasyon:</strong> Tüm pazaryerleri tek havuzda.</li>
+            <li>🧾 <strong>Gelen Gider Faturaları Analizi:</strong> Pazaryeri kesintilerini resmi GİB şablonuyla ayırır.</li>
+            <li>📊 <strong>Gerçek Net Kâr:</strong> Kargo + Komisyon + Stopaj + Maliyet sonrası net cepte kalan para.</li>
+            <li>🛡️ <strong>Kargo İtiraz Motoru:</strong> Hatalı desi farklarını bulur, PDF dilekçe üretir.</li>
+            <li>🤖 <strong>7/24 AI Satış Danışmanı:</strong> Müşteri sorularını ve yorumlarını anında yanıtlar.</li>
+          </ul>
+        </div>
+
+        <div class="mock-window">
+          <div class="mock-header">
+            <div class="mock-dots">
+              <div class="mock-dot red"></div>
+              <div class="mock-dot yellow"></div>
+              <div class="mock-dot green"></div>
+            </div>
+            <div class="mock-title">izeeg-ai.cloud // unified-dashboard</div>
+          </div>
+          <div class="mock-body">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+              <span style="font-weight: 800; color: #fff;">Bugünkü Canlı Mağaza Özeti</span>
+              <span class="tag tag-emerald">● Canlı API Bağlantısı Aktif</span>
+            </div>
+            <div class="grid-2" style="gap: 10px; margin-bottom: 12px;">
+              <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 10px;">
+                <div style="font-size: 10px; color: var(--text-muted);">Brüt Ciro</div>
+                <div style="font-size: 16px; font-weight: 800; color: #fff;">48.950,00 ₺</div>
+              </div>
+              <div style="background: rgba(16,185,129,0.1); padding: 10px; border-radius: 10px;">
+                <div style="font-size: 10px; color: #34d399;">Net Kâr (Cepte Kalan)</div>
+                <div style="font-size: 16px; font-weight: 800; color: #34d399;">18.420,50 ₺ (%37.6)</div>
+              </div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); background: rgba(0,0,0,0.3); padding: 8px; border-radius: 8px;">
+              ⚡ Trendyol: 33 Sipariş | Hepsiburada: 12 Sipariş | Amazon: 5 Sipariş
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLAYT 4: TARAFIMIZA KESİLEN FATURALAR & GİB E-ARŞİV -->
+    <section class="slide" data-slide="4">
+      <div class="slide-badge badge-rose">⭐ Öne Çıkan Modül</div>
+      <h2 class="slide-title">Tarafınıza Kesilen Faturalar & Gider Analizörü</h2>
+      <p class="slide-desc">Pazaryerlerinin (Trendyol, Hepsiburada) kestiği komisyon, kargo, reklam ve hizmet bedellerini otomatik kategorize eder, KDV matrahlarını ayırır.</p>
+
+      <div class="grid-2">
+        <div class="glass-card">
+          <h3 class="card-title">🏢 Otomatik GİB Muhasebe Mutabakatı</h3>
+          <p class="card-desc" style="margin-bottom: 16px;">
+            Hangi dönemde ne kadar komisyon ödendi? Kargo firması kaç para kesti? Reklama ne harcandı?
+            Tek tıkla resmi GİB E-Arşiv faturası önizlenir, UBL-XML veya PDF olarak muhasebeye aktarılır.
+          </p>
+
+          <div class="grid-2" style="gap: 10px;">
+            <div style="background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.3); padding: 10px; border-radius: 12px;">
+              <div style="font-size: 10px; font-weight: 800; color: #fb7185;">Toplam Kesinti</div>
+              <div style="font-size: 18px; font-weight: 900; color: #fff; font-family: monospace;">8.523,36 ₺</div>
+              <div style="font-size: 9px; color: var(--text-muted);">KDV (%20): 1.420,56 ₺</div>
+            </div>
+
+            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 10px; border-radius: 12px;">
+              <div style="font-size: 10px; font-weight: 800; color: #fbbf24;">Komisyon Faturaları</div>
+              <div style="font-size: 18px; font-weight: 900; color: #fff; font-family: monospace;">5.148,96 ₺</div>
+              <div style="font-size: 9px; color: var(--text-muted);">%21.5 Tekstil Komisyonu</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fatura Önizleme Mockup -->
+        <div class="mock-window">
+          <div class="mock-header">
+            <div class="mock-dots">
+              <div class="mock-dot red"></div>
+              <div class="mock-dot yellow"></div>
+              <div class="mock-dot green"></div>
+            </div>
+            <div class="mock-title">GİB e-Arşiv Önizleme // DSM202600004819</div>
+          </div>
+          <div class="mock-body" style="background: #ffffff; color: #0f172a; font-family: sans-serif;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 8px;">
+              <div>
+                <strong style="font-size: 11px; color: #f27a1a;">DSM GRUP DANIŞMANLIK A.Ş. (Trendyol)</strong>
+                <div style="font-size: 9px; color: #64748b;">VKN: 3130557885 • Boğaziçi Kurumlar V.D.</div>
+              </div>
+              <div style="text-align: right;">
+                <span class="tag tag-emerald" style="font-size: 9px;">e-Arşiv Fatura</span>
+                <div style="font-size: 9px; font-family: monospace; font-weight: bold;">DSM202600004819</div>
+              </div>
+            </div>
+
+            <table class="mini-table" style="color: #1e293b; margin-bottom: 8px;">
+              <thead>
+                <tr>
+                  <th style="color: #475569; background: #f1f5f9;">Gider Açıklaması</th>
+                  <th style="color: #475569; background: #f1f5f9;">Matrah</th>
+                  <th style="color: #475569; background: #f1f5f9;">KDV %20</th>
+                  <th style="color: #475569; background: #f1f5f9; text-align: right;">Toplam</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Trendyol Satış Komisyon Kesintisi</td>
+                  <td>2.450,80 ₺</td>
+                  <td>490,16 ₺</td>
+                  <td style="font-weight: bold; text-align: right;">2.940,96 ₺</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 6px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <span style="font-size: 9px; color: #15803d; font-weight: bold;">✓ Hesaptan Mahsup Edildi (Cari Kapatıldı)</span>
+              <span style="font-size: 11px; font-weight: 900; color: #0f172a;">2.940,96 ₺</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLAYT 5: CANLI API SENKRONİZASYONU -->
+    <section class="slide" data-slide="5">
+      <div class="slide-badge badge-orange">⚡ Canlı Entegrasyon</div>
+      <h2 class="slide-title">Tek Tıkla Canlı Pazaryeri API Senkronizasyonu</h2>
+      <p class="slide-desc">Trendyol, Hepsiburada, Amazon ve Shopify API anahtarlarınızı girin; saniyeler içinde tüm mağazanız canlıya aksın.</p>
+
+      <div class="grid-3">
+        <div class="glass-card">
+          <div class="card-icon" style="background: rgba(242, 122, 26, 0.15); color: #f27a1a;">🟠</div>
+          <h3 class="card-title">Trendyol Partner API</h3>
+          <p class="card-desc">Sipariş paketleme, kargo takip numaraları, finans ekstreleri, müşteri soruları ve ürün yorumları tek tıkla senkronize.</p>
+          <div style="margin-top: 12px;"><span class="tag tag-emerald">● Canlı Bağlantı</span></div>
+        </div>
+
+        <div class="glass-card">
+          <div class="card-icon" style="background: rgba(255, 96, 0, 0.15); color: #ff6000;">🟠</div>
+          <h3 class="card-title">Hepsiburada Merchant</h3>
+          <p class="card-desc">Merchant ID & Secret Key ile çift yönlü sipariş çekimi, HepsiJET kargo barkodları ve soru yanıt sistemi.</p>
+          <div style="margin-top: 12px;"><span class="tag tag-emerald">● Canlı Bağlantı</span></div>
+        </div>
+
+        <div class="glass-card">
+          <div class="card-icon" style="background: rgba(255, 193, 7, 0.15); color: #ffc107;">🟡</div>
+          <h3 class="card-title">Amazon SP-API & Shopify</h3>
+          <p class="card-desc">Global e-ticaret siteniz ve Amazon Türkiye mağazanız aynı merkezde. Stoklar asla çakışmaz, fazla satış engellenir.</p>
+          <div style="margin-top: 12px;"><span class="tag tag-blue">● Canlı Bağlantı</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLAYT 6: GERÇEK NET KÂR MOTORU -->
+    <section class="slide" data-slide="6">
+      <div class="slide-badge badge-emerald">💰 Finansal Güç</div>
+      <h2 class="slide-title">Kuruşu Kuruşuna Gerçek Net Kâr Hesabı</h2>
+      <p class="slide-desc">Satış fiyatı üzerinden komisyon, kargo, KDV matrahı ve ürün maliyetini düşerek gerçek net kârınızı hesaplar.</p>
+
+      <div class="grid-2">
+        <div class="glass-card">
+          <h3 class="card-title">Örnek Ürün Kâr Ayrıştırması</h3>
+          <div style="margin: 14px 0; font-size: 13px; line-height: 2;">
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding:4px 0;">
+              <span>Satış Fiyatı (KDV Dahil):</span><strong style="color:#fff;">799,00 ₺</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding:4px 0; color:#f87171;">
+              <span>- Ürün Üretim/Alış Maliyeti:</span><strong>280,00 ₺</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding:4px 0; color:#fbbf24;">
+              <span>- Pazaryeri Komisyonu (%21.5):</span><strong>171,78 ₺</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding:4px 0; color:#60a5fa;">
+              <span>- Kargo Taşıma Bedeli (1-2 Desi):</span><strong>87,00 ₺</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:8px 0; font-size:16px; font-weight:900; color:#34d399;">
+              <span>= Net Kâr (Cepte Kalan):</span><span>260,22 ₺ (%32.6 Marj)</span>
+            </div>
+          </div>
+          <div class="tag tag-emerald" style="padding: 6px 12px; font-size: 12px;">✓ Yüksek Kârlı Ürün — Reklam Bütçesi Artırılabilir</div>
+        </div>
+
+        <div class="glass-card" style="border-color: rgba(244, 63, 94, 0.3);">
+          <div class="card-icon" style="background: rgba(244, 63, 94, 0.2); color: #f43f5e;">🚨</div>
+          <h3 class="card-title">Zarar Eden Ürün Dedektörü</h3>
+          <p class="card-desc">
+            Kargo ücreti ve komisyon yükseldiğinde zarar eden ürünleri anında kırmızı renkle uyarır.
+            Böylece her satışta satıcının cebinden para çıkması engellenir.
+          </p>
+          <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px; margin-top: 16px; border: 1px dashed rgba(244,63,94,0.4);">
+            <div style="color: #fb7185; font-weight: bold; font-size: 12px;">Uyarı: 189 TL Altı Ürünler Kargo Sebebiyle Zararda!</div>
+            <div style="color: var(--text-muted); font-size: 11px; margin-top: 4px;">Sistem otomatik olarak minimum 229 TL fiyat önerisi sunar.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLAYT 7: KARGO DESİ KAÇAĞI & İTİRAZ MOTORU -->
+    <section class="slide" data-slide="7">
+      <div class="slide-badge badge-blue">📦 Kargo Güvenliği</div>
+      <h2 class="slide-title">Kargo Desi Kaçağı Dedektörü & İtiraz Motoru</h2>
+      <p class="slide-desc">Kargo şirketlerinin haksız desi ölçümlerini yakalayın, binlerce liralık haksız kesintiyi geri alın.</p>
+
+      <div class="grid-3">
+        <div class="glass-card">
+          <div class="stat-number" style="color: #60a5fa;">1. Desi Tespiti</div>
+          <h4 class="card-title" style="font-size: 14px; margin-top: 6px;">Katalog vs Fatura Kıyaslaması</h4>
+          <p class="card-desc">Katalogda 1 desi olan tişört paketinin kargo faturasında 3.5 desi yazıldığını anında eşleştirir.</p>
+        </div>
+
+        <div class="glass-card">
+          <div class="stat-number" style="color: #fbbf24;">2. Fark Hesabı</div>
+          <h4 class="card-title" style="font-size: 14px; margin-top: 6px;">Zarar Tutarını Kuruşuna Çıkarır</h4>
+          <p class="card-desc">Örnek: 87 TL yerine 125 TL kesilmiş = 38 TL haksız kesinti tek sipariş bazında raporlanır.</p>
+        </div>
+
+        <div class="glass-card">
+          <div class="stat-number" style="color: #34d399;">3. 1-Tık İtiraz</div>
+          <h4 class="card-title" style="font-size: 14px; margin-top: 6px;">Resmi İtiraz Dilekçesi Hazırlar</h4>
+          <p class="card-desc">Trendyol veya Kargo firmasına gönderilmek üzere takip kodlu resmi iade talep dilekçesi üretir.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLAYT 8: 7/24 SIFIR ONAYLI AI OTOPİLOT -->
+    <section class="slide" data-slide="8">
+      <div class="slide-badge badge-purple">🤖 7/24 Tam Otonom Yapay Zekâ</div>
+      <h2 class="slide-title">Sıfır Onaylı AI Otopilot: Soruları Okur, Analiz Eder ve Anında Yanıtlar</h2>
+      <p class="slide-desc">Satıcının başında beklemesine gerek yok. Cevaplanmamış soruları tespit eder, onay beklemeden yanıtı doğrudan pazaryerine iletir. Cevaplanmış soruları mükerrer yanıtlamaz.</p>
+
+      <div class="grid-2">
+        <div class="mock-window">
+          <div class="mock-header">
+            <div class="mock-dots">
+              <div class="mock-dot red"></div>
+              <div class="mock-dot yellow"></div>
+              <div class="mock-dot green"></div>
+            </div>
+            <div class="mock-title">Trendyol & HB 7/24 Soru AI Otopilotu</div>
+          </div>
+          <div class="mock-body" style="font-size: 12px; line-height: 1.6;">
+            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 10px; margin-bottom: 10px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <strong style="color: #f27a1a;">Gelen Müşteri Sorusu:</strong>
+                <span class="tag tag-amber">Cevap Bekliyor</span>
+              </div>
+              "Merhabalar, boyum 1.68 kilom 58. Hangi beden almalıyım? Kalıbı nasıl?"
+            </div>
+            <div style="background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.3); padding: 10px; border-radius: 10px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <strong style="color: #c084fc;">⚡ izeeg AI Otopilot Yanıtı (Pazaryerine Canlı İletildi):</strong>
+                <span class="tag tag-emerald">✓ Canlı Gönderildi (Sıfır Onay)</span>
+              </div>
+              "Merhabalar Ayşenur Hanım, ürünümüz tam kalıptır. 1.68 boy ve 58 kilo ölçüleriniz için 38 bedeni tercih etmenizi tavsiye ederiz. Yüksek beli ve dökümlü paçasıyla üzerinizde çok şık duracaktır. Keyifli alışverişler dileriz! 🌸"
+            </div>
+            <div style="margin-top:8px; font-size:10px; color:#34d399; font-weight:bold;">
+              🛡️ Mükerrer Cevap Koruması: Soru yanıtlandığı için ikinci kez cevap gönderilmez.
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <h3 class="card-title">🚀 Satışa Dönüşüm Oranını %40 Artırır</h3>
+          <ul style="list-style: none; space-y: 10px; font-size: 13px; line-height: 1.8; margin-top: 10px;">
+            <li>⚡ <strong>Sıfır Onay ile Tam Otomasyon:</strong> Satıcı onay butonu beklemeden müşteriye saniyeler içinde en doğru ve nazik yanıtı ulaştırır.</li>
+            <li>🛡️ <strong>Mükerrer Cevap Engelleme:</strong> Daha önce cevaplanmış soruları algılar, aynı soruya mükerrer ikinci bir yanıt vermez.</li>
+            <li>🌙 <strong>Gece 03:00'te Bile Satış Yakalar:</strong> Müşteri soru sorduğu anda cevabını alıp sepeti hemen onaylar.</li>
+            <li>🧠 <strong>Ürün Kataloğunu Okur:</strong> Kumaş içeriğini, kalıp özelliklerini ve yıkama talimatlarını analiz eder.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLAYT 9: RAKİP KARŞILAŞTIRMASI -->
+    <section class="slide" data-slide="9">
+      <div class="slide-badge badge-orange">🏆 Neden izeeg AI?</div>
+      <h2 class="slide-title">Geleneksel Entegratörler vs. izeeg AI</h2>
+      <p class="slide-desc">Eski nesil hantal programlar sadece sipariş çeker. izeeg AI ise kârınızı korur ve mağazanızı büyütür.</p>
+
+      <div class="mock-window">
+        <div class="mock-header">
+          <div class="mock-dots">
+            <div class="mock-dot red"></div>
+            <div class="mock-dot yellow"></div>
+            <div class="mock-dot green"></div>
+          </div>
+          <div class="mock-title">Karşılaştırma Tablosu // 2026</div>
+        </div>
+        <div class="mock-body" style="padding: 0;">
+          <table class="mini-table" style="font-size: 12px;">
+            <thead>
+              <tr>
+                <th style="padding: 12px;">Özellik</th>
+                <th style="padding: 12px; color: #f87171;">Eski Tip Entegratörler</th>
+                <th style="padding: 12px; color: #34d399; font-size: 13px;">⚡ izeeg AI Otopilot</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight: bold;">Tarafınıza Kesilen Fatura Ayrıştırma</td>
+                <td style="color: #f87171;">✕ Yok (Manuel yapılır)</td>
+                <td style="color: #34d399; font-weight: bold;">✓ Otomatik GİB E-Arşiv & Matrah Hesabı</td>
+              </tr>
+              <tr>
+                <td style="font-weight: bold;">Kargo Desi Kaçağı Dedektörü</td>
+                <td style="color: #f87171;">✕ Yok</td>
+                <td style="color: #34d399; font-weight: bold;">✓ Anında Tespit & 1-Tık İtiraz Dilekçesi</td>
+              </tr>
+              <tr>
+                <td style="font-weight: bold;">Kuruşu Kuruşuna Net Kâr Hesabı</td>
+                <td style="color: #f87171;">✕ Sadece Ciro Gösterir</td>
+                <td style="color: #34d399; font-weight: bold;">✓ Komisyon + Kargo + Stopaj Sonrası Net Kâr</td>
+              </tr>
+              <tr>
+                <td style="font-weight: bold;">7/24 AI Soru & Yorum Yanıtlayıcı</td>
+                <td style="color: #f87171;">✕ Ek Ücret / Yok</td>
+                <td style="color: #34d399; font-weight: bold;">✓ Dahili 2 Saniyede Otomatik Yanıt</td>
+              </tr>
+              <tr>
+                <td style="font-weight: bold;">Zarar Korumalı Buybox Repricer</td>
+                <td style="color: #f87171;">✕ Yok</td>
+                <td style="color: #34d399; font-weight: bold;">✓ Maliyet Altına İnmeyen Dinamik Fiyat</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLAYT 10: TEKLİF & KAPANIŞ -->
+    <section class="slide" data-slide="10">
+      <div class="slide-badge badge-emerald">🚀 Hemen Başlayın</div>
+      <h2 class="slide-title">Mağazanız İçin Otopilota Geçme Vakti</h2>
+      <p class="slide-desc">Bugün katılın, yarından itibaren kargo kaçaklarını durdurun, net kârınızı artırın.</p>
+
+      <div class="grid-2">
+        <div class="glass-card" style="border: 2px solid #10b981; background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(18,26,41,0.9));">
+          <div class="slide-badge badge-emerald">En Çok Tercih Edilen</div>
+          <h3 style="font-size: 24px; font-weight: 900; color: #fff; margin: 8px 0;">Pro Büyüme Paketi</h3>
+          <div style="font-size: 36px; font-weight: 900; color: #10b981; font-family: monospace; margin-bottom: 12px;">
+            Özel Lansman Fiyatı
+          </div>
+          <ul style="list-style: none; space-y: 8px; font-size: 13px; line-height: 1.8;">
+            <li>✓ Sınırsız Pazaryeri API Bağlantısı (Trendyol, HB, Amazon, Shopify)</li>
+            <li>✓ Tarafınıza Kesilen Faturalar & GİB E-Arşiv Modülü</li>
+            <li>✓ Kargo Desi Kaçağı Dedektörü & PDF İtiraz Sihirbazı</li>
+            <li>✓ 7/24 AI Soru & Yorum Yanıtlayıcı Otopilot</li>
+            <li>✓ Kuruşu Kuruşuna Net Kâr & Zarar Eden Ürün Koruması</li>
+            <li>✓ Birebir Kurulum & 7/24 VIP Destek</li>
+          </ul>
+        </div>
+
+        <div class="glass-card" style="display: flex; flex-direction: column; justify-content: center; text-align: center;">
+          <div style="font-size: 48px; margin-bottom: 12px;">🤝</div>
+          <h3 style="font-size: 22px; font-weight: 900; color: #fff;">İlk Adımı Birlikte Atalım</h3>
+          <p class="card-desc" style="margin: 10px 0 20px 0;">
+            15 dakikalık canlı kurulumla mağazanızı bağlayalım, ilk günden kargo kaçaklarınızı ve gerçek kârınızı görün.
+          </p>
+          <div>
+            <a href="https://izeeg-ai.vercel.app/" target="_blank" class="btn btn-primary" style="padding: 12px 28px; font-size: 14px;">
+              ⚡ Canlı Demoyu Başlat
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Alt Bar / Navigasyon -->
+  <footer>
+    <div class="slide-indicator" id="slideIndicator">
+      Slayt 1 / 10
+    </div>
+
+    <div class="nav-controls">
+      <button class="nav-btn" id="prevBtn" onclick="prevSlide()" title="Önceki Slayt (Sol Ok)">
+        ‹
+      </button>
+      <button class="nav-btn" id="nextBtn" onclick="nextSlide()" title="Sonraki Slayt (Sağ Ok)">
+        ›
+      </button>
+    </div>
+
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </footer>
+
+  <script>
+    let currentSlide = 1;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    const indicator = document.getElementById('slideIndicator');
+    const progressBar = document.getElementById('progressBar');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    function updateSlider() {
+      slides.forEach((slide, index) => {
+        if (index + 1 === currentSlide) {
+          slide.classList.add('active');
+        } else {
+          slide.classList.remove('active');
+        }
+      });
+
+      indicator.textContent = `Slayt ${currentSlide} / ${totalSlides}`;
+      progressBar.style.width = `${(currentSlide / totalSlides) * 100}%`;
+
+      prevBtn.disabled = currentSlide === 1;
+      nextBtn.disabled = currentSlide === totalSlides;
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateSlider();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateSlider();
+      }
+    }
+
+    // Klavye Yön Tuşları ile Geçiş
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        prevSlide();
+      }
+    });
+
+    // Tam Ekran
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // Dokunmatik Kaydırma (Swipe)
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    });
+
+    document.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      if (touchStartX - touchEndX > 50) nextSlide();
+      if (touchEndX - touchStartX > 50) prevSlide();
+    });
+
+    updateSlider();
+  </script>
+</body>
+</html>
