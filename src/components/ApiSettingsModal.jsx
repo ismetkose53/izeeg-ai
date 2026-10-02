@@ -25,12 +25,10 @@ export function ApiSettingsModal({
   onSave,
   onDisconnect
 }) {
-  if (!isOpen || !integration) return null;
-
-  const [apiKey, setApiKey] = useState(integration.apiKey || '');
-  const [apiSecret, setApiSecret] = useState(integration.apiSecret || '');
-  const [merchantId, setMerchantId] = useState(integration.merchantId || '');
-  const [storeUrl, setStoreUrl] = useState(integration.storeUrl || (integration.id === 'ticimax' ? 'https://magaza.ticimax.com' : integration.id === 'shopify' ? 'https://magazam.myshopify.com' : ''));
+  const [apiKey, setApiKey] = useState(integration?.apiKey || '');
+  const [apiSecret, setApiSecret] = useState(integration?.apiSecret || '');
+  const [merchantId, setMerchantId] = useState(integration?.merchantId || '');
+  const [storeUrl, setStoreUrl] = useState(integration?.storeUrl || (integration?.id === 'ticimax' ? 'https://magaza.ticimax.com' : integration?.id === 'shopify' ? 'https://magazam.myshopify.com' : ''));
   const [showSecret, setShowSecret] = useState(false);
 
   // Test Bağlantısı State'i
@@ -126,7 +124,9 @@ export function ApiSettingsModal({
     onClose();
   };
 
-  const isUrlRequired = ['ticimax', 'shopify'].includes(integration.id);
+  const isUrlRequired = ['ticimax', 'shopify'].includes(integration?.id);
+
+  if (!isOpen || !integration) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 animate-fadeIn">

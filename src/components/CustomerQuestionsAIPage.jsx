@@ -232,11 +232,51 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
       } catch {}
     }
 
+    // 7/24 Arka Plan Otopilot ve Canlı Soru/Yorum Dinleme Döngüsü (Her 45 saniyede bir)
+    const autoPilotInterval = setInterval(async () => {
+      try {
+        const res = await syncAllQuestionsAndReviews();
+        if (res.success) {
+          setQuestions(res.questions);
+          setReviews(res.reviews);
+          setLastSyncTime(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+
+          // Eğer Otopilot Aktifse bekleyenleri anında sıfır onayla yanıtla
+          const isEnabled = localStorage.getItem(QA_AUTOPILOT_KEY) !== 'false';
+          if (isEnabled) {
+            const pendingQs = res.questions.filter(q => q.status === 'PENDING' || !q.sellerAnswer);
+            const pendingRevs = res.reviews.filter(r => r.status === 'PENDING' || !r.sellerAnswer);
+
+            for (const q of pendingQs) {
+              const ans = generateSmartAIAnswer({ type: 'question', item: q, tone: selectedTone });
+              await sendUniversalQuestionAnswer({ question: q, answerText: ans }).catch(() => {});
+            }
+
+            for (const r of pendingRevs) {
+              const ans = generateSmartAIAnswer({ type: 'review', item: r, tone: selectedTone });
+              await sendUniversalReviewReply({ review: r, replyText: ans }).catch(() => {});
+            }
+
+            if (pendingQs.length > 0 || pendingRevs.length > 0) {
+              setQuestions(getStoredQuestions());
+              setReviews(getStoredReviews());
+              if (onToast) {
+                onToast(`⚡ 7/24 AI Otopilot: ${pendingQs.length + pendingRevs.length} yeni soru/yorum otomatik analiz edilip onay beklemeden yanıtlandı.`);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Background autopilot error:", e);
+      }
+    }, 45000);
+
     return () => {
+      clearInterval(autoPilotInterval);
       window.removeEventListener('izeeg_questions_updated', handleQuestionsUpdate);
       window.removeEventListener('izeeg_reviews_updated', handleReviewsUpdate);
     };
-  }, []);
+  }, [selectedTone, onToast]);
 
   // Canlı Senkronizasyon (Pazaryeri API'lerinden tüm soruları ve yorumları tam kapsamlı çek)
   const handleLiveSync = async () => {

@@ -26,14 +26,12 @@ export function AddonPurchaseModal({
   addon, 
   onAddonUnlocked 
 }) {
-  if (!isOpen || !addon) return null;
-
   const [paymentType, setPaymentType] = useState('CARD'); // 'CARD' | 'HAVALE'
   const [isProcessing, setIsProcessing] = useState(false);
   const [havaleForm, setHavaleForm] = useState({
     senderName: '',
     senderBank: 'Garanti BBVA',
-    referenceCode: `ADD-${addon.id.toUpperCase()}-${Date.now().toString().slice(-4)}`,
+    referenceCode: `ADD-${(addon?.id || 'PRO').toUpperCase()}-${Date.now().toString().slice(-4)}`,
     note: ''
   });
   const [havaleSubmitted, setHavaleSubmitted] = useState(false);
@@ -77,6 +75,8 @@ export function AddonPurchaseModal({
     setHavaleSubmitted(true);
     confetti({ particleCount: 80, spread: 70 });
   };
+
+  if (!isOpen || !addon) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn font-sans">

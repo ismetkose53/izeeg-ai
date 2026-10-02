@@ -29,8 +29,6 @@ export function CommissionTariffsModal({ isOpen, onClose, products = [], onUpdat
   const [customPrices, setCustomPrices] = useState({});
   const [terminliStates, setTerminliStates] = useState({});
 
-  if (!isOpen) return null;
-
   // Örnek Tarife Verileri (Gerçek Ürünlerle Eşleştirilmiş)
   const tariffProducts = useMemo(() => {
     const list = products.length > 0 ? products : [
@@ -134,6 +132,8 @@ export function CommissionTariffsModal({ isOpen, onClose, products = [], onUpdat
       setTimeout(() => setToastMessage(null), 4000);
     }, 800);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-3 sm:p-6 overflow-y-auto">

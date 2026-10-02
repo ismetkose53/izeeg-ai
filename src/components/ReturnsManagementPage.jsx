@@ -109,7 +109,13 @@ export function ReturnsManagementPage({ onNavigateBack, onTriggerActionApproval,
     window.addEventListener('izeeg_images_updated', handleImagesUpdated);
     window.addEventListener('izeeg_orders_updated', handleOrdersUpdated);
 
+    // Arka Planda Canlı İade Takip ve Senkronizasyon Döngüsü (Her 60 saniyede bir)
+    const returnsInterval = setInterval(() => {
+      syncAllReturns().then(() => refreshData()).catch(() => {});
+    }, 60000);
+
     return () => {
+      clearInterval(returnsInterval);
       window.removeEventListener('izeeg_returns_updated', handleReturnsUpdated);
       window.removeEventListener('izeeg_images_updated', handleImagesUpdated);
       window.removeEventListener('izeeg_orders_updated', handleOrdersUpdated);
