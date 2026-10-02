@@ -15,6 +15,15 @@ const QUESTIONS_STORAGE_KEY = 'izeeg_live_customer_questions';
 const REVIEWS_STORAGE_KEY = 'izeeg_live_customer_reviews';
 const INCOMING_INVOICES_STORAGE_KEY = 'izeeg_marketplace_incoming_invoices';
 
+export function getStoredOrders() {
+  try {
+    const saved = localStorage.getItem(ORDERS_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
 // Kullanıcı Tanımlı Özel Kargo & Komisyon Ayarları (Varsayılan Trendyol: 87.00 ₺, %21.5 Komisyon)
 export function getCustomCargoSettings() {
   try {

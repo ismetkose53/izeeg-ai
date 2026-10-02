@@ -31,7 +31,7 @@ import { PageHelpGuideModal } from './components/PageHelpGuideModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { PortalEntrancePage } from './components/PortalEntrancePage';
 import { CommissionTariffsModal } from './components/CommissionTariffsModal';
-import { getCurrentUser, logoutUser, saveCurrentUser } from './services/authService';
+import { getCurrentUser, logoutUser, saveCurrentUser, syncUserDataToCloud } from './services/authService';
 import { getNotificationSettings, sendWhatsAppMessage } from './services/notificationService';
 import { Analytics } from '@vercel/analytics/react';
 
