@@ -61,9 +61,14 @@ export async function registerUserAsync({ storeName, fullName, email, phone, pas
   const cleanName = (fullName || storeName || '').trim();
   const cleanStore = (storeName || cleanName || 'E-Ticaret Mağazam').trim();
   const cleanPhone = (phone || '').trim();
+  const cleanPass = (password || '').trim();
 
   if (!cleanEmail || !cleanName) {
     return { success: false, message: 'Lütfen ad soyad ve e-posta adresinizi giriniz.' };
+  }
+
+  if (cleanPass.length < 4) {
+    return { success: false, message: 'Şifreniz en az 4 karakterden oluşmalıdır.' };
   }
 
   try {
@@ -76,7 +81,7 @@ export async function registerUserAsync({ storeName, fullName, email, phone, pas
         fullName: cleanName,
         email: cleanEmail,
         phone: cleanPhone,
-        password
+        password: cleanPass
       })
     });
 
@@ -88,7 +93,7 @@ export async function registerUserAsync({ storeName, fullName, email, phone, pas
       return { success: false, message: json.message || 'Kayıt işlemi gerçekleştirilemedi.' };
     }
   } catch (e) {
-    console.warn("Cloud register fallback to local:", e);
+    console.warn("Cloud register fallback notice:", e);
     // Offline / Local Fallback
     const newUser = {
       id: `USR-${Date.now().toString().slice(-6)}`,
@@ -96,12 +101,16 @@ export async function registerUserAsync({ storeName, fullName, email, phone, pas
       ownerName: cleanName,
       email: cleanEmail,
       phone: cleanPhone || '0532 000 00 00',
+      passwordHash: computeAuthHash(cleanPass),
       role: 'merchant',
       plan: 'TRIAL',
       planName: '7 Günlük Ücretsiz Deneme',
       trialDaysLeft: 7,
       daysRemaining: 7,
+      status: 'TRIAL',
       isLoggedIn: true,
+      createdAt: new Date().toLocaleDateString('tr-TR'),
+      paidUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
       activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
     };
     saveCurrentUser(newUser);
@@ -110,7 +119,7 @@ export async function registerUserAsync({ storeName, fullName, email, phone, pas
 }
 
 /**
- * Giriş Yap (Hem Senkron hem Asenkron Bulut Destekli)
+ * Giriş Yap (Kesin Şifreli & Kayıt Doğrulamalı Bulut Sistemi)
  */
 export async function loginUserAsync(email, password) {
   const cleanEmail = (email || '').trim().toLowerCase();
@@ -120,7 +129,7 @@ export async function loginUserAsync(email, password) {
     return { success: false, message: 'Lütfen e-posta adresinizi ve şifrenizi giriniz.' };
   }
 
-  // 1. Önce Bulut Sunucusundan Doğrula & Verileri Getir
+  // 1. Bulut Sunucusundan Doğrula & Verileri Getir
   try {
     const res = await fetch('/api/cloud-sync', {
       method: 'POST',
@@ -140,44 +149,43 @@ export async function loginUserAsync(email, password) {
 
       // Buluttan gelen kayıtlı API anahtarlarını ve sipariş/ürün verilerini cihaza aktar
       if (json.storeData) {
-        if (json.storeData.credentials) {
+        if (json.storeData.credentials && Object.keys(json.storeData.credentials).length > 0) {
           try {
             const currentLocalCreds = JSON.parse(localStorage.getItem(CREDENTIALS_KEY) || '{}');
-            const mergedCreds = { ...json.storeData.credentials, ...currentLocalCreds };
+            const mergedCreds = { ...currentLocalCreds, ...json.storeData.credentials };
             localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(mergedCreds));
           } catch {}
         }
         if (json.storeData.orders && Array.isArray(json.storeData.orders) && json.storeData.orders.length > 0) {
           try {
-            const localOrders = JSON.parse(localStorage.getItem('izeeg_live_orders') || '[]');
-            if (localOrders.length === 0) {
-              localStorage.setItem('izeeg_live_orders', JSON.stringify(json.storeData.orders));
-            }
+            localStorage.setItem('izeeg_live_orders', JSON.stringify(json.storeData.orders));
           } catch {}
         }
         if (json.storeData.products && Array.isArray(json.storeData.products) && json.storeData.products.length > 0) {
           try {
-            const localProds = JSON.parse(localStorage.getItem('izeeg_live_products') || '[]');
-            if (localProds.length === 0) {
-              localStorage.setItem('izeeg_live_products', JSON.stringify(json.storeData.products));
-            }
+            localStorage.setItem('izeeg_live_products', JSON.stringify(json.storeData.products));
+          } catch {}
+        }
+        if (json.storeData.cargoLeaks && Array.isArray(json.storeData.cargoLeaks) && json.storeData.cargoLeaks.length > 0) {
+          try {
+            localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(json.storeData.cargoLeaks));
           } catch {}
         }
       }
 
-      return { success: true, user, message: json.message };
-    } else if (res.status === 401 || res.status === 400) {
-      return { success: false, message: json.message || 'Giriş bilgileri hatalı.' };
+      return { success: true, user, storeData: json.storeData || {}, message: json.message };
+    } else {
+      // Sunucu tarafından reddedildi (Yanlış şifre veya kullanıcı yok) -> Kesinlikle hata döndür!
+      return { success: false, message: json.message || 'Giriş bilgileri doğrulanamadı.' };
     }
   } catch (e) {
-    console.warn("Cloud login fallback to local check:", e);
+    console.warn("Cloud login network error, checking local fallback:", e);
+    // Yalnızca gerçek ağ kesintisinde yerel doğrulamayı dene
+    return loginUser(email, password);
   }
-
-  // 2. Offline / Local Fallback Giriş Kontrolü
-  return loginUser(email, password);
 }
 
-// Senkron Giriş (Geriye dönük tam uyumluluk)
+// Senkron / Offline Giriş Kontrolü (Kayıtsız Kullanıcı Girişi Kesinlikle Engellendi)
 export function loginUser(email, password) {
   const cleanEmail = (email || '').trim().toLowerCase();
   const cleanPass = (password || '').trim();
@@ -214,31 +222,40 @@ export function loginUser(email, password) {
       saveCurrentUser(adminUser);
       return { success: true, user: adminUser };
     } else {
-      return { success: false, message: 'Yönetici şifresi hatalı. Lütfen kurucu şifrenizi doğru giriniz.' };
+      return { success: false, message: 'Yönetici şifresi hatalıdır. Lütfen kurucu şifrenizi doğru giriniz.' };
     }
   }
 
-  // Normal Satıcı Girişi
-  if (cleanPass.length < 4) {
-    return { success: false, message: 'Şifreniz en az 4 karakterden oluşmalıdır.' };
-  }
+  // Yerel veritabanında kullanıcı var mı kontrol et
+  try {
+    const saved = localStorage.getItem('izeeg_admin_users_db');
+    const users = saved ? JSON.parse(saved) : [];
+    const existing = users.find(u => u.email && u.email.toLowerCase() === cleanEmail);
 
-  const merchantUser = {
-    id: `USR-${Date.now().toString().slice(-6)}`,
-    storeName: 'E-Ticaret Mağazam',
-    ownerName: 'Mağaza Yöneticisi',
-    email: cleanEmail,
-    phone: '0532 000 00 00',
-    role: 'merchant',
-    plan: 'TRIAL',
-    planName: '7 Günlük Ücretsiz Deneme',
-    trialDaysLeft: 7,
-    daysRemaining: 7,
-    isLoggedIn: true,
-    activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
-  };
-  saveCurrentUser(merchantUser);
-  return { success: true, user: merchantUser };
+    if (!existing) {
+      return { 
+        success: false, 
+        message: 'Bu e-posta adresiyle kayıtlı bir hesap bulunamadı. Lütfen önce "Kayıt Ol" sekmesinden ücretsiz hesap oluşturunuz.' 
+      };
+    }
+
+    const inputHash = computeAuthHash(cleanPass);
+    if (existing.passwordHash) {
+      if (inputHash !== existing.passwordHash) {
+        return { success: false, message: 'Girdiğiniz şifre hatalıdır. Lütfen şifrenizi kontrol ediniz.' };
+      }
+    } else {
+      // Şifre bağla
+      existing.passwordHash = inputHash;
+      localStorage.setItem('izeeg_admin_users_db', JSON.stringify(users));
+    }
+
+    const safeUser = { ...existing, isLoggedIn: true };
+    saveCurrentUser(safeUser);
+    return { success: true, user: safeUser };
+  } catch {
+    return { success: false, message: 'Kullanıcı doğrulanamadı. Lütfen kayıt olunuz.' };
+  }
 }
 
 /**
@@ -263,8 +280,8 @@ export async function syncUserDataToCloud() {
         email: user.email,
         userProfile: user,
         credentials: creds,
-        orders: orders.slice(0, 150), // En güncel 150 sipariş
-        products: products.slice(0, 300),
+        orders: orders.slice(0, 200), // En güncel 200 sipariş
+        products: products.slice(0, 400),
         cargoLeaks: cargoLeaks
       })
     });

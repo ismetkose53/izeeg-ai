@@ -1949,9 +1949,10 @@ export async function fetchTrendyolClaims({ sellerId, apiKey, apiSecret }) {
 
   let allMappedClaims = [];
 
-  // 1. Claims Endpoint Sorgulaması
-  try {
-    const res = await fetch('/api/trendyol', {
+  // 1. Claims Endpoint'lerini Tüm Olası Statülerle Paralel Sorgula (Created, WaitingInAction, Accepted, Rejected, Unresolved, InAnalysis, Cancelled, Tümü)
+  const claimStatuses = ['', 'Created', 'WaitingInAction', 'Accepted', 'Rejected', 'Unresolved', 'InAnalysis', 'Cancelled'];
+  const claimPromises = claimStatuses.map(statusVal => 
+    fetch('/api/trendyol', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1959,24 +1960,26 @@ export async function fetchTrendyolClaims({ sellerId, apiKey, apiSecret }) {
         apiKey: cleanKey,
         apiSecret: cleanSecret,
         action: 'claims',
+        claimItemStatus: statusVal,
         page: 0,
         size: 100
       })
-    });
+    }).then(async res => {
+      if (res.ok) {
+        const json = await res.json().catch(() => ({}));
+        const rawClaims = json.data?.content || json.data?.items || json.data?.claims || json.data?.elements || json.content || json.items || json.claims || json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(rawClaims) && rawClaims.length > 0) {
+          return flattenAndMapTrendyolClaims(rawClaims, tyCargo, catalog, imageMap);
+        }
+      }
+      return [];
+    }).catch(() => [])
+  );
 
-    if (res.ok) {
-      const json = await res.json();
-      const rawClaims = json.data?.content || json.content || json.data || (Array.isArray(json) ? json : []);
-      const mapped = flattenAndMapTrendyolClaims(rawClaims, tyCargo, catalog, imageMap);
-      allMappedClaims = [...allMappedClaims, ...mapped];
-    }
-  } catch (e) {
-    console.warn("fetchTrendyolClaims notice:", e);
-  }
-
-  // 2. Trendyol Returned / Cancelled Siparişlerinden İadeleri Çekme
-  try {
-    const resOrders = await fetch('/api/trendyol', {
+  // 2. Trendyol Returned / UnDelivered / Cancelled / UnSupplied Siparişlerinden İadeleri Ayrı Ayrı Çekme
+  const orderReturnStatuses = ['Returned', 'UnDelivered', 'Cancelled', 'UnSupplied'];
+  const orderPromises = orderReturnStatuses.map(statusVal =>
+    fetch('/api/trendyol', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1984,28 +1987,35 @@ export async function fetchTrendyolClaims({ sellerId, apiKey, apiSecret }) {
         apiKey: cleanKey,
         apiSecret: cleanSecret,
         action: 'orders',
-        status: 'Returned,UnDelivered,Cancelled',
+        status: statusVal,
         page: 0,
         size: 100
       })
-    });
+    }).then(async resOrders => {
+      if (resOrders.ok) {
+        const jsonOrders = await resOrders.json().catch(() => ({}));
+        const rawOrders = jsonOrders.data?.content || jsonOrders.data?.items || jsonOrders.data?.orders || jsonOrders.content || jsonOrders.items || jsonOrders.orders || [];
+        if (Array.isArray(rawOrders) && rawOrders.length > 0) {
+          const mappedOrders = rawOrders.map(raw => mapTrendyolOrderToInternal(raw, cleanSellerId, catalog, imageMap));
+          return extractReturnsFromOrders(mappedOrders);
+        }
+      }
+      return [];
+    }).catch(() => [])
+  );
 
-    if (resOrders.ok) {
-      const jsonOrders = await resOrders.json();
-      const rawOrders = jsonOrders.data?.content || jsonOrders.content || [];
-      const mappedOrders = rawOrders.map(raw => mapTrendyolOrderToInternal(raw, cleanSellerId, catalog, imageMap));
-      const orderReturns = extractReturnsFromOrders(mappedOrders);
-      allMappedClaims = [...allMappedClaims, ...orderReturns];
+  const results = await Promise.allSettled([...claimPromises, ...orderPromises]);
+  results.forEach(r => {
+    if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+      allMappedClaims = [...allMappedClaims, ...r.value];
     }
-  } catch (eOrder) {
-    console.warn("fetchTrendyolReturnedOrders notice:", eOrder);
-  }
+  });
 
-  // Tekilleştir
+  // Tekilleştir (OrderNumber / OrderId / ClaimId bazında)
   const claimMap = new Map();
   allMappedClaims.forEach(c => {
-    const key = c.orderNumber || c.orderId || c.id;
-    if (!claimMap.has(key)) {
+    const key = c.orderNumber || c.orderId || c.id || c.claimLineItemId;
+    if (key && !claimMap.has(key)) {
       claimMap.set(key, c);
     }
   });
@@ -2290,6 +2300,9 @@ export async function syncAllMarketplacesNow({ onToast, onNewOrdersReceived } = 
   // 3. İadeleri de senkronize et
   await syncAllReturns().catch(() => {});
 
+  // 4. Müşteri Soruları ve Yorumlarını da senkronize et
+  await syncAllQuestionsAndReviews().catch(() => {});
+
   if (allIncomingOrders.length > 0) {
     const existingOrdersRaw = localStorage.getItem(ORDERS_STORAGE_KEY);
     const existingOrders = existingOrdersRaw ? JSON.parse(existingOrdersRaw) : [];
@@ -2305,6 +2318,9 @@ export async function syncAllMarketplacesNow({ onToast, onNewOrdersReceived } = 
       if (userRaw) {
         const u = JSON.parse(userRaw);
         if (u && u.isLoggedIn && (u.id || u.email)) {
+          const creds = JSON.parse(localStorage.getItem('izeeg_core_api_credentials') || '{}');
+          const products = JSON.parse(localStorage.getItem('izeeg_live_products') || '[]');
+          const cargoLeaks = JSON.parse(localStorage.getItem('izeeg_live_cargo_leaks') || '[]');
           fetch('/api/cloud-sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2312,7 +2328,11 @@ export async function syncAllMarketplacesNow({ onToast, onNewOrdersReceived } = 
               action: 'save-user-data',
               userId: u.id,
               email: u.email,
-              orders: mergedOrders.slice(0, 150)
+              userProfile: u,
+              credentials: creds,
+              orders: mergedOrders.slice(0, 200),
+              products: products.slice(0, 400),
+              cargoLeaks: cargoLeaks
             })
           }).catch(() => {});
         }
@@ -2373,24 +2393,36 @@ export async function runAutoSyncAll({ onToast, onNewOrdersReceived } = {}) {
 
 export const DEFAULT_CUSTOMER_QUESTIONS = MOCK_QUESTIONS;
 
-export const DEFAULT_CUSTOMER_REVIEWS = MOCK_REVIEWS;
-
 export function getStoredQuestions() {
   try {
+    const isDemo = localStorage.getItem('izeeg_demo_mode') === 'true';
     const saved = localStorage.getItem(QUESTIONS_STORAGE_KEY);
     const parsed = saved ? JSON.parse(saved) : [];
-    const source = (Array.isArray(parsed) && parsed.length > 0) ? parsed : (MOCK_QUESTIONS || []);
-    return source.map(q => ({
-      ...q,
-      productTitle: resolveSmartProductName({
-        name: q.productTitle,
-        title: q.productTitle,
-        barcode: q.barcode,
-        sku: q.productSku
-      })
-    }));
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map(q => ({
+        ...q,
+        productTitle: resolveSmartProductName({
+          name: q.productTitle,
+          title: q.productTitle,
+          barcode: q.barcode,
+          sku: q.productSku
+        })
+      }));
+    }
+    if (isDemo) {
+      return (MOCK_QUESTIONS || []).map(q => ({
+        ...q,
+        productTitle: resolveSmartProductName({
+          name: q.productTitle,
+          title: q.productTitle,
+          barcode: q.barcode,
+          sku: q.productSku
+        })
+      }));
+    }
+    return [];
   } catch {
-    return MOCK_QUESTIONS || [];
+    return [];
   }
 }
 
@@ -2404,20 +2436,34 @@ export function saveStoredQuestions(questions = []) {
 
 export function getStoredReviews() {
   try {
+    const isDemo = localStorage.getItem('izeeg_demo_mode') === 'true';
     const saved = localStorage.getItem(REVIEWS_STORAGE_KEY);
     const parsed = saved ? JSON.parse(saved) : [];
-    const source = (Array.isArray(parsed) && parsed.length > 0) ? parsed : (MOCK_REVIEWS || []);
-    return source.map(r => ({
-      ...r,
-      productTitle: resolveSmartProductName({
-        name: r.productTitle,
-        title: r.productTitle,
-        barcode: r.barcode,
-        sku: r.productSku
-      })
-    }));
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map(r => ({
+        ...r,
+        productTitle: resolveSmartProductName({
+          name: r.productTitle,
+          title: r.productTitle,
+          barcode: r.barcode,
+          sku: r.productSku
+        })
+      }));
+    }
+    if (isDemo) {
+      return (MOCK_REVIEWS || []).map(r => ({
+        ...r,
+        productTitle: resolveSmartProductName({
+          name: r.productTitle,
+          title: r.productTitle,
+          barcode: r.barcode,
+          sku: r.productSku
+        })
+      }));
+    }
+    return [];
   } catch {
-    return MOCK_REVIEWS || [];
+    return [];
   }
 }
 
@@ -2498,82 +2544,97 @@ export async function fetchTrendyolLiveQuestions({ sellerId, apiKey, apiSecret, 
   const cleanKey = apiKey.trim();
   const cleanSecret = apiSecret.trim();
 
-  const statusesToFetch = status ? [status] : ['WAITING_FOR_ANSWER', 'ANSWERED', 'ALL'];
+  const statusesToFetch = status ? [status] : ['WAITING_FOR_ANSWER', 'ANSWERED', 'REPORTED', 'REJECTED', ''];
   let allRaw = [];
 
-  for (const st of statusesToFetch) {
-    try {
-      const res = await fetch('/api/trendyol', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sellerId: cleanSellerId,
-          apiKey: cleanKey,
-          apiSecret: cleanSecret,
-          action: 'questions',
-          status: st === 'ALL' ? '' : st,
-          page: 0,
-          size: 50
-        })
-      });
-
+  const promises = statusesToFetch.map(st =>
+    fetch('/api/trendyol', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sellerId: cleanSellerId,
+        apiKey: cleanKey,
+        apiSecret: cleanSecret,
+        action: 'questions',
+        status: st,
+        page: 0,
+        size: 50
+      })
+    }).then(async res => {
       if (res.ok) {
         const json = await res.json().catch(() => ({}));
-        const list = json.data?.content || json.data?.items || json.data?.elements || json.data?.data || json.content || json.items || json.data || (Array.isArray(json) ? json : []);
-        if (Array.isArray(list) && list.length > 0) {
-          allRaw = [...allRaw, ...list];
-        }
+        const list = json.data?.content || json.data?.items || json.data?.elements || json.data?.data || json.data?.questions || json.content || json.items || json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(list)) return list;
       }
-    } catch (e) {
+      return [];
+    }).catch(e => {
       console.warn(`fetchTrendyolLiveQuestions (${st}) notice:`, e);
-    }
-  }
+      return [];
+    })
+  );
 
-  // Eğer genel sorgudan soru dönmediyse kayıtlı ürün barkodları ile özel soru kontrolü yap
-  if (allRaw.length === 0) {
-    try {
-      const products = getCatalogProducts();
-      const topBarcodes = products.map(p => p.barcode).filter(Boolean).slice(0, 10);
-      for (const bc of topBarcodes) {
-        try {
-          const res = await fetch('/api/trendyol', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sellerId: cleanSellerId,
-              apiKey: cleanKey,
-              apiSecret: cleanSecret,
-              action: 'questions',
-              barcode: bc,
-              page: 0,
-              size: 20
-            })
-          });
+  const results = await Promise.allSettled(promises);
+  results.forEach(r => {
+    if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+      allRaw = [...allRaw, ...r.value];
+    }
+  });
+
+  // Kayıtlı ürün barkodları ve sipariş barkodları ile özel soru kontrolü yap
+  try {
+    const products = getCatalogProducts();
+    const orders = getStoredOrders();
+    const orderBarcodes = (orders || []).map(o => o.barcode).filter(Boolean);
+    const prodBarcodes = (products || []).map(p => p.barcode).filter(Boolean);
+    const combinedBarcodes = Array.from(new Set([...prodBarcodes, ...orderBarcodes])).slice(0, 15);
+
+    if (combinedBarcodes.length > 0) {
+      const barcodePromises = combinedBarcodes.map(bc =>
+        fetch('/api/trendyol', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sellerId: cleanSellerId,
+            apiKey: cleanKey,
+            apiSecret: cleanSecret,
+            action: 'questions',
+            barcode: bc,
+            page: 0,
+            size: 20
+          })
+        }).then(async res => {
           if (res.ok) {
             const json = await res.json().catch(() => ({}));
-            const list = json.data?.content || json.data?.items || json.content || json.data || (Array.isArray(json) ? json : []);
-            if (Array.isArray(list) && list.length > 0) {
-              allRaw = [...allRaw, ...list];
-            }
+            const list = json.data?.content || json.data?.items || json.data?.elements || json.data?.questions || json.content || json.data || (Array.isArray(json) ? json : []);
+            if (Array.isArray(list)) return list;
           }
-        } catch {}
-      }
-    } catch {}
-  }
+          return [];
+        }).catch(() => [])
+      );
+
+      const bcResults = await Promise.allSettled(barcodePromises);
+      bcResults.forEach(r => {
+        if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+          allRaw = [...allRaw, ...r.value];
+        }
+      });
+    }
+  } catch {}
 
   const normalized = allRaw.map(item => {
     const qId = item.id || item.questionId ? String(item.id || item.questionId) : `TY-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const hasAnswer = Boolean(item.answer?.text || item.answerText || item.status === 'ANSWERED' || item.sellerAnswer || (item.answers && item.answers.length > 0) || item.answered === true);
-    const prodImg = item.imageUrl || item.productImage || item.productMainImage || resolveSmartProductImage({
-      barcode: item.barcode || item.productBarcode,
-      title: item.productName || item.productTitle || item.title
+    
+    const prodImg = item.imageUrl || item.productImage || item.productMainImage || item.product?.imageUrl || item.product?.image || resolveSmartProductImage({
+      barcode: item.barcode || item.productBarcode || item.product?.barcode,
+      title: item.productName || item.productTitle || item.title || item.product?.title
     });
 
     const smartTitle = resolveSmartProductName({
-      name: item.productName || item.productTitle || item.title || item.listingTitle,
-      title: item.productName || item.productTitle || item.title || item.listingTitle,
-      barcode: item.barcode || item.productBarcode,
-      sku: item.barcode || item.productBarcode || item.stockCode || item.merchantSku
+      name: item.productName || item.productTitle || item.title || item.listingTitle || item.product?.title || item.product?.name,
+      title: item.productName || item.productTitle || item.title || item.listingTitle || item.product?.title || item.product?.name,
+      barcode: item.barcode || item.productBarcode || item.product?.barcode,
+      sku: item.barcode || item.productBarcode || item.stockCode || item.merchantSku || item.product?.barcode
     });
 
     const qObj = {
@@ -2583,7 +2644,7 @@ export async function fetchTrendyolLiveQuestions({ sellerId, apiKey, apiSecret, 
       customerName: item.customerName || item.userName || item.userFullName || item.customerFirstName || (item.customerId ? `Müşteri #${item.customerId}` : 'Trendyol Müşterisi'),
       productTitle: smartTitle,
       productSku: item.barcode || item.productBarcode || item.stockCode || item.merchantSku || '',
-      barcode: item.barcode || item.productBarcode || '',
+      barcode: item.barcode || item.productBarcode || item.product?.barcode || '',
       productImage: prodImg,
       questionText: item.text || item.questionText || item.question || item.content || item.userQuestion || item.comment || '',
       creationDate: item.creationDate ? new Date(item.creationDate).toISOString() : (item.createdDate ? new Date(item.createdDate).toISOString() : (item.createdAt ? new Date(item.createdAt).toISOString() : new Date().toISOString())),
@@ -2608,6 +2669,7 @@ export async function fetchTrendyolLiveQuestions({ sellerId, apiKey, apiSecret, 
 
   const merged = Array.from(map.values());
   saveStoredQuestions(merged);
+  window.dispatchEvent(new CustomEvent('izeeg_questions_updated', { detail: { count: merged.length } }));
 
   return { success: true, questions: merged, count: normalized.length };
 }
@@ -2682,43 +2744,49 @@ export async function fetchTrendyolLiveReviews({ sellerId, apiKey, apiSecret }) 
 
     if (res.ok) {
       const json = await res.json().catch(() => ({}));
-      rawList = json.data?.content || json.data?.items || json.data?.reviews || json.data?.elements || json.data?.data || json.content || json.items || json.reviews || json.data || (Array.isArray(json) ? json : []);
+      const list = json.data?.content || json.data?.items || json.data?.reviews || json.data?.elements || json.data?.data || json.content || json.items || json.reviews || json.data || (Array.isArray(json) ? json : []);
+      if (Array.isArray(list) && list.length > 0) {
+        rawList = [...rawList, ...list];
+      }
     }
   } catch (e) {
     console.warn("fetchTrendyolLiveReviews notice:", e);
   }
 
-  // Eğer genel incelemeden yorum dönmediyse barkod bazlı incelemeyi dene
-  if (!Array.isArray(rawList) || rawList.length === 0) {
-    try {
-      const products = getCatalogProducts();
-      const topBarcodes = products.map(p => p.barcode).filter(Boolean).slice(0, 10);
-      for (const bc of topBarcodes) {
-        try {
-          const res = await fetch('/api/trendyol', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sellerId: cleanSellerId,
-              apiKey: cleanKey,
-              apiSecret: cleanSecret,
-              action: 'reviews',
-              barcode: bc,
-              page: 0,
-              size: 20
-            })
-          });
-          if (res.ok) {
-            const json = await res.json().catch(() => ({}));
-            const list = json.data?.content || json.data?.items || json.data?.reviews || json.content || json.items || json.data || (Array.isArray(json) ? json : []);
-            if (Array.isArray(list) && list.length > 0) {
-              rawList = [...rawList, ...list];
-            }
+  // Katalogdaki ürünlerin ve siparişlerdeki ürünlerin barkod/model ID'leri üzerinden değerlendirmeleri tara
+  try {
+    const products = getCatalogProducts();
+    const orders = getStoredOrders();
+    const orderBarcodes = (orders || []).map(o => o.barcode).filter(Boolean);
+    const prodBarcodes = (products || []).map(p => p.barcode).filter(Boolean);
+    const targetBarcodes = Array.from(new Set([...prodBarcodes, ...orderBarcodes])).slice(0, 15);
+
+    for (const bc of targetBarcodes) {
+      try {
+        const res = await fetch('/api/trendyol', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sellerId: cleanSellerId,
+            apiKey: cleanKey,
+            apiSecret: cleanSecret,
+            action: 'reviews',
+            barcode: bc,
+            contentId: bc,
+            page: 0,
+            size: 20
+          })
+        });
+        if (res.ok) {
+          const json = await res.json().catch(() => ({}));
+          const list = json.data?.content || json.data?.items || json.data?.reviews || json.data?.elements || json.content || json.items || json.reviews || json.data || (Array.isArray(json) ? json : []);
+          if (Array.isArray(list) && list.length > 0) {
+            rawList = [...rawList, ...list];
           }
-        } catch {}
-      }
-    } catch {}
-  }
+        }
+      } catch {}
+    }
+  } catch {}
 
   const normalized = (Array.isArray(rawList) ? rawList : []).map(item => {
     const revId = item.id || item.reviewId ? String(item.id || item.reviewId) : `TY-REV-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -2762,6 +2830,7 @@ export async function fetchTrendyolLiveReviews({ sellerId, apiKey, apiSecret }) 
 
   const merged = Array.from(map.values());
   saveStoredReviews(merged);
+  window.dispatchEvent(new CustomEvent('izeeg_reviews_updated', { detail: { count: merged.length } }));
 
   return { success: true, reviews: merged, count: normalized.length };
 }

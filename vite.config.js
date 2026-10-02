@@ -7,18 +7,15 @@ function apiDevMiddleware() {
     name: 'api-dev-middleware',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (req.url && req.url.startsWith('/api/trendyol')) {
+        const parsedUrl = new URL(req.url, 'http://localhost:3000');
+        req.query = Object.fromEntries(parsedUrl.searchParams);
+
+        const routeApi = async (modPath) => {
           try {
-            const mod = await import('./api/trendyol.js');
+            const mod = await import(`${modPath}?t=${Date.now()}`);
             const handler = mod.default;
-            let bodyStr = '';
-            req.on('data', chunk => { bodyStr += chunk; });
-            req.on('end', async () => {
-              try {
-                req.body = bodyStr ? JSON.parse(bodyStr) : {};
-              } catch {
-                req.body = bodyStr;
-              }
+
+            const executeHandler = async () => {
               res.status = (code) => {
                 res.statusCode = code;
                 return res;
@@ -28,79 +25,44 @@ function apiDevMiddleware() {
                 res.end(JSON.stringify(data));
               };
               await handler(req, res);
-            });
-            return;
+            };
+
+            if (req.method === 'GET' || req.method === 'OPTIONS' || req.method === 'HEAD') {
+              req.body = req.body || {};
+              await executeHandler();
+            } else {
+              let bodyStr = '';
+              req.on('data', chunk => { bodyStr += chunk; });
+              req.on('end', async () => {
+                try {
+                  req.body = bodyStr ? JSON.parse(bodyStr) : {};
+                } catch {
+                  req.body = bodyStr;
+                }
+                await executeHandler();
+              });
+            }
           } catch (err) {
-            console.error('Dev API Trendyol Error:', err);
+            console.error(`Dev API Error for ${modPath}:`, err);
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ success: false, message: err.message }));
-            return;
           }
+        };
+
+        if (parsedUrl.pathname.startsWith('/api/trendyol')) {
+          await routeApi('./api/trendyol.js');
+          return;
         }
 
-        if (req.url && req.url.startsWith('/api/hepsiburada')) {
-          try {
-            const mod = await import('./api/hepsiburada.js');
-            const handler = mod.default;
-            let bodyStr = '';
-            req.on('data', chunk => { bodyStr += chunk; });
-            req.on('end', async () => {
-              try {
-                req.body = bodyStr ? JSON.parse(bodyStr) : {};
-              } catch {
-                req.body = bodyStr;
-              }
-              res.status = (code) => {
-                res.statusCode = code;
-                return res;
-              };
-              res.json = (data) => {
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify(data));
-              };
-              await handler(req, res);
-            });
-            return;
-          } catch (err) {
-            console.error('Dev API Hepsiburada Error:', err);
-            res.statusCode = 500;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ success: false, message: err.message }));
-            return;
-          }
+        if (parsedUrl.pathname.startsWith('/api/hepsiburada')) {
+          await routeApi('./api/hepsiburada.js');
+          return;
         }
 
-        if (req.url && req.url.startsWith('/api/cloud-sync')) {
-          try {
-            const mod = await import('./api/cloud-sync.js');
-            const handler = mod.default;
-            let bodyStr = '';
-            req.on('data', chunk => { bodyStr += chunk; });
-            req.on('end', async () => {
-              try {
-                req.body = bodyStr ? JSON.parse(bodyStr) : {};
-              } catch {
-                req.body = bodyStr;
-              }
-              res.status = (code) => {
-                res.statusCode = code;
-                return res;
-              };
-              res.json = (data) => {
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify(data));
-              };
-              await handler(req, res);
-            });
-            return;
-          } catch (err) {
-            console.error('Dev API Cloud Sync Error:', err);
-            res.statusCode = 500;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ success: false, message: err.message }));
-            return;
-          }
+        if (parsedUrl.pathname.startsWith('/api/cloud-sync')) {
+          await routeApi('./api/cloud-sync.js');
+          return;
         }
 
         next();

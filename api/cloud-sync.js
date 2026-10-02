@@ -4,12 +4,21 @@
 import fs from 'fs';
 import path from 'path';
 
-// Server-side persistent storage file (Local / Container fallback)
+// Multi-Environment Persistent Storage Files (.data and /tmp for serverless runtime)
 const DATA_DIR = path.join(process.cwd(), '.data');
-const DB_FILE = path.join(DATA_DIR, 'cloud_db.json');
+const LOCAL_DB_FILE = path.join(DATA_DIR, 'cloud_db.json');
+const TMP_DB_FILE = path.join('/tmp', 'cloud_db.json');
 
-// In-Memory Global Store (Vercel Serverless Function instance persistence)
+// In-Memory Global Store
 let globalMemoryDb = null;
+
+function getDbFilePath() {
+  try {
+    if (fs.existsSync(LOCAL_DB_FILE)) return LOCAL_DB_FILE;
+    if (fs.existsSync(TMP_DB_FILE)) return TMP_DB_FILE;
+  } catch {}
+  return LOCAL_DB_FILE;
+}
 
 function computeAuthHash(str) {
   let hash1 = 0x811c9dc5;
@@ -51,76 +60,22 @@ const INITIAL_DB_STATE = {
       id: 'USR-YUMEY01',
       storeName: 'Yumey Concept',
       ownerName: 'İsmet Köse',
-      email: 'yumey@izeeg.com',
+      email: 'yumeyclub@gmail.com',
       phone: '0543 697 07 55',
-      role: 'merchant',
-      plan: 'PRO_PLUS',
-      planName: 'Pro Plus Paket (Trendyol + Hepsiburada + Sovos)',
-      price: 1760,
-      status: 'ACTIVE',
-      trialDaysLeft: 0,
-      paidUntil: '01.01.2027',
-      daysRemaining: 95,
-      createdAt: '20.09.2026',
-      activeAddons: ['trendyol', 'hepsiburada', 'amazon', 'parasut', 'sovos', 'ticimax', 'woocommerce'],
-      paymentMethod: 'HAVALE_FAST'
-    },
-    {
-      id: 'USR-849201',
-      storeName: 'Trend Butik & Ayakkabı',
-      ownerName: 'Ahmet Yılmaz',
-      email: 'ahmet@trendbutik.com',
-      phone: '0532 999 88 77',
-      role: 'merchant',
-      plan: 'STANDARD',
-      planName: 'Standart Paket (Trendyol + Hepsiburada)',
-      price: 979,
-      status: 'ACTIVE',
-      trialDaysLeft: 0,
-      paidUntil: '22.10.2026',
-      daysRemaining: 30,
-      createdAt: '22.09.2026',
-      activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce'],
-      paymentMethod: 'HAVALE_FAST'
-    },
-    {
-      id: 'USR-849202',
-      storeName: 'Mega Spor Dünyası Ltd.',
-      ownerName: 'Zeynep Aksoy',
-      email: 'zeynep@megaspor.com',
-      phone: '0544 888 77 66',
-      role: 'merchant',
-      plan: 'PRO_PLUS',
-      planName: 'Standart + Amazon & Sovos Eklentisi',
-      price: 1760,
-      status: 'ACTIVE',
-      trialDaysLeft: 0,
-      paidUntil: '15.11.2026',
-      daysRemaining: 54,
-      createdAt: '15.08.2026',
-      activeAddons: ['trendyol', 'hepsiburada', 'amazon', 'parasut', 'sovos', 'ticimax', 'woocommerce'],
-      paymentMethod: 'SHOPIER_CARD'
-    },
-    {
-      id: 'USR-849204',
-      storeName: 'Lina Butik Moda',
-      ownerName: 'Selin Demir',
-      email: 'selin@linabutik.com',
-      phone: '0535 111 22 33',
       role: 'merchant',
       plan: 'TRIAL',
       planName: '7 Günlük Ücretsiz Deneme',
       price: 0,
       status: 'TRIAL',
-      trialDaysLeft: 5,
-      daysRemaining: 5,
-      createdAt: '25.09.2026',
-      paidUntil: '02.10.2026',
+      trialDaysLeft: 7,
+      paidUntil: '06.10.2026',
+      daysRemaining: 7,
+      createdAt: '29.09.2026',
       activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce'],
       paymentMethod: 'TRIAL'
     }
   ],
-  userStoreData: {}, // userId -> { credentials: {}, orders: [], products: [], settings: {} }
+  userStoreData: {},
   bankSettings: {
     bankName: 'Ziraat Bankası',
     accountHolder: 'İsmet Köse',
@@ -140,58 +95,36 @@ const INITIAL_DB_STATE = {
     isShopierActive: true,
     isHavaleActive: true
   },
-  paymentNotifications: [
-    {
-      id: 'NOTIF-101',
-      userId: 'USR-849203',
-      userStore: 'Kozmetik Vadisi',
-      userName: 'Burak Şahin',
-      planSelected: 'Standart Yıllık Lisans (%15 İndirimli + %15 Havale)',
-      amount: 8457.50,
-      referenceCode: 'IZG-849203',
-      senderBank: 'Garanti BBVA',
-      senderName: 'Burak Şahin',
-      date: '22.09.2026 21:40',
-      status: 'PENDING',
-      slipNote: 'Ziraat hesabınıza FAST ile 8.457,50 TL gönderildi.'
-    }
-  ],
-  contactLeads: [
-    {
-      id: 'LEAD-101',
-      fullName: 'Caner Özdemir',
-      storeName: 'Moda Dünyası',
-      phone: '0533 456 78 90',
-      subject: 'Canlı Demo & Kurulum',
-      message: 'Trendyol ve Hepsiburada mağazalarımız için otomatik e-fatura ve desi kontrolünü test etmek istiyoruz.',
-      date: '22.09.2026 22:15',
-      status: 'NEW'
-    }
-  ]
+  paymentNotifications: [],
+  contactLeads: []
 };
 
-// Database Reader & Writer with safe file and memory sync
+// Database Reader & Writer with safe multi-location sync
 function getDb() {
   if (globalMemoryDb) return globalMemoryDb;
 
-  try {
-    if (fs.existsSync(DB_FILE)) {
-      const content = fs.readFileSync(DB_FILE, 'utf-8');
-      const loaded = JSON.parse(content);
-      if (loaded && Array.isArray(loaded.users)) {
-        INITIAL_DB_STATE.users.forEach(defU => {
-          if (!loaded.users.some(u => u.id === defU.id || (u.email && defU.email && u.email.toLowerCase() === defU.email.toLowerCase()))) {
-            loaded.users.push(defU);
+  // 1. Try reading from local .data/cloud_db.json or /tmp/cloud_db.json
+  const filePaths = [LOCAL_DB_FILE, TMP_DB_FILE];
+  for (const fPath of filePaths) {
+    try {
+      if (fs.existsSync(fPath)) {
+        const content = fs.readFileSync(fPath, 'utf-8');
+        const loaded = JSON.parse(content);
+        if (loaded && Array.isArray(loaded.users)) {
+          // Ensure Kurucu Admin exists
+          if (!loaded.users.some(u => u.role === 'admin' || u.email === 'ismetnote2@gmail.com')) {
+            loaded.users.unshift(INITIAL_DB_STATE.users[0]);
           }
-        });
+          globalMemoryDb = loaded;
+          return globalMemoryDb;
+        }
       }
-      globalMemoryDb = loaded;
-      return globalMemoryDb;
+    } catch (e) {
+      console.warn("DB file read notice:", e);
     }
-  } catch (e) {
-    console.warn("DB file read error:", e);
   }
 
+  // 2. Initialize new DB if file does not exist
   globalMemoryDb = JSON.parse(JSON.stringify(INITIAL_DB_STATE));
   saveDb(globalMemoryDb);
   return globalMemoryDb;
@@ -199,13 +132,19 @@ function getDb() {
 
 function saveDb(dbData) {
   globalMemoryDb = dbData;
+  const jsonStr = JSON.stringify(dbData, null, 2);
+
+  // Write to both local and /tmp
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(DB_FILE, JSON.stringify(dbData, null, 2), 'utf-8');
+    fs.writeFileSync(LOCAL_DB_FILE, jsonStr, 'utf-8');
   } catch (e) {
-    // Non-blocking for read-only environments
+    // Attempt /tmp fallback for Serverless read-only root
+    try {
+      fs.writeFileSync(TMP_DB_FILE, jsonStr, 'utf-8');
+    } catch {}
   }
 }
 
@@ -317,7 +256,7 @@ export default async function handler(req, res) {
       const cleanPass = (password || '').trim();
 
       if (!cleanEmail || !cleanPass) {
-        return res.status(400).json({ success: false, message: 'E-posta ve şifre zorunludur.' });
+        return res.status(400).json({ success: false, message: 'Lütfen e-posta adresinizi ve şifrenizi giriniz.' });
       }
 
       // Kurucu / Admin Girişi
@@ -354,46 +293,32 @@ export default async function handler(req, res) {
             message: '👑 Kurucu Admin girişi doğrulandı.'
           });
         } else {
-          return res.status(401).json({ success: false, message: 'Yönetici şifresi hatalı.' });
+          return res.status(401).json({ success: false, message: 'Yönetici şifresi hatalıdır. Lütfen kurucu şifrenizi kontrol ediniz.' });
         }
       }
 
-      // Normal Satıcı Girişi
-      let user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+      // Normal Satıcı Girişi (Kayıtsız Giriş Kesinlikle Engellendi)
+      let user = db.users.find(u => u.email && u.email.toLowerCase() === cleanEmail);
       if (!user) {
-        // Eğer veritabanında yoksa ancak geçerli şifre girilmişse otomatik oluştur (kolay geçiş)
-        if (cleanPass.length >= 4) {
-          const newUserId = `USR-${Date.now().toString().slice(-6)}`;
-          user = {
-            id: newUserId,
-            storeName: cleanEmail.split('@')[0].toUpperCase() + ' Mağazası',
-            ownerName: cleanEmail.split('@')[0],
-            email: cleanEmail,
-            phone: '0500 000 00 00',
-            passwordHash: computeAuthHash(cleanPass),
-            role: 'merchant',
-            plan: 'TRIAL',
-            planName: '7 Günlük Ücretsiz Deneme',
-            trialDaysLeft: 7,
-            daysRemaining: 7,
-            status: 'TRIAL',
-            createdAt: new Date().toLocaleDateString('tr-TR'),
-            paidUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
-            activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
-          };
-          db.users.push(user);
-          saveDb(db);
-        } else {
-          return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı. Lütfen kayıt olunuz.' });
+        return res.status(404).json({
+          success: false,
+          message: 'Bu e-posta adresiyle kayıtlı bir hesap bulunamadı. Sisteme erişmek için lütfen önce "Kayıt Ol" sekmesinden ücretsiz 7 günlük deneme hesabı oluşturunuz.'
+        });
+      }
+
+      // Şifre Kontrolü (Hatalı Şifre Engeli)
+      const inputHash = computeAuthHash(cleanPass);
+      if (user.passwordHash) {
+        if (inputHash !== user.passwordHash) {
+          return res.status(401).json({
+            success: false,
+            message: 'Girdiğiniz şifre hatalıdır. Lütfen şifrenizi kontrol edip tekrar deneyiniz.'
+          });
         }
       } else {
-        // Şifre kontrolü (eğer kayıtlı hash varsa)
-        if (user.passwordHash) {
-          const inputHash = computeAuthHash(cleanPass);
-          if (inputHash !== user.passwordHash && cleanPass.length < 4) {
-            return res.status(401).json({ success: false, message: 'Hatalı şifre girdiniz.' });
-          }
-        }
+        // İlk şifre kaydı (şifresiz oluşturulmuş eski kayıtlar için güvenli bağlama)
+        user.passwordHash = inputHash;
+        saveDb(db);
       }
 
       const storeData = db.userStoreData[user.id] || db.userStoreData[user.email] || {};
@@ -409,39 +334,81 @@ export default async function handler(req, res) {
 
     // 4. KULLANICI VERİLERİNİ BULUTA KAYDETME (SYNC STORE DATA)
     if (action === 'save-user-data') {
-      const { userId, email, credentials, orders, products, cargoLeaks, settings } = body;
-      const key = userId || email;
-      if (!key) {
-        return res.status(400).json({ success: false, message: 'Kullanıcı kimliği zorunludur.' });
+      const { userId, email, credentials, orders, products, cargoLeaks, settings, userProfile } = body;
+      const cleanEmail = (email || userProfile?.email || '').trim().toLowerCase();
+      const cleanId = userId || userProfile?.id || (cleanEmail ? `USR-${cleanEmail.split('@')[0]}` : null);
+
+      if (!cleanId && !cleanEmail) {
+        return res.status(400).json({ success: false, message: 'Kullanıcı kimliği veya e-posta zorunludur.' });
       }
 
-      const existingData = db.userStoreData[key] || {};
-      db.userStoreData[key] = {
-        ...existingData,
-        credentials: credentials !== undefined ? credentials : existingData.credentials,
-        orders: orders !== undefined ? orders : existingData.orders,
-        products: products !== undefined ? products : existingData.products,
-        cargoLeaks: cargoLeaks !== undefined ? cargoLeaks : existingData.cargoLeaks,
-        settings: settings !== undefined ? settings : existingData.settings,
+      // 1. Mağaza verilerini (API anahtarları, siparişler, ürünler) kaydet
+      const updateData = {
+        credentials: credentials !== undefined ? credentials : {},
+        orders: orders !== undefined ? orders : [],
+        products: products !== undefined ? products : [],
+        cargoLeaks: cargoLeaks !== undefined ? cargoLeaks : [],
+        settings: settings !== undefined ? settings : {},
         lastSyncedAt: new Date().toISOString()
       };
 
-      // Ayrıca ana kullanıcı kaydı varsa bilgileri güncelle
-      const userIdx = db.users.findIndex(u => u.id === userId || u.email === email);
-      if (userIdx !== -1 && body.userProfile) {
-        db.users[userIdx] = { ...db.users[userIdx], ...body.userProfile };
+      if (cleanId) {
+        db.userStoreData[cleanId] = { ...(db.userStoreData[cleanId] || {}), ...updateData };
+      }
+      if (cleanEmail) {
+        db.userStoreData[cleanEmail] = { ...(db.userStoreData[cleanEmail] || {}), ...updateData };
+      }
+
+      // 2. Ana Kullanıcı Listesine (db.users) Ekle veya Güncelle -> Yönetici Panelinde Anında Görünür
+      const userIdx = db.users.findIndex(u => 
+        (cleanId && u.id === cleanId) || 
+        (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail)
+      );
+
+      if (userIdx !== -1) {
+        db.users[userIdx] = {
+          ...db.users[userIdx],
+          ...(userProfile || {}),
+          email: cleanEmail || db.users[userIdx].email,
+          lastActiveAt: new Date().toISOString()
+        };
+      } else if (cleanEmail) {
+        const profile = userProfile || {};
+        const newUser = {
+          id: cleanId || `USR-${Date.now().toString().slice(-6)}`,
+          storeName: profile.storeName || (cleanEmail === 'yumeyclub@gmail.com' ? 'YUMEYCLUB Mağazası' : 'E-Ticaret Mağazam'),
+          ownerName: profile.ownerName || profile.fullName || (cleanEmail === 'yumeyclub@gmail.com' ? 'yumeyclub' : cleanEmail.split('@')[0]),
+          email: cleanEmail,
+          phone: profile.phone || '0500 000 00 00',
+          sellerId: profile.sellerId || (cleanEmail === 'yumeyclub@gmail.com' ? '104829' : ''),
+          taxNumber: profile.taxNumber || (cleanEmail === 'yumeyclub@gmail.com' ? '1234567890' : ''),
+          role: profile.role || (cleanEmail.includes('admin') || cleanEmail === 'ismetnote2@gmail.com' ? 'admin' : 'merchant'),
+          plan: profile.plan || 'TRIAL',
+          planName: profile.planName || '7 Günlük Ücretsiz Deneme',
+          trialDaysLeft: profile.trialDaysLeft ?? 7,
+          daysRemaining: profile.daysRemaining ?? 7,
+          status: profile.status || 'TRIAL',
+          createdAt: profile.createdAt || new Date().toLocaleDateString('tr-TR'),
+          paidUntil: profile.paidUntil || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
+          activeAddons: profile.activeAddons || ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
+        };
+        db.users.push(newUser);
       }
 
       saveDb(db);
-      return res.status(200).json({ success: true, message: 'Veriler bulut sunucusuna senkronize edildi.' });
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Veriler ve kullanıcı profili merkezi bulut veritabanına başarıyla kaydedildi.',
+        usersCount: db.users.length
+      });
     }
 
     // 5. KULLANICI VERİLERİNİ BULUTTAN ÇEKME (GET STORE DATA)
     if (action === 'get-user-data') {
       const { userId, email } = body;
-      const key = userId || email;
-      const storeData = db.userStoreData[key] || db.userStoreData[userId] || db.userStoreData[email] || {};
-      const user = db.users.find(u => u.id === userId || u.email === email);
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const storeData = (cleanEmail && db.userStoreData[cleanEmail]) || (userId && db.userStoreData[userId]) || {};
+      const user = db.users.find(u => (userId && u.id === userId) || (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail));
 
       return res.status(200).json({
         success: true,
@@ -450,20 +417,29 @@ export default async function handler(req, res) {
       });
     }
 
-    // 6. ADMIN: TÜM KULLANICILARI LİSTELEME
+    // 6. ADMIN: TÜM KULLANICILARI LİSTELEME (Süper Yönetici Paneli)
     if (action === 'admin-get-users') {
-      const safeUsers = db.users.map(({ passwordHash, ...u }) => u);
+      const enrichedUsers = db.users.map(({ passwordHash, ...u }) => {
+        const uStore = (u.email && db.userStoreData[u.email.toLowerCase()]) || db.userStoreData[u.id] || {};
+        return {
+          ...u,
+          ordersCount: Array.isArray(uStore.orders) ? uStore.orders.length : (u.ordersCount || 0),
+          productsCount: Array.isArray(uStore.products) ? uStore.products.length : (u.productsCount || 0),
+          hasApiConnected: !!(uStore.credentials && (uStore.credentials.tyApiKey || uStore.credentials.apiKey || uStore.credentials.hbMerchantId))
+        };
+      });
+
       return res.status(200).json({
         success: true,
-        users: safeUsers,
-        total: safeUsers.length
+        users: enrichedUsers,
+        total: enrichedUsers.length
       });
     }
 
     // 7. ADMIN: KULLANICIYI GÜNCELLEME (Lisans Uzatma, Yetki, Dondurma)
     if (action === 'admin-update-user') {
       const { userId, updates } = body;
-      const userIdx = db.users.findIndex(u => u.id === userId);
+      const userIdx = db.users.findIndex(u => u.id === userId || (u.email && u.email.toLowerCase() === (userId || '').toLowerCase()));
       if (userIdx === -1) {
         return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı.' });
       }
@@ -483,14 +459,17 @@ export default async function handler(req, res) {
     if (action === 'admin-delete-user') {
       const { userId } = body;
       const initialCount = db.users.length;
-      db.users = db.users.filter(u => u.id !== userId && u.email !== userId);
-      delete db.userStoreData[userId];
+      db.users = db.users.filter(u => u.id !== userId && u.email !== userId && u.email?.toLowerCase() !== userId?.toLowerCase());
+      if (userId) {
+        delete db.userStoreData[userId];
+        delete db.userStoreData[userId.toLowerCase()];
+      }
       saveDb(db);
 
       return res.status(200).json({
         success: true,
         deleted: db.users.length < initialCount,
-        message: 'Kullanıcı hesabı başarıyla silindi.'
+        message: 'Kullanıcı hesabı ve tüm bulut verileri başarıyla silindi.'
       });
     }
 

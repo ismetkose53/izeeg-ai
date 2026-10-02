@@ -45,6 +45,7 @@ export function AppHeader({
   onOpenAuthModal,
   onOpenNotifications,
   onOpenPitchDeck,
+  onOpenTariffsModal,
   onLogout,
   onOpenPortal,
   currentUser = { role: 'merchant', storeName: 'yumey', ownerName: 'İsmet Bey', trialDaysLeft: 5 },
@@ -362,6 +363,20 @@ export function AppHeader({
                 </button>
 
                 <button
+                  onClick={() => {
+                    setOpenDropdown(null);
+                    if (onOpenTariffsModal) onOpenTariffsModal();
+                  }}
+                  className="w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer text-slate-300 hover:bg-slate-800 hover:text-white"
+                >
+                  <Percent className="w-4 h-4 text-[#f27a1a]" />
+                  <div className="flex-1">
+                    <span className="block font-bold text-orange-300">% Komisyon Baremleri Simülatörü</span>
+                    <span className="text-[10px] text-orange-400/80 font-medium">Trendyol Express & Barem Analizi</span>
+                  </div>
+                </button>
+
+                <button
                   onClick={() => handleSelectTab('reports')}
                   className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
                     activeTab === 'reports' ? 'bg-[#f27a1a] text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -495,7 +510,7 @@ export function AppHeader({
           <div className="relative hidden sm:block">
             <button
               onClick={() => toggleDropdown('user_menu')}
-              className="h-9 flex items-center gap-2 pl-2 pr-2.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 transition-all cursor-pointer shadow-sm"
+              className="h-9 flex items-center gap-2 pl-2 pr-2.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 transition-all cursor-pointer shadow-sm group"
             >
               <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-white text-[11px] font-black ${
                 currentUser.role === 'admin' 
@@ -505,80 +520,105 @@ export function AppHeader({
                 {currentUser.role === 'admin' ? '👑' : 'M'}
               </div>
               <div className="text-left hidden xl:block">
-                <span className="text-xs font-bold text-white block truncate max-w-[90px] leading-tight">
-                  {currentUser.storeName || 'yumey'}
+                <span className="text-xs font-bold text-white block truncate max-w-[110px] leading-tight">
+                  {currentUser.storeName || 'yumey concept'}
+                </span>
+                <span className="text-[10px] text-amber-400 font-bold block leading-none">
+                  {currentUser.role === 'admin' ? 'Kurucu Lisansı' : `${currentUser.daysRemaining ?? currentUser.trialDaysLeft ?? trialDaysLeft ?? 7} Gün Kaldı`}
                 </span>
               </div>
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${openDropdown === 'user_menu' ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-slate-400 group-hover:text-white transition-transform ${openDropdown === 'user_menu' ? 'rotate-180' : ''}`} />
             </button>
 
             {/* Profil Açılır Menüsü */}
             {openDropdown === 'user_menu' && (
-              <div className="absolute top-full right-0 mt-2 w-60 bg-[#16202c] border border-slate-700 rounded-2xl shadow-2xl p-2 space-y-1 z-50 animate-scaleUp text-xs font-bold">
+              <div className="absolute top-full right-0 mt-2 w-80 bg-[#141c28] border border-slate-700/90 rounded-2xl shadow-2xl p-3 space-y-2.5 z-50 animate-scaleUp text-xs font-bold text-slate-200">
                 
-                {/* Kullanıcı Kartı */}
-                <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 mb-2">
-                  <div className="text-xs font-black text-white flex items-center justify-between">
-                    <span>{currentUser.storeName || 'yumey concept'}</span>
-                    <span className="text-[10px] text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
-                      {currentUser.role === 'admin' ? '👑 Kurucu Admin' : 'Satıcı Hesabı'}
+                {/* Kullanıcı & Mağaza Bilgileri Kartı */}
+                <div className="p-3 rounded-xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs ${
+                        currentUser.role === 'admin' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-[#f27a1a] text-white shadow'
+                      }`}>
+                        {currentUser.role === 'admin' ? '👑' : <Store className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-white truncate max-w-[140px]">
+                          {currentUser.storeName || 'Yumey Concept'}
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-medium">
+                          {currentUser.ownerName || 'İsmet Köse'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${
+                      currentUser.role === 'admin'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : currentUser.plan === 'TRIAL'
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    }`}>
+                      {currentUser.role === 'admin' ? '👑 Süper Admin' : (currentUser.plan === 'TRIAL' ? '🧪 7 Gün Deneme' : '🟢 Aktif Lisans')}
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">{currentUser.ownerName || 'İsmet Bey'}</span>
+
+                  {/* Detay Bilgileri: E-Posta, Telefon, Satıcı ID */}
+                  <div className="pt-2 border-t border-slate-700/80 space-y-1 text-[11px] text-slate-300">
+                    {currentUser.email && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">E-Posta:</span>
+                        <span className="text-white font-mono truncate max-w-[170px]">{currentUser.email}</span>
+                      </div>
+                    )}
+                    {currentUser.phone && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Telefon:</span>
+                        <span className="text-white font-mono">{currentUser.phone}</span>
+                      </div>
+                    )}
+                    {currentUser.sellerId && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Trendyol Satıcı ID:</span>
+                        <span className="text-amber-400 font-mono">#{currentUser.sellerId}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Kalan Lisans Süresi & Bitiş Tarihi Kartı */}
+                  <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-amber-200 font-bold text-[11px]">Kalan Lisans Süresi:</span>
+                    </div>
+                    <span className="text-xs font-black text-amber-300">
+                      {currentUser.role === 'admin' ? 'Sınırsız Kurucu' : `${currentUser.daysRemaining ?? currentUser.trialDaysLeft ?? trialDaysLeft ?? 7} Gün`}
+                    </span>
+                  </div>
+                  {currentUser.paidUntil && currentUser.role !== 'admin' && (
+                    <div className="text-[10px] text-slate-400 text-right">
+                      Lisans Bitiş: <span className="text-slate-300 font-bold">{currentUser.paidUntil}</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Kurucu Yönetim Butonu */}
+                {/* Kurucu Yönetim Butonu (Admin ise) */}
                 {currentUser.role === 'admin' && (
                   <button
                     onClick={() => handleSelectTab('admin-panel')}
-                    className="w-full p-2 rounded-xl flex items-center gap-2 text-left bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 transition-all cursor-pointer"
+                    className="w-full p-2.5 rounded-xl flex items-center gap-2.5 text-left bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 transition-all cursor-pointer shadow"
                   >
                     <Key className="w-4 h-4 text-amber-400" />
-                    <span>👑 Süper Admin Paneli</span>
+                    <div className="flex-1">
+                      <span className="block font-black text-amber-200">👑 Süper Admin Paneli</span>
+                      <span className="text-[10px] text-amber-400/80 font-medium">Tüm satıcıları, lisansları ve IBAN'ı yönet</span>
+                    </div>
                   </button>
                 )}
 
-                {/* Tanıtım & Pitch Deck */}
-                <button
-                  onClick={() => handleSelectTab('pitch-deck')}
-                  className={`w-full p-2 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
-                    activeTab === 'pitch-deck' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  <Layers className="w-4 h-4 text-purple-400" />
-                  <span>Tanıtım & Pitch Deck Sayfası</span>
-                </button>
-
-                {/* 5 Gün Deneme / Abonelik */}
-                <button
-                  onClick={() => {
-                    setOpenDropdown(null);
-                    onOpenSubModal();
-                  }}
-                  className="w-full p-2 rounded-xl flex items-center justify-between text-left text-amber-300 hover:bg-slate-800 transition-all cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-amber-400" />
-                    <span>Abonelik Durumu</span>
-                  </div>
-                  <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded-full font-bold">
-                    {trialDaysLeft} Gün Kaldı
-                  </span>
-                </button>
-
-                {/* Giriş Paneli, Ayarlar & Çıkış */}
-                <div className="pt-2 border-t border-slate-700/80 space-y-1">
-                  <button
-                    onClick={() => {
-                      setOpenDropdown(null);
-                      if (onOpenPortal) onOpenPortal();
-                    }}
-                    className="w-full p-2 rounded-xl flex items-center gap-2 text-left text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
-                  >
-                    <Globe className="w-4 h-4 text-cyan-400" />
-                    <span>Giriş Paneline Dön</span>
-                  </button>
-
+                {/* Hızlı Butonlar */}
+                <div className="space-y-1 pt-1 border-t border-slate-700/80">
                   <button
                     onClick={() => {
                       setOpenDropdown(null);
@@ -586,8 +626,45 @@ export function AppHeader({
                     }}
                     className="w-full p-2 rounded-xl flex items-center gap-2 text-left text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
                   >
-                    <User className="w-4 h-4 text-slate-400" />
-                    <span>Hesap & Mağaza Ayarları</span>
+                    <User className="w-4 h-4 text-blue-400" />
+                    <span>Mağaza & Profil Bilgilerini Düzenle</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setOpenDropdown(null);
+                      onOpenSubModal();
+                    }}
+                    className="w-full p-2 rounded-xl flex items-center justify-between text-left text-amber-300 hover:bg-slate-800 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <span>Lisans Uzat & Paketleri İncele</span>
+                    </div>
+                    <span className="text-[10px] bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-300 border border-amber-500/30">
+                      %15 İndirim
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSelectTab('pitch-deck')}
+                    className={`w-full p-2 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
+                      activeTab === 'pitch-deck' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <Layers className="w-4 h-4 text-purple-400" />
+                    <span>Tanıtım & Pitch Deck Sunumu</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setOpenDropdown(null);
+                      if (onOpenPortal) onOpenPortal();
+                    }}
+                    className="w-full p-2 rounded-xl flex items-center gap-2 text-left text-cyan-300 hover:bg-slate-800 transition-all cursor-pointer"
+                  >
+                    <Globe className="w-4 h-4 text-cyan-400" />
+                    <span>Giriş & Portal Sayfasına Dön</span>
                   </button>
 
                   <button
@@ -598,7 +675,7 @@ export function AppHeader({
                     className="w-full p-2 rounded-xl flex items-center gap-2 text-left text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all cursor-pointer"
                   >
                     <LogOut className="w-4 h-4 text-rose-400" />
-                    <span>Çıkış Yap</span>
+                    <span>Güvenli Çıkış Yap</span>
                   </button>
                 </div>
 

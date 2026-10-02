@@ -30,6 +30,7 @@ import { PitchDeckPage } from './components/PitchDeckPage';
 import { PageHelpGuideModal } from './components/PageHelpGuideModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { PortalEntrancePage } from './components/PortalEntrancePage';
+import { CommissionTariffsModal } from './components/CommissionTariffsModal';
 import { getCurrentUser, logoutUser, saveCurrentUser } from './services/authService';
 import { getNotificationSettings, sendWhatsAppMessage } from './services/notificationService';
 import { Analytics } from '@vercel/analytics/react';
@@ -140,43 +141,54 @@ export function App() {
   }, []);
 
   // Buluttan Kullanıcı Verilerini (API Anahtarları, Siparişler, Ürünler) Otomatik Yükle
-  useEffect(() => {
-    if (!currentUser || !currentUser.isLoggedIn || !currentUser.email) return;
+  const fetchCloudUserData = async (targetUser) => {
+    const userToFetch = targetUser || currentUser;
+    if (!userToFetch || !userToFetch.isLoggedIn || !userToFetch.email) return;
 
-    fetch('/api/cloud-sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'get-user-data',
-        userId: currentUser.id,
-        email: currentUser.email
-      })
-    })
-    .then(res => res.json())
-    .then(json => {
+    try {
+      const res = await fetch('/api/cloud-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'get-user-data',
+          userId: userToFetch.id,
+          email: userToFetch.email
+        })
+      });
+      const json = await res.json().catch(() => ({}));
       if (json.success && json.storeData) {
-        if (json.storeData.credentials) {
+        if (json.storeData.credentials && Object.keys(json.storeData.credentials).length > 0) {
           try {
             const currentCreds = JSON.parse(localStorage.getItem('izeeg_core_api_credentials') || '{}');
-            const mergedCreds = { ...json.storeData.credentials, ...currentCreds };
+            const mergedCreds = { ...currentCreds, ...json.storeData.credentials };
             localStorage.setItem('izeeg_core_api_credentials', JSON.stringify(mergedCreds));
           } catch {}
         }
         if (json.storeData.orders && Array.isArray(json.storeData.orders) && json.storeData.orders.length > 0) {
-          setOrders(prev => {
-            if (prev.length === 0) return json.storeData.orders;
-            return prev;
-          });
+          setOrders(json.storeData.orders);
+          localStorage.setItem('izeeg_live_orders', JSON.stringify(json.storeData.orders));
         }
         if (json.storeData.products && Array.isArray(json.storeData.products) && json.storeData.products.length > 0) {
-          setProducts(prev => {
-            if (prev.length === 0) return json.storeData.products;
-            return prev;
-          });
+          setProducts(json.storeData.products);
+          localStorage.setItem('izeeg_live_products', JSON.stringify(json.storeData.products));
+        }
+        if (json.storeData.cargoLeaks && Array.isArray(json.storeData.cargoLeaks) && json.storeData.cargoLeaks.length > 0) {
+          setCargoLeaks(json.storeData.cargoLeaks);
+          localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(json.storeData.cargoLeaks));
         }
       }
-    })
-    .catch(() => {});
+    } catch (e) {
+      console.warn("Cloud sync fetch error:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser && currentUser.isLoggedIn && currentUser.email) {
+      // 1. Eğer yerel veriler varsa buluta push et
+      syncUserDataToCloud();
+      // 2. Buluttan güncel verileri çek
+      fetchCloudUserData(currentUser);
+    }
   }, [currentUser?.email, currentUser?.isLoggedIn]);
 
   // Arka Planda Periyodik Otomatik API Taraması
@@ -190,6 +202,7 @@ export function App() {
         onNewOrdersReceived: (mergedOrders) => {
           setOrders(mergedOrders);
           setLastAutoSyncTime(new Date());
+          syncUserDataToCloud();
         }
       });
     }, 1500);
@@ -202,6 +215,7 @@ export function App() {
         onNewOrdersReceived: (mergedOrders) => {
           setOrders(mergedOrders);
           setLastAutoSyncTime(new Date());
+          syncUserDataToCloud();
         }
       });
     }, intervalMs);
@@ -212,7 +226,7 @@ export function App() {
     };
   }, [autoSyncIntervalMins]);
 
-  // Verilerin localStorage ile otomatik senkronizasyonu
+  // Verilerin localStorage ile otomatik senkronizasyonu & Periyodik Bulut Senkronizasyonu
   useEffect(() => {
     localStorage.setItem('izeeg_live_products', JSON.stringify(products));
   }, [products]);
@@ -224,6 +238,15 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(cargoLeaks));
   }, [cargoLeaks]);
+
+  // Sipariş veya ürün değiştiğinde buluta otomatik yedekleme (3 saniye debounced)
+  useEffect(() => {
+    if (!currentUser || !currentUser.isLoggedIn || !currentUser.email) return;
+    const timeout = setTimeout(() => {
+      syncUserDataToCloud();
+    }, 3000);
+    return () => clearTimeout(timeout);
+  }, [orders.length, products.length, cargoLeaks.length, currentUser?.email]);
 
   const [notifications, setNotifications] = useState(() => {
     try {
@@ -252,6 +275,7 @@ export function App() {
   const [selectedAddonForCheckout, setSelectedAddonForCheckout] = useState(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isPitchDeckOpen, setIsPitchDeckOpen] = useState(false);
+  const [isTariffsModalOpen, setIsTariffsModalOpen] = useState(false);
   const [guideModalPage, setGuideModalPage] = useState(null);
 
   // Demo Veri Yükleme ve Sıfırlama Fonksiyonları
@@ -279,6 +303,7 @@ export function App() {
     localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify([]));
     localStorage.setItem('izeeg_live_notifications', JSON.stringify([]));
     localStorage.setItem('izeeg_demo_mode', 'false');
+    syncUserDataToCloud();
     showToast("🧹 Canlı Satış Modu: Tüm deneme verileri temizlendi, tertemiz sıfırlandı.");
   };
 
@@ -287,10 +312,28 @@ export function App() {
     setIsSubModalOpen(true);
   };
 
-  const handleLoginSuccess = (user, customMessage) => {
+  const handleLoginSuccess = (user, customMessage, storeData) => {
     saveCurrentUser(user);
     setCurrentUser(user);
     setIsPortalOpen(false);
+
+    if (storeData) {
+      if (storeData.orders && Array.isArray(storeData.orders) && storeData.orders.length > 0) {
+        setOrders(storeData.orders);
+        localStorage.setItem('izeeg_live_orders', JSON.stringify(storeData.orders));
+      }
+      if (storeData.products && Array.isArray(storeData.products) && storeData.products.length > 0) {
+        setProducts(storeData.products);
+        localStorage.setItem('izeeg_live_products', JSON.stringify(storeData.products));
+      }
+      if (storeData.cargoLeaks && Array.isArray(storeData.cargoLeaks) && storeData.cargoLeaks.length > 0) {
+        setCargoLeaks(storeData.cargoLeaks);
+        localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(storeData.cargoLeaks));
+      }
+    } else {
+      fetchCloudUserData(user);
+    }
+
     if (user.role === 'admin') {
       setActiveTab('admin-panel');
       showToast(customMessage || "👑 Hoş geldiniz İsmet Bey! Süper Admin Yönetici Modu aktif.");
@@ -462,6 +505,7 @@ export function App() {
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onOpenPitchDeck={() => setIsPitchDeckOpen(true)}
+        onOpenTariffsModal={() => setIsTariffsModalOpen(true)}
         onLogout={handleLogout}
         onOpenPortal={() => setIsPortalOpen(true)}
         currentUser={currentUser}
@@ -807,6 +851,16 @@ export function App() {
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
         onToast={showToast}
+      />
+
+      {/* Trendyol & HB Komisyon Baremleri Simülatörü Modalı */}
+      <CommissionTariffsModal
+        isOpen={isTariffsModalOpen}
+        onClose={() => setIsTariffsModalOpen(false)}
+        products={products}
+        onUpdatePrice={(productId, newPrice) => {
+          showToast(`✅ Ürün fiyatı ₺${newPrice} olarak güncellendi.`);
+        }}
       />
 
       {/* Canlı WhatsApp & Arama Talebi Yüzen Butonu */}

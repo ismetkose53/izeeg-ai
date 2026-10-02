@@ -53,71 +53,17 @@ const DEFAULT_USERS_DB = [
     id: 'USR-YUMEY01',
     storeName: 'Yumey Concept',
     ownerName: 'İsmet Köse',
-    email: 'yumey@izeeg.com',
+    email: 'yumeyclub@gmail.com',
     phone: '0543 697 07 55',
-    role: 'merchant',
-    plan: 'PRO_PLUS',
-    planName: 'Pro Plus Paket (Trendyol + Hepsiburada + Sovos)',
-    price: 1760,
-    status: 'ACTIVE',
-    trialDaysLeft: 0,
-    paidUntil: '01.01.2027',
-    daysRemaining: 95,
-    createdAt: '20.09.2026',
-    activeAddons: ['trendyol', 'hepsiburada', 'amazon', 'parasut', 'sovos', 'ticimax', 'woocommerce'],
-    paymentMethod: 'HAVALE_FAST'
-  },
-  {
-    id: 'USR-849201',
-    storeName: 'Trend Butik & Ayakkabı',
-    ownerName: 'Ahmet Yılmaz',
-    email: 'ahmet@trendbutik.com',
-    phone: '0532 999 88 77',
-    role: 'merchant',
-    plan: 'STANDARD',
-    planName: 'Standart Paket (Trendyol + Hepsiburada)',
-    price: 979,
-    status: 'ACTIVE',
-    trialDaysLeft: 0,
-    paidUntil: '22.10.2026',
-    daysRemaining: 30,
-    createdAt: '22.09.2026',
-    activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce'],
-    paymentMethod: 'HAVALE_FAST'
-  },
-  {
-    id: 'USR-849202',
-    storeName: 'Mega Spor Dünyası Ltd.',
-    ownerName: 'Zeynep Aksoy',
-    email: 'zeynep@megaspor.com',
-    phone: '0544 888 77 66',
-    role: 'merchant',
-    plan: 'PRO_PLUS',
-    planName: 'Standart + Amazon & Sovos Eklentisi',
-    price: 1760,
-    status: 'ACTIVE',
-    trialDaysLeft: 0,
-    paidUntil: '15.11.2026',
-    daysRemaining: 54,
-    createdAt: '15.08.2026',
-    activeAddons: ['trendyol', 'hepsiburada', 'amazon', 'parasut', 'sovos', 'ticimax', 'woocommerce'],
-    paymentMethod: 'SHOPIER_CARD'
-  },
-  {
-    id: 'USR-849204',
-    storeName: 'Lina Butik Moda',
-    ownerName: 'Selin Demir',
-    email: 'selin@linabutik.com',
-    phone: '0535 111 22 33',
     role: 'merchant',
     plan: 'TRIAL',
     planName: '7 Günlük Ücretsiz Deneme',
     price: 0,
     status: 'TRIAL',
-    trialDaysLeft: 5,
-    daysRemaining: 5,
-    createdAt: '25.09.2026',
-    paidUntil: '02.10.2026',
+    trialDaysLeft: 7,
+    paidUntil: '06.10.2026',
+    daysRemaining: 7,
+    createdAt: '29.09.2026',
     activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce'],
     paymentMethod: 'TRIAL'
   }
@@ -200,45 +146,16 @@ export function saveShopierSettings(settings) {
 export function getUsersDb() {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.USERS_DB);
-    let list = saved ? JSON.parse(saved) : [...DEFAULT_USERS_DB];
-
-    // Eksik varsayılan mağazaları (Yumey vb.) ekle
-    DEFAULT_USERS_DB.forEach(defU => {
-      if (!list.some(u => u.id === defU.id || (u.email && defU.email && u.email.toLowerCase() === defU.email.toLowerCase()))) {
-        list.push(defU);
+    if (saved) {
+      const list = JSON.parse(saved);
+      if (Array.isArray(list) && list.length > 0) {
+        return list;
       }
-    });
-
-    // Aktif oturum açmış kullanıcıyı da ekle
-    const currentAuthRaw = localStorage.getItem('izeeg_current_auth_user');
-    if (currentAuthRaw) {
-      try {
-        const currentU = JSON.parse(currentAuthRaw);
-        if (currentU && currentU.isLoggedIn && (currentU.email || currentU.storeName)) {
-          const matchIdx = list.findIndex(u => (currentU.id && u.id === currentU.id) || (currentU.email && u.email && u.email.toLowerCase() === currentU.email.toLowerCase()));
-          if (matchIdx === -1) {
-            list.unshift({
-              id: currentU.id || `USR-${Date.now().toString().slice(-6)}`,
-              storeName: currentU.storeName || 'E-Ticaret Mağazam',
-              ownerName: currentU.ownerName || 'Mağaza Sahibi',
-              email: currentU.email || 'magaza@izeeg.com',
-              phone: currentU.phone || '0543 697 07 55',
-              role: currentU.role || 'merchant',
-              plan: currentU.plan || 'TRIAL',
-              planName: currentU.planName || '7 Günlük Ücretsiz Deneme',
-              status: currentU.status || (currentU.plan === 'TRIAL' ? 'TRIAL' : 'ACTIVE'),
-              trialDaysLeft: currentU.trialDaysLeft || 7,
-              daysRemaining: currentU.daysRemaining || 7,
-              createdAt: currentU.createdAt || new Date().toLocaleDateString('tr-TR'),
-              paidUntil: currentU.paidUntil || '01.10.2026',
-              activeAddons: currentU.activeAddons || ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
-            });
-          }
-        }
-      } catch {}
     }
 
-    return list;
+    // İlk defa açılıyorsa varsayılan listeyi kaydet ve dön
+    saveUsersDb(DEFAULT_USERS_DB);
+    return DEFAULT_USERS_DB;
   } catch (e) {
     return DEFAULT_USERS_DB;
   }

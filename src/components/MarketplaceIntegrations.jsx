@@ -38,7 +38,9 @@ import {
   fetchHepsiburadaLiveOrders,
   getCustomCargoSettings,
   saveCustomCargoSettings,
-  reconcileAndMergeOrders
+  reconcileAndMergeOrders,
+  syncAllReturns,
+  syncAllQuestionsAndReviews
 } from '../services/marketplaceSyncService';
 
 const API_CREDENTIALS_KEY = 'izeeg_core_api_credentials';
@@ -302,6 +304,7 @@ export function MarketplaceIntegrations({
     };
     try {
       localStorage.setItem(API_CREDENTIALS_KEY, JSON.stringify(updatedCreds));
+      syncUserDataToCloud();
     } catch (e) {
       console.warn("Storage write notice:", e);
     }
@@ -376,6 +379,10 @@ export function MarketplaceIntegrations({
         ...prev
       ]);
 
+      // İadeleri ve Soru/Yorumları da eşzamanlı güncelle
+      syncAllReturns().catch(() => {});
+      syncAllQuestionsAndReviews().catch(() => {});
+
       if (onToast) onToast(fetchResult.count > 0 ? `✨ Trendyol'dan ${fetchResult.count} sipariş çekildi!` : '✅ Trendyol API başarıyla doğrulandı.');
       confetti({ particleCount: 70, spread: 70 });
       setSyncingPlatform(null);
@@ -429,6 +436,10 @@ export function MarketplaceIntegrations({
         },
         ...prev
       ]);
+
+      // İadeleri ve Soru/Yorumları da eşzamanlı güncelle
+      syncAllReturns().catch(() => {});
+      syncAllQuestionsAndReviews().catch(() => {});
 
       if (onToast) onToast(fetchResult.count > 0 ? `✨ Hepsiburada'dan ${fetchResult.count} sipariş çekildi!` : '✅ Hepsiburada API başarıyla doğrulandı.');
       confetti({ particleCount: 70, spread: 70 });

@@ -209,8 +209,17 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
     setEditableAnswers(prev => ({ ...initialMap, ...prev }));
   }, [questions, reviews, selectedTone]);
 
-  // Sayfaya ilk girişte bağlı pazaryerlerinden otomatik canlı verileri çek
+  // Sayfaya ilk girişte bağlı pazaryerlerinden otomatik canlı verileri çek ve eventleri dinle
   useEffect(() => {
+    const handleQuestionsUpdate = () => {
+      setQuestions(getStoredQuestions());
+    };
+    const handleReviewsUpdate = () => {
+      setReviews(getStoredReviews());
+    };
+    window.addEventListener('izeeg_questions_updated', handleQuestionsUpdate);
+    window.addEventListener('izeeg_reviews_updated', handleReviewsUpdate);
+
     const credsRaw = localStorage.getItem('izeeg_core_api_credentials');
     if (credsRaw) {
       try {
@@ -222,6 +231,11 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
         }
       } catch {}
     }
+
+    return () => {
+      window.removeEventListener('izeeg_questions_updated', handleQuestionsUpdate);
+      window.removeEventListener('izeeg_reviews_updated', handleReviewsUpdate);
+    };
   }, []);
 
   // Canlı Senkronizasyon (Pazaryeri API'lerinden tüm soruları ve yorumları tam kapsamlı çek)

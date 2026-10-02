@@ -21,7 +21,7 @@ import {
   AlertCircle,
   Database
 } from 'lucide-react';
-import { loginUser, loginUserAsync, getCurrentUser, switchUserRole, saveCurrentUser } from '../services/authService';
+import { loginUser, loginUserAsync, registerUserAsync, getCurrentUser, switchUserRole, saveCurrentUser, syncUserDataToCloud } from '../services/authService';
 import { IzeegLogo } from './IzeegLogo';
 import confetti from 'canvas-confetti';
 
@@ -74,7 +74,7 @@ export function AuthModal({
 
   if (!isOpen) return null;
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
@@ -92,11 +92,17 @@ export function AuthModal({
       phone: phone.trim(),
       taxNumber: taxNumber.trim(),
       sellerId: sellerId.trim(),
-      isLoggedIn: true
+      isLoggedIn: currentUser?.isLoggedIn ?? true
     };
 
     saveCurrentUser(updatedUser);
     if (onUpdateUser) onUpdateUser(updatedUser);
+    
+    // Bulut sunucusuna kullanıcı profilini ve verilerini hemen aktar
+    try {
+      await syncUserDataToCloud();
+    } catch {}
+
     setSuccessMessage('✅ Profil ve mağaza bilgileriniz başarıyla güncellendi.');
     confetti({ particleCount: 50, spread: 60 });
     setTimeout(() => {
@@ -111,9 +117,13 @@ export function AuthModal({
 
     if (authMode === 'admin') {
       const cleanKey = (adminKey || '').trim();
+      if (!cleanKey) {
+        setErrorMessage('Lütfen Kurucu / Admin anahtarınızı giriniz.');
+        return;
+      }
       const res = await loginUserAsync('admin@izeeg.com', cleanKey);
       if (res.success) {
-        if (onLoginSuccess) onLoginSuccess(res.user);
+        if (onLoginSuccess) onLoginSuccess(res.user, null, res.storeData);
         onClose();
       } else {
         setErrorMessage(res.message || 'Geçersiz Kurucu / Admin Anahtarı!');
@@ -121,17 +131,55 @@ export function AuthModal({
       return;
     }
 
-    if (!email) {
+    if (!email.trim()) {
       setErrorMessage('Lütfen e-posta adresinizi giriniz.');
       return;
     }
 
-    const res = await loginUserAsync(email, password);
-    if (res.success) {
-      if (onLoginSuccess) onLoginSuccess(res.user);
+    if (!password.trim()) {
+      setErrorMessage('Lütfen şifrenizi giriniz.');
+      return;
+    }
+
+    if (authMode === 'register') {
+      if (!storeName.trim()) {
+        setErrorMessage('Lütfen mağaza adınızı giriniz.');
+        return;
+      }
+      if (!phone.trim()) {
+        setErrorMessage('Lütfen telefon numaranızı giriniz.');
+        return;
+      }
+      if (password.trim().length < 4) {
+        setErrorMessage('Şifreniz en az 4 karakterden oluşmalıdır.');
+        return;
+      }
+
+      const res = await registerUserAsync({
+        storeName: storeName.trim(),
+        fullName: ownerName.trim() || storeName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        password: password.trim()
+      });
+
+      if (res.success && res.user) {
+        confetti({ particleCount: 80, spread: 70 });
+        if (onLoginSuccess) onLoginSuccess(res.user);
+        onClose();
+      } else {
+        setErrorMessage(res.message || 'Kayıt oluşturulamadı.');
+      }
+      return;
+    }
+
+    // authMode === 'login'
+    const res = await loginUserAsync(email.trim(), password.trim());
+    if (res.success && res.user) {
+      if (onLoginSuccess) onLoginSuccess(res.user, null, res.storeData);
       onClose();
     } else {
-      setErrorMessage(res.message || 'Giriş yapılamadı.');
+      setErrorMessage(res.message || 'Giriş yapılamadı. Lütfen bilgilerinizi kontrol ediniz.');
     }
   };
 
