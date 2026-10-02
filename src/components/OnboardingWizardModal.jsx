@@ -300,6 +300,9 @@ export function OnboardingWizardModal({ isOpen, onClose, onCompleteSetup }) {
                       <Store className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                       <input 
                         type="text"
+                        name="iz_onb_store"
+                        autoComplete="off"
+                        data-lpignore="true"
                         value={storeName}
                         onChange={(e) => setStoreName(e.target.value)}
                         placeholder="Örn: Butik Moda Tekstil Ltd."
@@ -316,6 +319,9 @@ export function OnboardingWizardModal({ isOpen, onClose, onCompleteSetup }) {
                       <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                       <input 
                         type="text"
+                        name="iz_onb_fullname"
+                        autoComplete="off"
+                        data-lpignore="true"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="Örn: Ahmet Yılmaz"
@@ -332,6 +338,9 @@ export function OnboardingWizardModal({ isOpen, onClose, onCompleteSetup }) {
                       <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                       <input 
                         type="tel"
+                        name="iz_onb_phone"
+                        autoComplete="off"
+                        data-lpignore="true"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="Örn: 0532 000 00 00"
@@ -348,6 +357,9 @@ export function OnboardingWizardModal({ isOpen, onClose, onCompleteSetup }) {
                       <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                       <input 
                         type="email"
+                        name="iz_onb_email"
+                        autoComplete="new-password"
+                        data-lpignore="true"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="Örn: ahmet@magaza.com"
@@ -364,6 +376,9 @@ export function OnboardingWizardModal({ isOpen, onClose, onCompleteSetup }) {
                       <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                       <input 
                         type="password"
+                        name="iz_onb_secret"
+                        autoComplete="new-password"
+                        data-lpignore="true"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="En az 4 karakter"

@@ -518,11 +518,14 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                         <div className="flex-grow border-t border-slate-800"></div>
                       </div>
 
-                      <form onSubmit={handleRegisterSubmit} className="space-y-3">
+                      <form onSubmit={handleRegisterSubmit} autoComplete="off" data-lpignore="true" className="space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           <input
                             type="text"
+                            name="iz_reg_fullname"
                             required
+                            autoComplete="off"
+                            data-lpignore="true"
                             value={formData.fullName}
                             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                             placeholder="Ad Soyad *"
@@ -530,7 +533,10 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                           />
                           <input
                             type="text"
+                            name="iz_reg_storename"
                             required
+                            autoComplete="off"
+                            data-lpignore="true"
                             value={formData.storeName}
                             onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
                             placeholder="Mağaza Adı *"
@@ -541,7 +547,10 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           <input
                             type="email"
+                            name="iz_reg_user_email"
                             required
+                            autoComplete="new-password"
+                            data-lpignore="true"
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                             placeholder="E-posta Adresi *"
@@ -549,7 +558,10 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                           />
                           <input
                             type="tel"
+                            name="iz_reg_user_phone"
                             required
+                            autoComplete="off"
+                            data-lpignore="true"
                             value={formData.phone}
                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                             placeholder="Telefon *"
@@ -559,7 +571,10 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
 
                         <input
                           type="password"
+                          name="iz_reg_user_secret"
                           required
+                          autoComplete="new-password"
+                          data-lpignore="true"
                           value={formData.password}
                           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                           placeholder="Şifre (en az 4 karakter) *"
@@ -579,7 +594,7 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
 
                   {/* SEKME 2: GİRİŞ YAP FORMU */}
                   {activeAuthTab === 'LOGIN' && (
-                    <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+                    <form onSubmit={handleLoginSubmit} autoComplete="off" data-lpignore="true" className="space-y-4 text-xs">
                       <div>
                         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                           Kayıtlı Satıcı & Yönetici Girişi
@@ -595,10 +610,13 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                         <div className="relative">
                           <input
                             type="email"
+                            name="iz_auth_mail_id"
                             required
+                            autoComplete="off"
+                            data-lpignore="true"
                             value={loginEmail}
                             onChange={(e) => setLoginEmail(e.target.value)}
-                            placeholder="ahmet@magaza.com"
+                            placeholder="ornek@magaza.com"
                             className="w-full bg-slate-900/80 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-xs"
                           />
                           <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -610,7 +628,10 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
                         <div className="relative">
                           <input
                             type={showPassword ? 'text' : 'password'}
+                            name="iz_auth_secret_key"
                             required
+                            autoComplete="new-password"
+                            data-lpignore="true"
                             value={loginPassword}
                             onChange={(e) => setLoginPassword(e.target.value)}
                             placeholder="••••••••••••"
@@ -1148,9 +1169,9 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
               </p>
             </div>
             <div className="text-center md:text-right space-y-1">
-              <span className="text-[11px] text-slate-400 block">Kurucu & Sistem Mimarı: İsmet Köse</span>
-              <a href="mailto:ismetnote2@gmail.com" className="text-xs font-bold text-indigo-400 hover:underline">
-                ismetnote2@gmail.com
+              <span className="text-[11px] text-slate-400 block">7/24 Teknik Destek & İletişim:</span>
+              <a href="mailto:destek@izeeg.com" className="text-xs font-bold text-indigo-400 hover:underline">
+                destek@izeeg.com
               </a>
             </div>
           </div>

@@ -54,12 +54,12 @@ export function AuthModal({
   useEffect(() => {
     if (currentUser && currentUser.isLoggedIn) {
       setAuthMode('profile');
-      setStoreName(currentUser.storeName || 'yumey concept');
-      setOwnerName(currentUser.ownerName || 'İsmet Köse');
-      setEmail(currentUser.email || 'ismetnote2@gmail.com');
-      setPhone(currentUser.phone || '0543 697 07 55');
-      setTaxNumber(currentUser.taxNumber || '1234567890');
-      setSellerId(currentUser.sellerId || '104829');
+      setStoreName(currentUser.storeName || '');
+      setOwnerName(currentUser.ownerName || '');
+      setEmail(currentUser.email || '');
+      setPhone(currentUser.phone || '');
+      setTaxNumber(currentUser.taxNumber || '');
+      setSellerId(currentUser.sellerId || '');
     } else {
       setAuthMode('login');
       setEmail('');
@@ -380,7 +380,8 @@ export function AuthModal({
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="ismetnote2@gmail.com"
+                      placeholder="ornek@magaza.com"
+                      autoComplete="off"
                       className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#f27a1a]"
                     />
                   </div>
@@ -394,7 +395,8 @@ export function AuthModal({
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="0543 697 07 55"
+                      placeholder="0500 000 00 00"
+                      autoComplete="off"
                       className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#f27a1a]"
                     />
                   </div>
