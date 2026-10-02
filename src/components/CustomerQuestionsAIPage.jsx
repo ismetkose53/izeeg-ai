@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   MessageSquare, 
   Sparkles, 
@@ -177,6 +177,12 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
   const [appealDescription, setAppealDescription] = useState('');
   const [isAppealing, setIsAppealing] = useState(false);
 
+  const isSyncingRef = useRef(false);
+  const selectedToneRef = useRef(selectedTone);
+  selectedToneRef.current = selectedTone;
+  const onToastRef = useRef(onToast);
+  onToastRef.current = onToast;
+
   // API Bağlantı Durumunu Kontrol Et
   const connectedApiInfo = useMemo(() => {
     try {
@@ -207,19 +213,10 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
       initialMap[r.id] = r.sellerAnswer || r.aiSuggestedAnswer || generateSmartAIAnswer({ type: 'review', item: r, tone: selectedTone });
     });
     setEditableAnswers(prev => ({ ...initialMap, ...prev }));
-  }, [questions, reviews, selectedTone]);
+  }, [questions.length, reviews.length, selectedTone]);
 
-  // Sayfaya ilk girişte bağlı pazaryerlerinden otomatik canlı verileri çek ve eventleri dinle
+  // Sayfaya ilk girişte bağlı pazaryerlerinden otomatik canlı verileri çek (Sadece 1 kez)
   useEffect(() => {
-    const handleQuestionsUpdate = () => {
-      setQuestions(getStoredQuestions());
-    };
-    const handleReviewsUpdate = () => {
-      setReviews(getStoredReviews());
-    };
-    window.addEventListener('izeeg_questions_updated', handleQuestionsUpdate);
-    window.addEventListener('izeeg_reviews_updated', handleReviewsUpdate);
-
     const credsRaw = localStorage.getItem('izeeg_core_api_credentials');
     if (credsRaw) {
       try {
@@ -227,16 +224,18 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
         const hasTy = Boolean((creds.trendyol?.apiKey || creds.tyApiKey || creds.apiKey) && (creds.trendyol?.sellerId || creds.tySellerId || creds.sellerId));
         const hasHb = Boolean((creds.hepsiburada?.merchantId || creds.hbMerchantId || creds.merchantId) && (creds.hepsiburada?.secretKey || creds.hbSecretKey || creds.secretKey));
         if (hasTy || hasHb) {
-          handleLiveSync();
+          handleLiveSync(false); // sessiz ilk yükleme
         }
       } catch {}
     }
 
-    // 7/24 Arka Plan Otopilot ve Canlı Soru/Yorum Dinleme Döngüsü (Her 45 saniyede bir)
+    // 7/24 Arka Plan Otopilot ve Canlı Soru/Yorum Dinleme Döngüsü (Her 60 saniyede bir kontrollü çalışır)
     const autoPilotInterval = setInterval(async () => {
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
       try {
         const res = await syncAllQuestionsAndReviews();
-        if (res.success) {
+        if (res && res.success) {
           setQuestions(res.questions);
           setReviews(res.reviews);
           setLastSyncTime(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
@@ -244,58 +243,63 @@ export function CustomerQuestionsAIPage({ onNavigateBack, onOpenGuide, onNavigat
           // Eğer Otopilot Aktifse bekleyenleri anında sıfır onayla yanıtla
           const isEnabled = localStorage.getItem(QA_AUTOPILOT_KEY) !== 'false';
           if (isEnabled) {
-            const pendingQs = res.questions.filter(q => q.status === 'PENDING' || !q.sellerAnswer);
-            const pendingRevs = res.reviews.filter(r => r.status === 'PENDING' || !r.sellerAnswer);
+            const pendingQs = res.questions.filter(q => q.status === 'PENDING' && !q.sellerAnswer);
+            const pendingRevs = res.reviews.filter(r => r.status === 'PENDING' && !r.sellerAnswer);
 
             for (const q of pendingQs) {
-              const ans = generateSmartAIAnswer({ type: 'question', item: q, tone: selectedTone });
+              const ans = generateSmartAIAnswer({ type: 'question', item: q, tone: selectedToneRef.current });
               await sendUniversalQuestionAnswer({ question: q, answerText: ans }).catch(() => {});
             }
 
             for (const r of pendingRevs) {
-              const ans = generateSmartAIAnswer({ type: 'review', item: r, tone: selectedTone });
+              const ans = generateSmartAIAnswer({ type: 'review', item: r, tone: selectedToneRef.current });
               await sendUniversalReviewReply({ review: r, replyText: ans }).catch(() => {});
             }
 
             if (pendingQs.length > 0 || pendingRevs.length > 0) {
               setQuestions(getStoredQuestions());
               setReviews(getStoredReviews());
-              if (onToast) {
-                onToast(`⚡ 7/24 AI Otopilot: ${pendingQs.length + pendingRevs.length} yeni soru/yorum otomatik analiz edilip onay beklemeden yanıtlandı.`);
+              if (onToastRef.current) {
+                onToastRef.current(`⚡ 7/24 AI Otopilot: ${pendingQs.length + pendingRevs.length} yeni soru/yorum otomatik analiz edilip onay beklemeden yanıtlandı.`);
               }
             }
           }
         }
       } catch (e) {
         console.warn("Background autopilot error:", e);
+      } finally {
+        isSyncingRef.current = false;
       }
-    }, 45000);
+    }, 60000);
 
     return () => {
       clearInterval(autoPilotInterval);
-      window.removeEventListener('izeeg_questions_updated', handleQuestionsUpdate);
-      window.removeEventListener('izeeg_reviews_updated', handleReviewsUpdate);
     };
-  }, [selectedTone, onToast]);
+  }, []);
 
   // Canlı Senkronizasyon (Pazaryeri API'lerinden tüm soruları ve yorumları tam kapsamlı çek)
-  const handleLiveSync = async () => {
+  const handleLiveSync = async (notifyUser = true) => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
     setIsSyncing(true);
     try {
-      const syncResult = await syncAllQuestionsAndReviews({ onToast });
-      if (syncResult.success) {
+      const syncResult = await syncAllQuestionsAndReviews();
+      if (syncResult && syncResult.success) {
         setQuestions(syncResult.questions);
         setReviews(syncResult.reviews);
         setLastSyncTime(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
-        confetti({ particleCount: 50, spread: 60 });
-        if (onToast) {
-          onToast(`✅ Canlı Senkronizasyon: ${syncResult.questions.length} müşteri sorusu ve ${syncResult.reviews.length} ürün yorumu başarıyla güncellendi.`);
+        if (notifyUser) {
+          confetti({ particleCount: 50, spread: 60 });
+          if (onToastRef.current) {
+            onToastRef.current(`✅ Canlı Senkronizasyon: ${syncResult.questions.length} müşteri sorusu ve ${syncResult.reviews.length} ürün yorumu başarıyla güncellendi.`);
+          }
         }
       }
     } catch (err) {
       console.warn("Sync error:", err);
     } finally {
       setIsSyncing(false);
+      isSyncingRef.current = false;
     }
   };
 
