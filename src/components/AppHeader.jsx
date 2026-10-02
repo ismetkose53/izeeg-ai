@@ -30,7 +30,8 @@ import {
   Zap,
   Globe,
   LogOut,
-  RefreshCw
+  RefreshCw,
+  Percent
 } from 'lucide-react';
 import { IzeegLogo } from './IzeegLogo';
 import { syncAllMarketplacesNow } from '../services/marketplaceSyncService';
@@ -56,7 +57,7 @@ export function AppHeader({
   pendingActionsCount = 0
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState(null); // 'operation' | 'warehouse' | 'finance' | 'integrations' | null
+  const [openDropdown, setOpenDropdown] = useState(null); // 'omnichannel' | 'operation' | 'finance' | 'integrations' | 'user_menu' | null
   const [isSyncingHeader, setIsSyncingHeader] = useState(false);
   const headerRef = useRef(null);
 
@@ -105,7 +106,7 @@ export function AppHeader({
         
         {/* Sol: Orijinal izeeg AI Logosu */}
         <div 
-          className="flex items-center cursor-pointer flex-shrink-0 hover:opacity-95 transition-opacity pr-1"
+          className="flex items-center cursor-pointer flex-shrink-0 hover:opacity-95 transition-opacity pr-2"
           onClick={() => handleSelectTab('ai-worker')}
           title="izeeg AI - Ana Sayfa"
         >
@@ -113,12 +114,12 @@ export function AppHeader({
         </div>
 
         {/* Orta: Tam Ortalanmış Ana Sekmeler */}
-        <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-1.5 text-xs font-bold text-slate-300 flex-1 mx-1">
+        <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-2 text-xs font-bold text-slate-300 flex-1 mx-2">
           
           {/* 1. AI ÇALIŞANI */}
           <button
             onClick={() => handleSelectTab('ai-worker')}
-            className={`h-9 px-2.5 xl:px-3 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
+            className={`h-9 px-3 xl:px-3.5 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
               activeTab === 'ai-worker'
                 ? 'bg-[#f27a1a] text-white shadow-md'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -128,23 +129,10 @@ export function AppHeader({
             <span>AI Çalışanı</span>
           </button>
 
-          {/* 2. GERÇEK NET KÂR */}
-          <button
-            onClick={() => handleSelectTab('net-profit')}
-            className={`h-9 px-2.5 xl:px-3 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
-              activeTab === 'net-profit'
-                ? 'bg-emerald-600 text-white shadow-md'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            <DollarSign className={`w-4 h-4 ${activeTab === 'net-profit' ? 'text-white' : 'text-emerald-400'}`} />
-            <span>Net Kâr</span>
-          </button>
-
-          {/* 3. SİPARİŞLER */}
+          {/* 2. SİPARİŞLER */}
           <button
             onClick={() => handleSelectTab('orders')}
-            className={`h-9 px-2.5 xl:px-3 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
+            className={`h-9 px-3 xl:px-3.5 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
               activeTab === 'orders'
                 ? 'bg-blue-600 text-white shadow-md'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -157,10 +145,10 @@ export function AppHeader({
             </span>
           </button>
 
-          {/* 4. İADE & DEĞİŞİM (ANA BAŞLIK) */}
+          {/* 3. İADE & DEĞİŞİM (ANA BAŞLIK) */}
           <button
             onClick={() => handleSelectTab('returns')}
-            className={`h-9 px-2.5 xl:px-3 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
+            className={`h-9 px-3 xl:px-3.5 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
               activeTab === 'returns'
                 ? 'bg-rose-600 text-white shadow-md'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -179,7 +167,7 @@ export function AppHeader({
           <div className="relative">
             <button
               onClick={() => toggleDropdown('omnichannel')}
-              className={`h-9 px-2.5 xl:px-3 rounded-xl flex items-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
+              className={`h-9 px-3 xl:px-3.5 rounded-xl flex items-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
                 isOmnichannelActive
                   ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-md'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -238,7 +226,7 @@ export function AppHeader({
           <div className="relative">
             <button
               onClick={() => toggleDropdown('operation')}
-              className={`h-9 px-2.5 xl:px-3 rounded-xl flex items-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
+              className={`h-9 px-3 xl:px-3.5 rounded-xl flex items-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
                 isOperationActive
                   ? 'bg-slate-800 text-white border border-slate-600 shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -306,11 +294,11 @@ export function AppHeader({
             )}
           </div>
 
-          {/* 6. FİNANS & FİYAT DROPDOWN */}
+          {/* 6. FİNANS & FİYAT DROPDOWN (NET KÂR DAHİL) */}
           <div className="relative">
             <button
               onClick={() => toggleDropdown('finance')}
-              className={`h-9 px-2.5 xl:px-3 rounded-xl flex items-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
+              className={`h-9 px-3 xl:px-3.5 rounded-xl flex items-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
                 isFinanceActive
                   ? 'bg-slate-800 text-white border border-slate-600 shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -323,6 +311,22 @@ export function AppHeader({
 
             {openDropdown === 'finance' && (
               <div className="absolute top-full left-0 mt-2 w-72 bg-[#16202c] border border-slate-700 rounded-2xl shadow-2xl p-1.5 space-y-1 z-50 animate-scaleUp text-xs font-bold">
+                
+                {/* 1. GERÇEK NET KÂR ANALİZİ */}
+                <button
+                  onClick={() => handleSelectTab('net-profit')}
+                  className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
+                    activeTab === 'net-profit' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  <div className="flex-1">
+                    <span className="block font-bold text-emerald-300">📊 Gerçek Net Kâr Analizi</span>
+                    <span className="text-[10px] text-emerald-400/80 font-medium">Bugün Gerçekten Ne Kazandım?</span>
+                  </div>
+                </button>
+
+                {/* 2. TARAFINIZA KESİLEN FATURALAR */}
                 <button
                   onClick={() => handleSelectTab('incoming-invoices')}
                   className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
@@ -336,6 +340,7 @@ export function AppHeader({
                   </div>
                 </button>
 
+                {/* 3. REPRICER */}
                 <button
                   onClick={() => handleSelectTab('repricer')}
                   className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
@@ -349,6 +354,7 @@ export function AppHeader({
                   </div>
                 </button>
 
+                {/* 4. PRO KÂR TABLOSU */}
                 <button
                   onClick={() => handleSelectTab('pro-table')}
                   className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
@@ -362,6 +368,7 @@ export function AppHeader({
                   </div>
                 </button>
 
+                {/* 5. KOMİSYON BAREMLERİ */}
                 <button
                   onClick={() => {
                     setOpenDropdown(null);
@@ -376,6 +383,7 @@ export function AppHeader({
                   </div>
                 </button>
 
+                {/* 6. SATIŞ RAPORLARI */}
                 <button
                   onClick={() => handleSelectTab('reports')}
                   className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
@@ -389,6 +397,7 @@ export function AppHeader({
                   </div>
                 </button>
 
+                {/* 7. REKLAM PERFORMANSI */}
                 <button
                   onClick={() => handleSelectTab('ads')}
                   className={`w-full p-2.5 rounded-xl flex items-center gap-2 text-left transition-all cursor-pointer ${
@@ -409,7 +418,7 @@ export function AppHeader({
           <div className="relative">
             <button
               onClick={() => toggleDropdown('integrations')}
-              className={`h-9 px-2.5 xl:px-3 rounded-xl flex items-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
+              className={`h-9 px-3 xl:px-3.5 rounded-xl flex items-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
                 isIntegrationsActive
                   ? 'bg-slate-800 text-white border border-slate-600 shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -448,7 +457,7 @@ export function AppHeader({
         </nav>
 
         {/* Sağ Taraf: Kompakt & Asla Taşmayan Kontrol Paneli */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
           
           {/* Canlı Bildirim Zili */}
           <button
@@ -464,28 +473,12 @@ export function AppHeader({
             )}
           </button>
 
-          {/* Pazar Yeri Seçici (Kompakt) */}
-          <div className="relative hidden md:block">
-            <select
-              value={selectedMarketplace}
-              onChange={(e) => setSelectedMarketplace(e.target.value)}
-              className="h-9 bg-[#1c2736] border border-slate-600 rounded-xl px-2.5 text-xs font-bold text-white focus:outline-none focus:border-[#f27a1a] cursor-pointer appearance-none pr-7 shadow-sm max-w-[135px]"
-            >
-              <option value="ALL">🌐 Tüm Kanallar</option>
-              <option value="Trendyol">🟠 Trendyol</option>
-              <option value="Hepsiburada">🟠 Hepsiburada</option>
-              <option value="Amazon TR">🟡 Amazon</option>
-              <option value="Kendi Sitem (Shopify)">🟢 Web Sitem</option>
-            </select>
-            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
           {/* ⚡ HIZLI SENKRONİZE ET BUTONU (HER SAYFADAN 1 TIKLA) */}
           <button
             type="button"
             onClick={handleHeaderSync}
             disabled={isSyncingHeader}
-            className={`h-9 px-2.5 sm:px-3 rounded-xl flex items-center gap-1.5 text-xs font-black shadow-md transition-all cursor-pointer border flex-shrink-0 ${
+            className={`h-9 px-3 sm:px-3.5 rounded-xl flex items-center gap-1.5 text-xs font-black shadow-md transition-all cursor-pointer border flex-shrink-0 ${
               isSyncingHeader
                 ? 'bg-slate-800 text-slate-400 border-slate-700 cursor-not-allowed'
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-emerald-500/20 active:scale-95'
@@ -494,16 +487,6 @@ export function AppHeader({
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncingHeader ? 'animate-spin text-emerald-300' : 'text-white'}`} />
             <span className="hidden sm:inline">{isSyncingHeader ? 'Çekiliyor...' : '⚡ Senkronize Et'}</span>
-          </button>
-
-          {/* AI Asistan Butonu */}
-          <button
-            onClick={onOpenAIModal}
-            className="h-9 w-9 sm:w-auto flex items-center justify-center gap-1.5 px-0 sm:px-3 rounded-xl bg-gradient-to-r from-[#f27a1a] to-pink-600 text-white text-xs font-black shadow-md shadow-orange-500/20 hover:opacity-95 transition-all cursor-pointer flex-shrink-0"
-            title="AI Danışman"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-            <span className="hidden sm:inline">AI Danışman</span>
           </button>
 
           {/* Profil & Hesap Dropdown Menüsü (Masaüstü/Tablet İçin - Mobilde Menü İçinde) */}
