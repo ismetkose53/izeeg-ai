@@ -171,6 +171,7 @@ export function saveUsersDb(users) {
  * Buluttan Canlı Kullanıcı Listesini Çeker (Tüm Cihazlardaki Kayıtlar)
  */
 export async function fetchLiveUsersFromCloud() {
+  const localUsers = getUsersDb();
   try {
     const res = await fetch('/api/cloud-sync', {
       method: 'POST',
@@ -180,14 +181,23 @@ export async function fetchLiveUsersFromCloud() {
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.users)) {
-        saveUsersDb(json.users);
-        return json.users;
+        const mergedMap = new Map();
+        json.users.forEach(u => mergedMap.set(u.email ? u.email.toLowerCase() : u.id, u));
+        localUsers.forEach(u => {
+          const key = u.email ? u.email.toLowerCase() : u.id;
+          if (!mergedMap.has(key)) {
+            mergedMap.set(key, u);
+          }
+        });
+        const mergedList = Array.from(mergedMap.values());
+        saveUsersDb(mergedList);
+        return mergedList;
       }
     }
   } catch (e) {
     console.warn("fetchLiveUsersFromCloud fallback to local:", e);
   }
-  return getUsersDb();
+  return localUsers;
 }
 
 export function getPaymentNotifications() {

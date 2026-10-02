@@ -143,7 +143,7 @@ export function App() {
   // Buluttan Kullanıcı Verilerini (API Anahtarları, Siparişler, Ürünler) Otomatik Yükle
   const fetchCloudUserData = async (targetUser) => {
     const userToFetch = targetUser || currentUser;
-    if (!userToFetch || !userToFetch.isLoggedIn || !userToFetch.email) return;
+    if (!userToFetch || !userToFetch.isLoggedIn || !userToFetch.email || userToFetch.role === 'demo') return;
 
     try {
       const res = await fetch('/api/cloud-sync', {
@@ -159,9 +159,7 @@ export function App() {
       if (json.success && json.storeData) {
         if (json.storeData.credentials && Object.keys(json.storeData.credentials).length > 0) {
           try {
-            const currentCreds = JSON.parse(localStorage.getItem('izeeg_core_api_credentials') || '{}');
-            const mergedCreds = { ...currentCreds, ...json.storeData.credentials };
-            localStorage.setItem('izeeg_core_api_credentials', JSON.stringify(mergedCreds));
+            localStorage.setItem('izeeg_core_api_credentials', JSON.stringify(json.storeData.credentials));
           } catch {}
         }
         if (json.storeData.orders && Array.isArray(json.storeData.orders) && json.storeData.orders.length > 0) {
@@ -183,20 +181,24 @@ export function App() {
   };
 
   useEffect(() => {
-    if (currentUser && currentUser.isLoggedIn && currentUser.email) {
+    if (currentUser && currentUser.isLoggedIn && currentUser.email && currentUser.role !== 'demo' && !isDemoMode) {
       // 1. Eğer yerel veriler varsa buluta push et
       syncUserDataToCloud();
       // 2. Buluttan güncel verileri çek
       fetchCloudUserData(currentUser);
     }
-  }, [currentUser?.email, currentUser?.isLoggedIn]);
+  }, [currentUser?.email, currentUser?.isLoggedIn, isDemoMode]);
 
-  // Arka Planda Periyodik Otomatik API Taraması
+  // Arka Planda Periyodik Otomatik API Taraması (Sadece Giriş Yapmış Gerçek Satıcılar İçin)
   useEffect(() => {
     if (!autoSyncIntervalMins || autoSyncIntervalMins <= 0) return;
+    if (!currentUser || !currentUser.isLoggedIn || currentUser.role === 'demo' || isDemoMode) return;
 
-    // İlk açılışta 1.5 saniye sonra arka planda ürünleri ve siparişleri tara & görselleri güncelle
+    // İlk açılışta 2.5 saniye sonra arka planda ürünleri ve siparişleri tara & görselleri güncelle
     const initialTimer = setTimeout(() => {
+      const credsRaw = localStorage.getItem('izeeg_core_api_credentials');
+      if (!credsRaw) return;
+
       runAutoSyncAll({
         onToast: showToast,
         onNewOrdersReceived: (mergedOrders) => {
@@ -205,11 +207,14 @@ export function App() {
           syncUserDataToCloud();
         }
       });
-    }, 1500);
+    }, 2500);
 
     // Belirlenen periyotta (örn 10 dk) tekrarlanan otomatik senkronizasyon
     const intervalMs = autoSyncIntervalMins * 60 * 1000;
     const intervalId = setInterval(() => {
+      const credsRaw = localStorage.getItem('izeeg_core_api_credentials');
+      if (!credsRaw) return;
+
       runAutoSyncAll({
         onToast: showToast,
         onNewOrdersReceived: (mergedOrders) => {
@@ -224,29 +229,32 @@ export function App() {
       clearTimeout(initialTimer);
       clearInterval(intervalId);
     };
-  }, [autoSyncIntervalMins]);
+  }, [autoSyncIntervalMins, currentUser?.id, currentUser?.isLoggedIn, isDemoMode]);
 
   // Verilerin localStorage ile otomatik senkronizasyonu & Periyodik Bulut Senkronizasyonu
   useEffect(() => {
+    if (isDemoMode) return;
     localStorage.setItem('izeeg_live_products', JSON.stringify(products));
-  }, [products]);
+  }, [products, isDemoMode]);
 
   useEffect(() => {
+    if (isDemoMode) return;
     localStorage.setItem('izeeg_live_orders', JSON.stringify(orders));
-  }, [orders]);
+  }, [orders, isDemoMode]);
 
   useEffect(() => {
+    if (isDemoMode) return;
     localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(cargoLeaks));
-  }, [cargoLeaks]);
+  }, [cargoLeaks, isDemoMode]);
 
   // Sipariş veya ürün değiştiğinde buluta otomatik yedekleme (3 saniye debounced)
   useEffect(() => {
-    if (!currentUser || !currentUser.isLoggedIn || !currentUser.email) return;
+    if (!currentUser || !currentUser.isLoggedIn || !currentUser.email || currentUser.role === 'demo' || isDemoMode) return;
     const timeout = setTimeout(() => {
       syncUserDataToCloud();
     }, 3000);
     return () => clearTimeout(timeout);
-  }, [orders.length, products.length, cargoLeaks.length, currentUser?.email]);
+  }, [orders.length, products.length, cargoLeaks.length, currentUser?.email, isDemoMode]);
 
   const [notifications, setNotifications] = useState(() => {
     try {
@@ -313,24 +321,44 @@ export function App() {
   };
 
   const handleLoginSuccess = (user, customMessage, storeData) => {
+    // 1. Önceki tüm verileri tamamen temizle (İzolasyon)
+    const keysToClean = [
+      'izeeg_core_api_credentials',
+      'izeeg_live_orders',
+      'izeeg_live_products',
+      'izeeg_live_cargo_leaks',
+      'izeeg_live_returns',
+      'izeeg_marketplace_questions',
+      'izeeg_marketplace_reviews',
+      'izeeg_marketplace_incoming_invoices',
+      'izeeg_demo_mode'
+    ];
+    keysToClean.forEach(k => localStorage.removeItem(k));
+
+    setIsDemoMode(false);
     saveCurrentUser(user);
     setCurrentUser(user);
     setIsPortalOpen(false);
 
+    // 2. Giriş yapan kullanıcının kendi verilerini yükle
     if (storeData) {
-      if (storeData.orders && Array.isArray(storeData.orders) && storeData.orders.length > 0) {
-        setOrders(storeData.orders);
-        localStorage.setItem('izeeg_live_orders', JSON.stringify(storeData.orders));
+      if (storeData.credentials && Object.keys(storeData.credentials).length > 0) {
+        localStorage.setItem('izeeg_core_api_credentials', JSON.stringify(storeData.credentials));
       }
-      if (storeData.products && Array.isArray(storeData.products) && storeData.products.length > 0) {
-        setProducts(storeData.products);
-        localStorage.setItem('izeeg_live_products', JSON.stringify(storeData.products));
-      }
-      if (storeData.cargoLeaks && Array.isArray(storeData.cargoLeaks) && storeData.cargoLeaks.length > 0) {
-        setCargoLeaks(storeData.cargoLeaks);
-        localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(storeData.cargoLeaks));
-      }
+      const userOrders = Array.isArray(storeData.orders) ? storeData.orders : [];
+      const userProducts = Array.isArray(storeData.products) ? storeData.products : [];
+      const userCargoLeaks = Array.isArray(storeData.cargoLeaks) ? storeData.cargoLeaks : [];
+
+      setOrders(userOrders);
+      setProducts(userProducts);
+      setCargoLeaks(userCargoLeaks);
+      localStorage.setItem('izeeg_live_orders', JSON.stringify(userOrders));
+      localStorage.setItem('izeeg_live_products', JSON.stringify(userProducts));
+      localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(userCargoLeaks));
     } else {
+      setOrders([]);
+      setProducts([]);
+      setCargoLeaks([]);
       fetchCloudUserData(user);
     }
 
@@ -338,25 +366,60 @@ export function App() {
       setActiveTab('admin-panel');
       showToast(customMessage || "👑 Hoş geldiniz İsmet Bey! Süper Admin Yönetici Modu aktif.");
     } else {
+      setActiveTab('orders');
       showToast(customMessage || `Hoş geldiniz ${user.ownerName || user.storeName}!`);
     }
   };
 
   const handleExploreDemo = () => {
+    // Demo modunda gerçek API anahtarlarını tamamen temizle
+    localStorage.removeItem('izeeg_core_api_credentials');
+
+    const demoUser = {
+      id: 'DEMO-USER',
+      storeName: 'Moda & Butik Demo Mağazası',
+      ownerName: 'Demo Ziyaretçi',
+      email: 'demo@izeeg.com',
+      phone: '0555 000 00 00',
+      role: 'demo',
+      plan: 'DEMO',
+      planName: '🚀 Canlı Demo Simülasyonu',
+      trialDaysLeft: 14,
+      daysRemaining: 14,
+      isLoggedIn: true,
+      isDemoMode: true,
+      activeAddons: ['trendyol', 'hepsiburada', 'amazon', 'parasut', 'ticimax', 'woocommerce']
+    };
+
+    saveCurrentUser(demoUser);
+    setCurrentUser(demoUser);
     setProducts(DEMO_PRODUCTS);
     setOrders(DEMO_ORDERS);
     setCargoLeaks(DEMO_CARGO_AUDIT_LEAKS);
     setIsDemoMode(true);
+    localStorage.setItem('izeeg_live_products', JSON.stringify(DEMO_PRODUCTS));
+    localStorage.setItem('izeeg_live_orders', JSON.stringify(DEMO_ORDERS));
+    localStorage.setItem('izeeg_live_cargo_leaks', JSON.stringify(DEMO_CARGO_AUDIT_LEAKS));
+    localStorage.setItem('izeeg_demo_mode', 'true');
     setIsPortalOpen(false);
-    showToast("🚀 Canlı Demo Modu: Tüm özellikleri sınırsız deneyebilirsiniz.");
+    setActiveTab('orders');
+    showToast("🚀 Canlı Demo Modu: Test verileri ile sistemi sınırsız keşfedebilirsiniz.");
   };
 
   const handleLogout = () => {
+    if (currentUser && currentUser.isLoggedIn && currentUser.email && currentUser.role !== 'demo' && !isDemoMode) {
+      syncUserDataToCloud();
+    }
     logoutUser();
+    setProducts([]);
+    setOrders([]);
+    setCargoLeaks([]);
+    setNotifications([]);
+    setIsDemoMode(false);
     const guestUser = getCurrentUser();
     setCurrentUser(guestUser);
     setIsPortalOpen(true);
-    showToast("👋 Başarıyla çıkış yapıldı. Giriş paneline yönlendirildiniz.");
+    showToast("👋 Başarıyla çıkış yapıldı. Oturum ve veriler sıfırlandı.");
   };
 
   // Güvenlik Kapısı & Aksiyon Onay Modalı

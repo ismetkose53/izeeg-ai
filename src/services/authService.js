@@ -18,6 +18,27 @@ const DEFAULT_CURRENT_USER = {
   activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
 };
 
+export function clearUserSessionData() {
+  try {
+    const keysToRemove = [
+      'izeeg_core_api_credentials',
+      'izeeg_live_orders',
+      'izeeg_live_products',
+      'izeeg_live_cargo_leaks',
+      'izeeg_live_returns',
+      'izeeg_customer_returns_v2',
+      'izeeg_marketplace_questions',
+      'izeeg_marketplace_reviews',
+      'izeeg_marketplace_incoming_invoices',
+      'izeeg_live_notifications',
+      'izeeg_demo_mode'
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+  } catch (e) {
+    console.warn("clearUserSessionData notice:", e);
+  }
+}
+
 export function getCurrentUser() {
   try {
     const saved = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -54,7 +75,7 @@ const ADMIN_HASHES = new Set([
 ]);
 
 /**
- * Bulut Kullanıcı Kaydı (Her cihazdan erişilebilir ortak DB)
+ * Bulut Kullanıcı Kaydı (Her cihazdan erişilebilir ortak DB + Yönetici Paneli Anlık Eşleme)
  */
 export async function registerUserAsync({ storeName, fullName, email, phone, password }) {
   const cleanEmail = (email || '').trim().toLowerCase();
@@ -70,6 +91,9 @@ export async function registerUserAsync({ storeName, fullName, email, phone, pas
   if (cleanPass.length < 4) {
     return { success: false, message: 'Şifreniz en az 4 karakterden oluşmalıdır.' };
   }
+
+  // Önceki kullanıcının verilerini tamamen sıfırla (İzolasyon Güvencesi)
+  clearUserSessionData();
 
   try {
     const res = await fetch('/api/cloud-sync', {
@@ -88,6 +112,19 @@ export async function registerUserAsync({ storeName, fullName, email, phone, pas
     const json = await res.json().catch(() => ({}));
     if (res.ok && json.success && json.user) {
       saveCurrentUser(json.user);
+
+      // Yönetici Paneli Yerel DB'sine Anında Kaydet
+      try {
+        const usersDb = JSON.parse(localStorage.getItem('izeeg_admin_users_db') || '[]');
+        const idx = usersDb.findIndex(u => u.email && u.email.toLowerCase() === cleanEmail);
+        if (idx >= 0) {
+          usersDb[idx] = { ...usersDb[idx], ...json.user };
+        } else {
+          usersDb.unshift(json.user);
+        }
+        localStorage.setItem('izeeg_admin_users_db', JSON.stringify(usersDb));
+      } catch {}
+
       return { success: true, user: json.user, message: json.message };
     } else {
       return { success: false, message: json.message || 'Kayıt işlemi gerçekleştirilemedi.' };
@@ -104,16 +141,23 @@ export async function registerUserAsync({ storeName, fullName, email, phone, pas
       passwordHash: computeAuthHash(cleanPass),
       role: 'merchant',
       plan: 'TRIAL',
-      planName: '7 Günlük Ücretsiz Deneme',
-      trialDaysLeft: 7,
-      daysRemaining: 7,
+      planName: '14 Günlük Ücretsiz Deneme',
+      trialDaysLeft: 14,
+      daysRemaining: 14,
       status: 'TRIAL',
       isLoggedIn: true,
       createdAt: new Date().toLocaleDateString('tr-TR'),
-      paidUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
+      paidUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
       activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
     };
     saveCurrentUser(newUser);
+
+    try {
+      const usersDb = JSON.parse(localStorage.getItem('izeeg_admin_users_db') || '[]');
+      usersDb.unshift(newUser);
+      localStorage.setItem('izeeg_admin_users_db', JSON.stringify(usersDb));
+    } catch {}
+
     return { success: true, user: newUser };
   }
 }
@@ -128,6 +172,9 @@ export async function loginUserAsync(email, password) {
   if (!cleanEmail || !cleanPass) {
     return { success: false, message: 'Lütfen e-posta adresinizi ve şifrenizi giriniz.' };
   }
+
+  // Önceki oturumun artıklarını temizle
+  clearUserSessionData();
 
   // 1. Bulut Sunucusundan Doğrula & Verileri Getir
   try {
@@ -147,13 +194,11 @@ export async function loginUserAsync(email, password) {
       const user = json.user;
       saveCurrentUser(user);
 
-      // Buluttan gelen kayıtlı API anahtarlarını ve sipariş/ürün verilerini cihaza aktar
+      // Yalnızca giriş yapan kullanıcının kendi verilerini cihaza aktar
       if (json.storeData) {
         if (json.storeData.credentials && Object.keys(json.storeData.credentials).length > 0) {
           try {
-            const currentLocalCreds = JSON.parse(localStorage.getItem(CREDENTIALS_KEY) || '{}');
-            const mergedCreds = { ...currentLocalCreds, ...json.storeData.credentials };
-            localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(mergedCreds));
+            localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(json.storeData.credentials));
           } catch {}
         }
         if (json.storeData.orders && Array.isArray(json.storeData.orders) && json.storeData.orders.length > 0) {
@@ -175,12 +220,11 @@ export async function loginUserAsync(email, password) {
 
       return { success: true, user, storeData: json.storeData || {}, message: json.message };
     } else {
-      // Sunucu tarafından reddedildi (Yanlış şifre veya kullanıcı yok) -> Kesinlikle hata döndür!
+      // Sunucu tarafından reddedildi
       return { success: false, message: json.message || 'Giriş bilgileri doğrulanamadı.' };
     }
   } catch (e) {
     console.warn("Cloud login network error, checking local fallback:", e);
-    // Yalnızca gerçek ağ kesintisinde yerel doğrulamayı dene
     return loginUser(email, password);
   }
 }
@@ -313,6 +357,7 @@ export function switchUserRole(targetRole) {
 
 // Çıkış Yap
 export function logoutUser() {
+  clearUserSessionData();
   const loggedOut = {
     ...DEFAULT_CURRENT_USER,
     isLoggedIn: false

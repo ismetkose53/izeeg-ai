@@ -223,12 +223,12 @@ export default async function handler(req, res) {
         passwordHash: password ? computeAuthHash(password) : null,
         role: 'merchant',
         plan: 'TRIAL',
-        planName: '7 Günlük Ücretsiz Deneme',
-        trialDaysLeft: 7,
-        daysRemaining: 7,
+        planName: '14 Günlük Ücretsiz Deneme',
+        trialDaysLeft: 14,
+        daysRemaining: 14,
         status: 'TRIAL',
         createdAt: new Date().toLocaleDateString('tr-TR'),
-        paidUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
+        paidUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
         activeAddons: ['trendyol', 'hepsiburada', 'parasut', 'ticimax', 'woocommerce']
       };
 
@@ -237,6 +237,7 @@ export default async function handler(req, res) {
         credentials: {},
         orders: [],
         products: [],
+        cargoLeaks: [],
         settings: {}
       };
       saveDb(db);

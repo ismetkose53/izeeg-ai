@@ -156,7 +156,11 @@ export function PortalEntrancePage({ onLoginSuccess, onExploreDemo }) {
           planName: '14 Günlük Ücretsiz Deneme'
         };
         confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } });
-        onLoginSuccess(user, `🎉 14 Günlük Ücretsiz Denemeniz Başlatıldı! Hoş geldiniz ${formData.fullName}.`);
+        onLoginSuccess(
+          user, 
+          `🎉 14 Günlük Ücretsiz Denemeniz Başlatıldı! Hoş geldiniz ${formData.fullName}.`,
+          { credentials: {}, orders: [], products: [], cargoLeaks: [] }
+        );
       } else {
         setAuthError(res.message || "Kayıt işlemi gerçekleştirilemedi.");
       }

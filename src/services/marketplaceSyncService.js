@@ -2236,6 +2236,20 @@ export function reconcileAndMergeOrders(existingOrders = [], incomingOrders = []
  * Tek Tıkla Canlı Pazaryeri Senkronizasyonu (Siparişler & Entegrasyonlar sekmesinden çağrılır)
  */
 export async function syncAllMarketplacesNow({ onToast, onNewOrdersReceived } = {}) {
+  const isDemo = localStorage.getItem('izeeg_demo_mode') === 'true';
+  if (isDemo) {
+    if (onToast) onToast("✨ Demo modunda canlı API sorgusu yapılmaz, simülasyon verileri aktiftir.");
+    return { success: true, message: 'Demo modunda pazaryeri API senkronizasyonu simüle edilmektedir.' };
+  }
+
+  const userRaw = localStorage.getItem('izeeg_current_auth_user');
+  let user = null;
+  try { user = userRaw ? JSON.parse(userRaw) : null; } catch {}
+
+  if (!user || !user.isLoggedIn || user.role === 'demo') {
+    return { success: false, message: 'Canlı senkronizasyon için lütfen mağaza girişi yapınız.' };
+  }
+
   const credsRaw = localStorage.getItem('izeeg_core_api_credentials');
   if (!credsRaw) {
     return { success: false, message: 'Lütfen önce Entegrasyonlar sekmesinden API anahtarlarınızı giriniz.' };
